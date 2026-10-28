@@ -4,7 +4,7 @@ import { dirname, join, resolve } from 'node:path';
 
 /**
  * À importer EN PREMIER (avant Prisma).
- * - Hébergement cPanel (CloudLinux/RHEL) : Prisma détecte mal OpenSSL sous Passenger ; on désigne le moteur RHEL.
+ * - Hébergement cPanel (CloudLinux, bibliothèques dans /usr/lib64) : Prisma détecte mal OpenSSL sous Passenger ; on désigne le moteur RHEL.
  * - Le compte mutualisé limite le nombre de threads : 2 threads Tokio suffisent pour le moteur Prisma.
  * - Charge un éventuel fichier .env placé à côté de l'application (Node.js App de cPanel).
  * Sans effet en local (macOS) ni dans Docker (Debian).
@@ -20,7 +20,7 @@ if (envFile && process.env.NODE_ENV !== 'test') {
 
 if (process.platform === 'linux') {
   process.env.TOKIO_WORKER_THREADS ??= '2';
-  if (!process.env.PRISMA_QUERY_ENGINE_LIBRARY && existsSync('/etc/redhat-release')) {
+  if (!process.env.PRISMA_QUERY_ENGINE_LIBRARY && existsSync('/usr/lib64')) {
     const ssl = existsSync('/usr/lib64/libssl.so.3') ? '3.0.x' : existsSync('/usr/lib64/libssl.so.1.1') ? '1.1.x' : null;
     if (ssl) {
       try {
