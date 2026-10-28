@@ -14,5 +14,5 @@ export function loadTestEnv() {
   process.env.NODE_ENV = 'test';
   process.env.PARCHEESI_TEST_ENV = '1';
   process.env.JWT_SECRET ||= 'test-secret-test-secret-test-secret-123';
-  process.env.CORS_ORIGIN ||= 'http://localhost:5173';
+  process.env.CORS_ORIGIN ||= 'http://localhost:5180';
 }

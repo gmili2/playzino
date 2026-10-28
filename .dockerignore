@@ -1,0 +1,9 @@
+node_modules
+**/node_modules
+**/dist
+.env
+.git
+backups
+design
+web/test-results
+web/playwright-report

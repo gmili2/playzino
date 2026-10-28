@@ -1,3 +1,4 @@
+import './prisma-engine.js';
 import { createServer } from 'node:http';
 import { createApp } from './app.js';
 import { config } from './config.js';

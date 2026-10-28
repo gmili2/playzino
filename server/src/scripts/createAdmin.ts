@@ -1,3 +1,4 @@
+import '../prisma-engine.js';
 import { prisma } from '../lib/prisma.js';
 import { ensureAdminFromEnv } from './adminAccount.js';
 
