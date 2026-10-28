@@ -93,3 +93,15 @@ web/src
 | GET/POST | `/api/admin/overview`, `/users`, `/users/:id/suspend`, `/reactivate`, `/credits`, `/games`, `/games/:id/abort`, `/transactions`, `/audit` | ADMIN |
 
 Toute requête qui modifie l'état doit porter l'en-tête `X-Requested-With: parcheesi` (protection CSRF).
+
+## Déploiement Namecheap (playzino.mygympro.club)
+
+Application Node.js 22 « playzino-app » (cPanel → Setup Node.js App, fichier de démarrage `app.cjs`), base
+`gmbimeor_playzino`. Le fichier `~/playzino-app/.env` du serveur contient les secrets de production.
+
+```bash
+npm run deploy      # build, envoi (rsync), npm install, prisma migrate deploy, redémarrage
+```
+
+DNS (Cloudflare, zone mygympro.club) : enregistrement `A playzino → 198.54.114.155`, proxy activé (WebSockets
+supportés par Cloudflare).

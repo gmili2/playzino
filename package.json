@@ -12,6 +12,7 @@
     "db:migrate": "npm run db:migrate -w server",
     "db:seed-admin": "npm run seed:admin -w server",
     "backup": "sh scripts/backup.sh",
-    "restore": "sh scripts/restore.sh"
+    "restore": "sh scripts/restore.sh",
+    "deploy": "sh scripts/deploy-namecheap.sh"
   }
 }
