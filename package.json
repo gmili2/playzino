@@ -1,0 +1,17 @@
+{
+  "name": "parcheesi-online",
+  "private": true,
+  "workspaces": ["server", "web"],
+  "scripts": {
+    "dev:db": "docker compose up -d db",
+    "dev:server": "npm run dev -w server",
+    "dev:web": "npm run dev -w web",
+    "build": "npm run build -w server && npm run build -w web",
+    "test": "npm test -w server",
+    "test:e2e": "npm run e2e -w web",
+    "db:migrate": "npm run db:migrate -w server",
+    "db:seed-admin": "npm run seed:admin -w server",
+    "backup": "sh scripts/backup.sh",
+    "restore": "sh scripts/restore.sh"
+  }
+}

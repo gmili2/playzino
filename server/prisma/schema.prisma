@@ -1,0 +1,242 @@
+// Parcheesi Online — schéma MariaDB (moteur InnoDB, utf8mb4).
+// Le provider "mysql" de Prisma est compatible MariaDB 10.6+.
+
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x", "debian-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+model User {
+  id              String     @id @default(cuid()) @db.VarChar(30)
+  email           String     @unique @db.VarChar(191)
+  username        String     @unique @db.VarChar(32)
+  passwordHash    String     @db.VarChar(100)
+  role            Role       @default(USER)
+  status          UserStatus @default(ACTIVE)
+  suspendedReason String?    @db.VarChar(500)
+  // Incrémenté pour invalider tous les jetons (suspension, changement de mot de passe).
+  tokenVersion    Int        @default(0)
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+  lastLoginAt     DateTime?
+
+  profile      Profile?
+  wallet       Wallet?
+  hostedRooms  Room[]        @relation("RoomHost")
+  roomSeats    RoomPlayer[]
+  gameSeats    GamePlayer[]
+  wonGames     Game[]        @relation("GameWinner")
+  moves        GameMove[]
+  auditActions AuditLog[]    @relation("AuditActor")
+  adminTxs     WalletTransaction[] @relation("TxActor")
+
+  @@index([status])
+  @@index([createdAt])
+}
+
+model Profile {
+  userId         String   @id @db.VarChar(30)
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  avatarColor    String   @default("#2F6BFF") @db.VarChar(7)
+  bio            String?  @db.VarChar(280)
+  xp             Int      @default(0)
+  soundEnabled   Boolean  @default(true)
+  invitesEnabled Boolean  @default(true)
+  hideOnline     Boolean  @default(false)
+  updatedAt      DateTime @updatedAt
+}
+
+model Wallet {
+  id        String   @id @default(cuid()) @db.VarChar(30)
+  userId    String   @unique @db.VarChar(30)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Restrict)
+  // Contrainte CHECK (balance >= 0) ajoutée dans la migration SQL.
+  balance   Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  transactions WalletTransaction[]
+}
+
+enum TxType {
+  SIGNUP_BONUS
+  DAILY_BONUS
+  STAKE
+  WIN
+  REFUND
+  ADMIN_CREDIT
+  ADMIN_DEBIT
+}
+
+model WalletTransaction {
+  id             String   @id @default(cuid()) @db.VarChar(30)
+  walletId       String   @db.VarChar(30)
+  wallet         Wallet   @relation(fields: [walletId], references: [id], onDelete: Restrict)
+  type           TxType
+  // Montant signé : positif = crédit, négatif = débit.
+  amount         Int
+  balanceAfter   Int
+  reason         String   @db.VarChar(500)
+  // Clé unique : rejouer la même opération ne la double jamais.
+  idempotencyKey String   @unique @db.VarChar(191)
+  roomId         String?  @db.VarChar(30)
+  room           Room?    @relation(fields: [roomId], references: [id], onDelete: SetNull)
+  gameId         String?  @db.VarChar(30)
+  game           Game?    @relation(fields: [gameId], references: [id], onDelete: SetNull)
+  actorId        String?  @db.VarChar(30)
+  actor          User?    @relation("TxActor", fields: [actorId], references: [id], onDelete: SetNull)
+  createdAt      DateTime @default(now())
+
+  @@index([walletId, createdAt])
+  @@index([type, createdAt])
+  @@index([gameId])
+}
+
+enum RoomVisibility {
+  PUBLIC
+  PRIVATE
+}
+
+enum RoomStatus {
+  WAITING
+  PLAYING
+  FINISHED
+  CANCELLED
+}
+
+model Room {
+  id          String         @id @default(cuid()) @db.VarChar(30)
+  code        String         @unique @db.VarChar(8)
+  name        String         @db.VarChar(40)
+  visibility  RoomVisibility
+  status      RoomStatus     @default(WAITING)
+  maxPlayers  Int            @default(2)
+  stake       Int            @default(0)
+  turnSeconds Int            @default(30)
+  hostId      String         @db.VarChar(30)
+  host        User           @relation("RoomHost", fields: [hostId], references: [id], onDelete: Restrict)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  players      RoomPlayer[]
+  games        Game[]
+  transactions WalletTransaction[]
+
+  @@index([visibility, status, createdAt])
+  @@index([hostId])
+}
+
+model RoomPlayer {
+  id       String    @id @default(cuid()) @db.VarChar(30)
+  roomId   String    @db.VarChar(30)
+  room     Room      @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  userId   String    @db.VarChar(30)
+  user     User      @relation(fields: [userId], references: [id], onDelete: Restrict)
+  seat     Int
+  color    String    @db.VarChar(10)
+  joinedAt DateTime  @default(now())
+
+  @@unique([roomId, userId])
+  @@unique([roomId, seat])
+  @@index([userId])
+}
+
+enum GameStatus {
+  ACTIVE
+  FINISHED
+  ABORTED
+}
+
+enum GameEndReason {
+  COMPLETED
+  FORFEIT
+  DISCONNECT
+  ADMIN
+}
+
+model Game {
+  id           String         @id @default(cuid()) @db.VarChar(30)
+  roomId       String         @db.VarChar(30)
+  room         Room           @relation(fields: [roomId], references: [id], onDelete: Restrict)
+  status       GameStatus     @default(ACTIVE)
+  // État complet sérialisé (JSON) du moteur de jeu, réécrit après chaque action.
+  state        String         @db.LongText
+  stateVersion Int            @default(0)
+  winnerId     String?        @db.VarChar(30)
+  winner       User?          @relation("GameWinner", fields: [winnerId], references: [id], onDelete: SetNull)
+  endReason    GameEndReason?
+  startedAt    DateTime       @default(now())
+  endedAt      DateTime?
+
+  players      GamePlayer[]
+  moves        GameMove[]
+  transactions WalletTransaction[]
+
+  @@index([status, startedAt])
+  @@index([roomId])
+}
+
+enum GameResult {
+  WIN
+  LOSS
+}
+
+model GamePlayer {
+  id      String      @id @default(cuid()) @db.VarChar(30)
+  gameId  String      @db.VarChar(30)
+  game    Game        @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  userId  String      @db.VarChar(30)
+  user    User        @relation(fields: [userId], references: [id], onDelete: Restrict)
+  color   String      @db.VarChar(10)
+  result  GameResult?
+  payout  Int         @default(0)
+
+  @@unique([gameId, userId])
+  @@unique([gameId, color])
+  @@index([userId])
+}
+
+model GameMove {
+  id        String   @id @default(cuid()) @db.VarChar(30)
+  gameId    String   @db.VarChar(30)
+  game      Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  seq       Int
+  userId    String?  @db.VarChar(30)
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  type      String   @db.VarChar(16)
+  payload   String   @db.Text
+  createdAt DateTime @default(now())
+
+  @@unique([gameId, seq])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid()) @db.VarChar(30)
+  actorId    String?  @db.VarChar(30)
+  actor      User?    @relation("AuditActor", fields: [actorId], references: [id], onDelete: SetNull)
+  action     String   @db.VarChar(64)
+  targetType String   @db.VarChar(32)
+  targetId   String?  @db.VarChar(30)
+  details    String?  @db.Text
+  ip         String?  @db.VarChar(64)
+  createdAt  DateTime @default(now())
+
+  @@index([actorId, createdAt])
+  @@index([targetType, targetId])
+  @@index([action, createdAt])
+}
