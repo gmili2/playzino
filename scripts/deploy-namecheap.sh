@@ -24,6 +24,8 @@ $SSH "$HOST" 'source ~/nodevenv/playzino-app/22/bin/activate && cd ~/playzino-ap
   && npm install --no-audit --no-fund --omit=dev \
   && export TOKIO_WORKER_THREADS=2 && set -a && . ./.env && set +a \
   && npx prisma generate && npx prisma migrate deploy \
-  && cloudlinux-selector restart --json --interpreter=nodejs --app-root=playzino-app'
+  && cloudlinux-selector restart --json --interpreter=nodejs --app-root=playzino-app \
+  && (pkill -f "lsnode:/home/gmbimeor/playzino-app/" || true)'
+# LiteSpeed ne relance pas toujours le processus Node existant : on l'arrête, il redémarre à la requête suivante.
 rm -rf "$B"
 curl -sf https://playzino.mygympro.club/api/health && echo "  → en ligne : https://playzino.mygympro.club"
