@@ -74,9 +74,9 @@ export function useRoomActions() {
     busy,
     error,
     setError,
-    quick: (stake = 0) => run(() => api.post('/api/rooms/quick', { stake })),
+    quick: (stake = 0, maxPlayers = 2) => run(() => api.post('/api/rooms/quick', { stake, maxPlayers })),
     join: (id: string) => run(() => api.post(`/api/rooms/${id}/join`)),
     joinCode: (code: string) => run(() => api.post('/api/rooms/join-code', { code: code.trim().toUpperCase() })),
-    create: (body: { name: string; visibility: 'PUBLIC' | 'PRIVATE'; stake: number; turnSeconds: number }) => run(() => api.post('/api/rooms', body))
+    create: (body: { name: string; visibility: 'PUBLIC' | 'PRIVATE'; stake: number; turnSeconds: number; maxPlayers: number }) => run(() => api.post('/api/rooms', body))
   };
 }

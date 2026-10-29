@@ -117,3 +117,63 @@ test('deux navigateurs : table privée, synchronisation temps réel, abandon et 
   await ctxA.close();
   await ctxB.close();
 });
+
+test('trois navigateurs : table à 3, synchronisation, élimination puis victoire du dernier joueur', async ({ browser }) => {
+  const ctxs = await Promise.all([0, 1, 2].map(() => browser.newContext()));
+  const pages = await Promise.all(ctxs.map((c) => c.newPage()));
+  const names = ['ann' + uid(), 'ben' + uid(), 'cyd' + uid()];
+  for (let i = 0; i < 3; i++) await register(pages[i], names[i]);
+  const [a, b, c] = pages;
+
+  await a.goto('/tables');
+  await a.locator('#create input').first().fill('Table à trois');
+  await a.locator('#create').getByRole('button', { name: '3 لاعبين' }).nth(1).click();
+  await a.locator('#create').getByRole('button', { name: '50', exact: true }).nth(1).click();
+  await a.getByRole('button', { name: 'أنشئ الطاولة' }).click();
+  await expect(a.getByTestId('waiting-overlay')).toContainText('1 من 3');
+  const code = (await a.getByTestId('room-code').textContent())!.trim();
+
+  for (const p of [b, c]) {
+    await p.goto('/');
+    await p.locator('#lobby-code').fill(code);
+    await p.getByRole('button', { name: 'انضم', exact: true }).first().click();
+    await expect(p).toHaveURL(/\/room\//);
+  }
+  await expect(b.getByTestId('waiting-overlay')).toBeHidden();
+  for (const p of pages) {
+    await expect(p.getByTestId('waiting-overlay')).toBeHidden();
+    await expect(p.getByTestId('panel-opp')).toHaveCount(2);
+  }
+  if (shots) await a.screenshot({ path: `${shots}/game3-a.png` });
+
+  // Une quinzaine d'actions par clics, synchronisées sur les trois écrans.
+  let actions = 0;
+  for (let i = 0; i < 300 && actions < 15; i++) {
+    let acted = false;
+    for (const p of pages) if (!acted) acted = await playIfMyTurn(p);
+    if (acted) {
+      actions++;
+      await expect.poll(async () => new Set(await Promise.all(pages.map((p) => p.getByTestId('die-value').textContent()))).size).toBe(1);
+    } else await a.waitForTimeout(150);
+  }
+  expect(actions).toBeGreaterThanOrEqual(15);
+
+  // A abandonne : il est éliminé, les deux autres continuent.
+  await a.getByRole('button', { name: 'مغادرة' }).click();
+  await a.getByTestId('confirm-quit').click();
+  await expect(a.getByTestId('result')).toContainText('خرجت من المباراة');
+  await expect(b.getByTestId('panel-opp').filter({ hasText: names[0] })).toContainText('خرج');
+  await expect(b.getByTestId('result')).toHaveCount(0);
+  await a.getByRole('button', { name: 'متابعة مشاهدة المباراة' }).click();
+  await expect(a.getByTestId('result')).toHaveCount(0);
+
+  // B abandonne à son tour : C, dernier joueur, gagne les 3 mises (1000 - 50 + 150).
+  await b.getByRole('button', { name: 'مغادرة' }).click();
+  await b.getByTestId('confirm-quit').click();
+  await expect(c.getByTestId('result')).toContainText('فوز!');
+  await expect.poll(() => balanceOf(c)).toBe(1100);
+  expect(await balanceOf(a)).toBe(950);
+  expect(await balanceOf(b)).toBe(950);
+  if (shots) await c.screenshot({ path: `${shots}/game3-win.png` });
+  await Promise.all(ctxs.map((x) => x.close()));
+});

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
-  absSquare, applyMove, applyRoll, autoMovePawn, createGame, currentColor, GameState, GOAL,
-  legalMoves, NEST, RuleError, START
+  absSquare, activeColors, applyMove, applyRoll, autoMovePawn, createGame, currentColor, eliminate, GameState, GOAL,
+  legalMoves, NEST, RuleError, START, turnOrder
 } from './engine.js';
 
 const two = () => createGame(['blue', 'yellow']);
@@ -251,6 +251,76 @@ describe('partie complète simulée', () => {
       }
       expect(s.phase).toBe('finished');
       expect(s.pawns[s.winner!].every((p) => p === GOAL)).toBe(true);
+    }
+  });
+});
+
+describe('3 et 4 joueurs', () => {
+  const four = () => createGame(turnOrder(['blue', 'yellow', 'red', 'green']));
+
+  it('l’ordre de jeu suit le sens de la piste', () => {
+    expect(turnOrder(['blue', 'yellow', 'red', 'green'])).toEqual(['red', 'yellow', 'green', 'blue']);
+    expect(turnOrder(['blue', 'yellow', 'red'])).toEqual(['red', 'yellow', 'blue']);
+  });
+
+  it('le tour passe à chaque joueur à tour de rôle', () => {
+    let s = four();
+    const seen: string[] = [];
+    for (let i = 0; i < 4; i++) {
+      seen.push(currentColor(s));
+      s = applyRoll(s, 3).state; // aucun pion sorti : le tour passe
+    }
+    expect(seen).toEqual(['red', 'yellow', 'green', 'blue']);
+    expect(currentColor(s)).toBe('red');
+  });
+
+  it('un joueur éliminé est sauté et ses pions quittent le plateau', () => {
+    let s = four();
+    s.pawns.yellow = [10, 20, NEST, NEST];
+    const r = eliminate(s, 'yellow');
+    expect(r.state.pawns.yellow).toEqual([NEST, NEST, NEST, NEST]);
+    expect(activeColors(r.state)).toEqual(['red', 'green', 'blue']);
+    s = applyRoll(r.state, 3).state; // rouge passe
+    expect(currentColor(s)).toBe('green');
+  });
+
+  it('éliminer le joueur dont c’est le tour passe la main', () => {
+    const s = applyRoll(createGame(['red', 'yellow', 'green']), 5).state; // rouge doit sortir un pion
+    const r = eliminate(s, 'red');
+    expect(currentColor(r.state)).toBe('yellow');
+    expect(r.state.phase).toBe('roll');
+  });
+
+  it('le dernier joueur restant gagne', () => {
+    let s = createGame(['red', 'yellow', 'blue']);
+    s = eliminate(s, 'red').state;
+    expect(s.phase).toBe('roll');
+    const r = eliminate(s, 'blue');
+    expect(r.state.phase).toBe('finished');
+    expect(r.state.winner).toBe('yellow');
+    expect(r.events.some((e) => e.type === 'win')).toBe(true);
+  });
+
+  it('un état sauvegardé avant la gestion des éliminations reste jouable', () => {
+    const s = createGame(['blue', 'yellow']);
+    delete s.out;
+    expect(currentColor(applyRoll(s, 3).state)).toBe('yellow');
+  });
+
+  it('parties complètes à 3 et 4 joueurs : toujours un vainqueur', () => {
+    for (const n of [3, 4]) {
+      for (let seed = 1; seed <= 20; seed++) {
+        let x = seed * 7919;
+        const rnd = () => ((x = (x * 1103515245 + 12345) % 2147483648) % 6) + 1;
+        let s = createGame(turnOrder((['blue', 'yellow', 'red', 'green'] as const).slice(0, n) as never));
+        let actions = 0;
+        while (s.phase !== 'finished' && actions < 40000) {
+          s = s.phase === 'roll' ? applyRoll(s, rnd()).state : applyMove(s, autoMovePawn(s)!).state;
+          actions++;
+        }
+        expect(s.phase).toBe('finished');
+        expect(s.pawns[s.winner!].every((p) => p === GOAL)).toBe(true);
+      }
     }
   });
 });

@@ -64,6 +64,7 @@ export type GameEvent =
   | { type: 'no_move'; color: Color; value: number }
   | { type: 'extra_turn'; color: Color }
   | { type: 'turn'; color: Color }
+  | { type: 'eliminated'; color: Color }
   | { type: 'win'; color: Color };
 
 export interface GameSnapshot {
@@ -79,11 +80,12 @@ export interface GameSnapshot {
     moveValue: number | null;
     pawns: Record<string, number[]>;
     winner: Color | null;
+    out?: Color[];
     seq: number;
   };
   turnColor: Color | null;
   legalMoves: Move[];
-  players: (RoomPlayer & { online: boolean; offlineUntil: number | null })[];
+  players: (RoomPlayer & { online: boolean; offlineUntil: number | null; eliminated?: boolean })[];
   deadline: number | null;
   paused: boolean;
   winnerId: string | null;

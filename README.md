@@ -1,6 +1,6 @@
 # Parcheesi Online
 
-Application full-stack de Parcheesi multijoueur (2 joueurs) construite à partir du design
+Application full-stack de Parcheesi multijoueur (2 à 4 joueurs) construite à partir du design
 « Parcheesi Online » (export Claude Design conservé dans `design/`). L'interface reste en **arabe (RTL)**
 avec le thème bleu nuit d'origine.
 

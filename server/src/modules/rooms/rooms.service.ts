@@ -3,11 +3,11 @@ import { Prisma, type Room, type RoomVisibility } from '@prisma/client';
 import { audit } from '../../lib/audit.js';
 import { AppError, conflict, forbidden, notFound } from '../../lib/errors.js';
 import { prisma, type Tx } from '../../lib/prisma.js';
-import { createGame, type Color } from '../../game/engine.js';
+import { createGame, turnOrder, type Color } from '../../game/engine.js';
 import { applyWalletOp } from '../wallet/wallet.service.js';
 
-/** Couleurs par siège pour une table à deux : coins opposés du plateau. */
-export const SEAT_COLORS: Color[] = ['blue', 'yellow'];
+/** Couleurs par siège : les deux premiers joueurs occupent des coins opposés du plateau. */
+export const SEAT_COLORS: Color[] = ['blue', 'yellow', 'red', 'green'];
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
 export const roomInclude = {
@@ -48,11 +48,17 @@ export function serializeRoom(r: RoomWithPlayers, viewerId?: string) {
 
 const newCode = () => 'PRC-' + Array.from({ length: 4 }, () => CODE_ALPHABET[randomInt(CODE_ALPHABET.length)]).join('');
 
+/** Place encore active : table en attente ou en cours, sauf si le joueur y a déjà été éliminé. */
+const activeSeatWhere = (userId: string): Prisma.RoomPlayerWhereInput => ({
+  userId,
+  room: {
+    status: { in: ['WAITING', 'PLAYING'] },
+    games: { none: { status: 'ACTIVE', players: { some: { userId, result: 'LOSS' } } } }
+  }
+});
+
 async function assertNotSeated(tx: Tx, userId: string) {
-  const seat = await tx.roomPlayer.findFirst({
-    where: { userId, room: { status: { in: ['WAITING', 'PLAYING'] } } },
-    select: { roomId: true }
-  });
+  const seat = await tx.roomPlayer.findFirst({ where: activeSeatWhere(userId), select: { roomId: true } });
   if (seat) {
     throw new AppError(409, 'ALREADY_IN_ROOM', 'Vous êtes déjà à une table', { roomId: seat.roomId });
   }
@@ -81,6 +87,7 @@ export interface CreateRoomInput {
   visibility: RoomVisibility;
   stake: number;
   turnSeconds: number;
+  maxPlayers: number;
 }
 
 export async function createRoom(userId: string, input: CreateRoomInput, ip?: string) {
@@ -89,7 +96,7 @@ export async function createRoom(userId: string, input: CreateRoomInput, ip?: st
       const id = await prisma.$transaction(async (tx) => {
         await assertNotSeated(tx, userId);
         const room = await tx.room.create({
-          data: { ...input, code: newCode(), hostId: userId, maxPlayers: 2 }
+          data: { ...input, code: newCode(), hostId: userId }
         });
         await tx.roomPlayer.create({ data: { roomId: room.id, userId, seat: 0, color: SEAT_COLORS[0] } });
         await debitStake(tx, room, userId);
@@ -121,7 +128,7 @@ export async function joinRoom(userId: string, roomId: string, ip?: string): Pro
     if (room.players.length >= room.maxPlayers) throw conflict('ROOM_FULL', 'Cette table est complète');
 
     const taken = new Set(room.players.map((p) => p.seat));
-    const seat = [0, 1].find((s) => !taken.has(s))!;
+    const seat = Array.from({ length: room.maxPlayers }, (_, i) => i).find((s) => !taken.has(s))!;
     await tx.roomPlayer.create({ data: { roomId, userId, seat, color: SEAT_COLORS[seat] } });
     await debitStake(tx, room, userId);
     await audit({ actorId: userId, action: 'room.join', targetType: 'room', targetId: roomId, ip }, tx);
@@ -135,7 +142,7 @@ export async function joinRoom(userId: string, roomId: string, ip?: string): Pro
 /** Table complète : création de la partie et de son état initial dans la même transaction. */
 async function startGame(tx: Tx, roomId: string) {
   const players = await tx.roomPlayer.findMany({ where: { roomId }, orderBy: { seat: 'asc' } });
-  const state = createGame(players.map((p) => p.color as Color));
+  const state = createGame(turnOrder(players.map((p) => p.color as Color)));
   state.turn = randomInt(players.length); // tirage au sort du premier joueur
   await tx.room.update({ where: { id: roomId }, data: { status: 'PLAYING' } });
   const game = await tx.game.create({
@@ -156,9 +163,9 @@ export async function joinByCode(userId: string, code: string, ip?: string) {
 }
 
 /** Partie rapide : rejoint la plus ancienne table publique ouverte à cette mise, sinon en crée une. */
-export async function quickJoin(userId: string, stake: number, ip?: string): Promise<JoinResult> {
+export async function quickJoin(userId: string, stake: number, maxPlayers: number, ip?: string): Promise<JoinResult> {
   const candidates = await prisma.room.findMany({
-    where: { visibility: 'PUBLIC', status: 'WAITING', stake, players: { none: { userId } } },
+    where: { visibility: 'PUBLIC', status: 'WAITING', stake, maxPlayers, players: { none: { userId } } },
     orderBy: { createdAt: 'asc' },
     take: 5,
     select: { id: true }
@@ -173,7 +180,7 @@ export async function quickJoin(userId: string, stake: number, ip?: string): Pro
     }
   }
   const user = await prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { username: true } });
-  const room = await createRoom(userId, { name: `Table de ${user.username}`, visibility: 'PUBLIC', stake, turnSeconds: 30 }, ip);
+  const room = await createRoom(userId, { name: `Table de ${user.username}`, visibility: 'PUBLIC', stake, turnSeconds: 30, maxPlayers }, ip);
   return { room, startedGameId: null };
 }
 
@@ -227,9 +234,6 @@ export async function listPublicRooms(filter: { status?: 'WAITING' | 'PLAYING'; 
 }
 
 export async function currentRoomOf(userId: string) {
-  const seat = await prisma.roomPlayer.findFirst({
-    where: { userId, room: { status: { in: ['WAITING', 'PLAYING'] } } },
-    select: { roomId: true }
-  });
+  const seat = await prisma.roomPlayer.findFirst({ where: activeSeatWhere(userId), select: { roomId: true } });
   return seat ? getRoomFor(seat.roomId, userId) : null;
 }

@@ -9,6 +9,8 @@ import { useLobby, useRoomActions } from '../lib/hooks';
 
 const STAKES = [0, 50, 100, 250, 500, 1000];
 const TURNS = [15, 30, 60];
+const PLAYERS = [2, 3, 4];
+const playersLabel = (n: number) => (n === 2 ? 'لاعبان' : `${n} لاعبين`);
 const stakeLabel = (s: number) => (s === 0 ? 'مجانية' : String(s));
 
 function Seg<T extends string | number>({ value, options, onChange, label, render }: { value: T; options: T[]; onChange: (v: T) => void; label: string; render?: (v: T) => ReactNode }) {
@@ -46,7 +48,8 @@ export function TablesPage() {
   const actions = useRoomActions();
 
   const [quickStake, setQuickStake] = useState(0);
-  const [form, setForm] = useState({ name: '', visibility: 'PRIVATE' as 'PUBLIC' | 'PRIVATE', stake: 0, turnSeconds: 30 });
+  const [quickPlayers, setQuickPlayers] = useState(2);
+  const [form, setForm] = useState({ name: '', visibility: 'PRIVATE' as 'PUBLIC' | 'PRIVATE', stake: 0, turnSeconds: 30, maxPlayers: 2 });
   const [code, setCode] = useState('');
   const [localErr, setLocalErr] = useState('');
 
@@ -70,14 +73,15 @@ export function TablesPage() {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
         <div>
           <h1 style={{ fontWeight: 900, fontSize: 'clamp(30px, 4vw, 44px)' }}>ابحث عن طاولة أو أنشئ واحدة</h1>
-          <p style={{ margin: '8px 0 0', fontSize: 16, color: '#B4B6E4' }}>العب فورًا مع لاعبين من كل مكان، أو اجمع أصدقاءك حول طاولة خاصة. كل الطاولات للاعبَين.</p>
+          <p style={{ margin: '8px 0 0', fontSize: 16, color: '#B4B6E4' }}>العب فورًا مع لاعبين من كل مكان، أو اجمع أصدقاءك حول طاولة خاصة، من لاعبَين إلى أربعة لاعبين.</p>
         </div>
         {error && <div role="alert" className="alert alert-error">{error}</div>}
 
         <div id="create" style={{ display: 'flex', flexWrap: 'wrap', gap: 20 }}>
           <ActionCard highlight icon={<IconBolt size={24} style={{ color: '#FFC83D' }} />} iconBg="rgba(255,200,61,0.16)" title="طاولة عامة" sub="نضعك في أول طاولة عامة فيها مكان شاغر بنفس الرهان.">
+            <Seg label="عدد اللاعبين" value={quickPlayers} options={PLAYERS} onChange={setQuickPlayers} render={playersLabel} />
             <Seg label="الرهان (عملات افتراضية)" value={quickStake} options={STAKES} onChange={setQuickStake} render={stakeLabel} />
-            <button type="button" className="pb-btn pb-gold" style={{ marginTop: 'auto' }} disabled={actions.busy || quickStake > balance} onClick={() => actions.quick(quickStake)}>ابحث عن طاولة</button>
+            <button type="button" className="pb-btn pb-gold" style={{ marginTop: 'auto' }} disabled={actions.busy || quickStake > balance} onClick={() => actions.quick(quickStake, quickPlayers)}>ابحث عن طاولة</button>
           </ActionCard>
 
           <ActionCard icon={<IconLock size={24} style={{ color: '#F9A8D4' }} />} iconBg="rgba(244,114,182,0.16)" title="إنشاء طاولة" sub="الطاولة الخاصة لا يدخلها إلا من يملك رمز الدعوة.">
@@ -85,6 +89,7 @@ export function TablesPage() {
               <label className="field"><span>اسم الطاولة</span>
                 <input className="pb-input" value={form.name} maxLength={40} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="سهرة البارتشيزي" />
               </label>
+              <Seg label="عدد اللاعبين" value={form.maxPlayers} options={PLAYERS} onChange={(v) => setForm({ ...form, maxPlayers: v })} render={playersLabel} />
               <Seg label="النوع" value={form.visibility} options={['PRIVATE', 'PUBLIC'] as ('PRIVATE' | 'PUBLIC')[]} onChange={(v) => setForm({ ...form, visibility: v })} render={(v) => (v === 'PRIVATE' ? 'خاصة' : 'عامة')} />
               <Seg label="الوقت لكل دور" value={form.turnSeconds} options={TURNS} onChange={(v) => setForm({ ...form, turnSeconds: v })} render={(v) => v + ' ث'} />
               <Seg label="الرهان" value={form.stake} options={STAKES} onChange={(v) => setForm({ ...form, stake: v })} render={stakeLabel} />

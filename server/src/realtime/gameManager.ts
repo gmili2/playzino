@@ -5,7 +5,7 @@ import { audit } from '../lib/audit.js';
 import { AppError, forbidden, notFound } from '../lib/errors.js';
 import { prisma } from '../lib/prisma.js';
 import {
-  applyMove, applyRoll, autoMovePawn, currentColor, legalMoves,
+  applyMove, applyRoll, autoMovePawn, currentColor, eliminate, legalMoves,
   type Color, type GameEvent, type GameState
 } from '../game/engine.js';
 import { applyWalletOp } from '../modules/wallet/wallet.service.js';
@@ -60,6 +60,12 @@ export class GameManager {
   /** Générateur du dé — remplaçable uniquement dans les tests. */
   rollDie: () => number = () => randomInt(1, 7);
 
+  /** Joueur éliminé (abandon/déconnexion dans une partie à 3 ou 4) : ne joue plus, ne met plus la partie en pause. */
+  private isOut(live: LiveGame, userId: string) {
+    const p = live.players.find((x) => x.userId === userId);
+    return !!p && (live.state.out ?? []).includes(p.color);
+  }
+
   setBroadcaster(bc: Broadcaster) {
     this.bc = bc;
   }
@@ -107,7 +113,9 @@ export class GameManager {
     this.games.set(gameId, live);
     if (live.status === 'ACTIVE') {
       // Personne n'est encore connecté : chacun dispose du délai de reconnexion.
-      for (const p of live.players) if (!this.bc.isOnline(gameId, p.userId)) this.markOffline(live, p.userId);
+      for (const p of live.players) {
+        if (!this.bc.isOnline(gameId, p.userId) && !this.isOut(live, p.userId)) this.markOffline(live, p.userId);
+      }
       this.scheduleTurn(live);
     }
     return live;
@@ -133,6 +141,7 @@ export class GameManager {
       players: live.players.map((p) => ({
         ...p,
         online: this.bc.isOnline(live.id, p.userId),
+        eliminated: (live.state.out ?? []).includes(p.color),
         offlineUntil: live.offline.get(p.userId)?.until ?? null
       })),
       deadline: paused ? null : live.deadline,
@@ -191,14 +200,29 @@ export class GameManager {
       if (live.status !== 'ACTIVE') return this.snapshot(live);
       const loser = live.players.find((p) => p.userId === userId);
       if (!loser) throw forbidden('Vous ne participez pas à cette partie');
-      const winner = live.players.find((p) => p.userId !== userId)!;
-      await this.finish(live, winner.userId, reason, [{ type: 'win', color: winner.color }]);
+      if (this.isOut(live, userId)) return this.snapshot(live);
+      // À 3 ou 4 joueurs, seul le joueur qui part est éliminé ; le dernier joueur restant gagne.
+      const entry = live.offline.get(userId);
+      if (entry) {
+        clearTimeout(entry.timer);
+        live.offline.delete(userId);
+      }
+      const r = eliminate(live.state, loser.color);
+      await this.commit(live, r.state, r.events, userId, reason === 'FORFEIT' ? 'FORFEIT' : 'ELIMINATE', reason);
+      if (live.status === 'ACTIVE') {
+        // Résultat enregistré dès l'élimination : le joueur peut rejoindre une autre table sans attendre la fin.
+        await prisma.gamePlayer.update({ where: { gameId_userId: { gameId: live.id, userId } }, data: { result: 'LOSS' } });
+        this.bc.emitLobby();
+      }
       return this.snapshot(live);
     });
   }
 
   /** Persiste l'état (verrou optimiste sur stateVersion) puis diffuse. */
-  private async commit(live: LiveGame, next: GameState, events: GameEvent[], userId: string | null, type: string) {
+  private async commit(
+    live: LiveGame, next: GameState, events: GameEvent[], userId: string | null, type: string,
+    endReason: GameEndReason = 'COMPLETED'
+  ) {
     const prevVersion = live.state.seq;
     await prisma.$transaction(async (tx) => {
       const r = await tx.game.updateMany({
@@ -214,7 +238,7 @@ export class GameManager {
     live.lastEvents = events;
     if (next.phase === 'finished' && next.winner) {
       const winner = live.players.find((p) => p.color === next.winner)!;
-      await this.finish(live, winner.userId, 'COMPLETED', events);
+      await this.finish(live, winner.userId, endReason, events);
       return;
     }
     this.scheduleTurn(live);
@@ -355,7 +379,7 @@ export class GameManager {
 
   private onGraceExpired(live: LiveGame, userId: string) {
     if (live.status !== 'ACTIVE' || !live.offline.has(userId)) return;
-    const othersOnline = live.players.some((p) => p.userId !== userId && !live.offline.has(p.userId));
+    const othersOnline = live.players.some((p) => p.userId !== userId && !live.offline.has(p.userId) && !this.isOut(live, p.userId));
     const job = othersOnline ? this.forfeit(live.id, userId, 'DISCONNECT') : this.abort(live.id, 'DISCONNECT');
     job.catch((e) => console.error('[grace]', live.id, e));
   }
@@ -364,6 +388,7 @@ export class GameManager {
   async presenceChanged(gameId: string, userId: string, online: boolean) {
     const live = await this.load(gameId);
     if (live.status !== 'ACTIVE' || !live.players.some((p) => p.userId === userId)) return;
+    if (this.isOut(live, userId)) return; // un joueur éliminé peut regarder sans bloquer la partie
     if (online) {
       const entry = live.offline.get(userId);
       if (!entry) return;

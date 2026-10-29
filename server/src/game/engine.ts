@@ -44,6 +44,8 @@ export interface GameState {
   lastMoved: { color: Color; pawn: number } | null;
   bonusQueue: number[];
   winner: Color | null;
+  /** Couleurs éliminées (abandon ou déconnexion) : elles ne jouent plus. Absent des états anciens. */
+  out?: Color[];
   /** Numéro d'action, incrémenté à chaque lancer/déplacement accepté. */
   seq: number;
 }
@@ -67,6 +69,7 @@ export type GameEvent =
   | { type: 'no_move'; color: Color; value: number }
   | { type: 'extra_turn'; color: Color }
   | { type: 'turn'; color: Color }
+  | { type: 'eliminated'; color: Color }
   | { type: 'win'; color: Color };
 
 export class RuleError extends Error {
@@ -98,9 +101,17 @@ export function createGame(colors: Color[]): GameState {
     lastMoved: null,
     bonusQueue: [],
     winner: null,
+    out: [],
     seq: 0
   };
 }
+
+/** Ordre de jeu : sens de la piste (rouge → jaune → vert → bleu), quel que soit l'ordre des sièges. */
+export function turnOrder(colors: Color[]): Color[] {
+  return [...colors].sort((a, b) => START[a] - START[b]);
+}
+
+export const activeColors = (s: GameState): Color[] => s.colors.filter((c) => !(s.out ?? []).includes(c));
 
 export const currentColor = (s: GameState): Color => s.colors[s.turn];
 
@@ -204,7 +215,10 @@ function clone(s: GameState): GameState {
 }
 
 function nextTurn(s: GameState, events: GameEvent[]) {
-  s.turn = (s.turn + 1) % s.colors.length;
+  const out = s.out ?? [];
+  do {
+    s.turn = (s.turn + 1) % s.colors.length;
+  } while (out.includes(s.colors[s.turn]) && out.length < s.colors.length);
   s.sixesInRow = 0;
   s.phase = 'roll';
   s.moveValue = null;
@@ -323,6 +337,36 @@ export function autoMovePawn(s: GameState): number | null {
   const moves = legalMoves(s);
   if (!moves.length) return null;
   return moves.reduce((best, m) => (m.to > best.to ? m : best)).pawn;
+}
+
+/**
+ * Élimine une couleur (abandon, déconnexion, suspension) : ses pions quittent le plateau.
+ * S'il ne reste qu'un joueur actif, il gagne la partie.
+ */
+export function eliminate(state: GameState, color: Color): { state: GameState; events: GameEvent[] } {
+  if (state.phase === 'finished') throw new RuleError('GAME_OVER', 'La partie est terminée');
+  if (!state.colors.includes(color)) throw new RuleError('BAD_COLOR', 'Couleur absente de la partie');
+  if ((state.out ?? []).includes(color)) return { state, events: [] };
+  const s = clone(state);
+  const events: GameEvent[] = [];
+  s.seq++;
+  s.out = [...(s.out ?? []), color];
+  s.pawns[color] = s.pawns[color].map(() => NEST);
+  events.push({ type: 'eliminated', color });
+  const remaining = activeColors(s);
+  if (remaining.length === 1) {
+    s.winner = remaining[0];
+    s.phase = 'finished';
+    s.moveValue = null;
+    s.bonusQueue = [];
+    events.push({ type: 'win', color: remaining[0] });
+    return { state: s, events };
+  }
+  if (currentColor(s) === color) {
+    s.bonusQueue = [];
+    nextTurn(s, events);
+  }
+  return { state: s, events };
 }
 
 export function finishedCount(s: GameState, color: Color): number {

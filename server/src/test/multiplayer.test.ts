@@ -12,9 +12,9 @@ type Snapshot = {
   gameId: string;
   status: string;
   turnColor: string | null;
-  state: { phase: string; pawns: Record<string, number[]> };
   legalMoves: { pawn: number }[];
-  players: { userId: string; color: string; online: boolean }[];
+  players: { userId: string; color: string; online: boolean; eliminated?: boolean }[];
+  state: { phase: string; pawns: Record<string, number[]>; colors: string[] };
   paused: boolean;
   winnerId: string | null;
   endReason: string | null;
@@ -260,5 +260,123 @@ describe('multijoueur temps réel', () => {
     expect(after.state).toEqual(before.state);
     expect(after.status).toBe('ACTIVE');
     await gameManager.forfeit(gameId, a.user.id);
+  });
+});
+
+describe('tables de 3 et 4 joueurs', () => {
+  async function seatedGroup(n: number, stake: number) {
+    const users = [];
+    for (let i = 0; i < n; i++) users.push(await registered(server.url));
+    const created = await users[0].post('/api/rooms', { name: `Table à ${n}`, visibility: 'PRIVATE', stake, turnSeconds: 60, maxPlayers: n });
+    expect(created.status).toBe(201);
+    expect(created.body.room.maxPlayers).toBe(n);
+    let last;
+    for (let i = 1; i < n; i++) {
+      last = await users[i].post('/api/rooms/join-code', { code: created.body.room.code });
+      expect(last.status).toBe(200);
+      expect(last.body.room.status).toBe(i === n - 1 ? 'PLAYING' : 'WAITING');
+    }
+    const sockets = await Promise.all(users.map((u) => sock(u.cookie)));
+    const gameId: string = last!.body.room.gameId;
+    let snap: Snapshot | undefined;
+    for (const s of sockets) {
+      const r = await emit<Snapshot>(s, 'game:join', gameId);
+      expect(r.ok).toBe(true);
+      snap = r.data;
+    }
+    return { users, sockets, gameId, snap: snap! };
+  }
+
+  it('refuse plus de 4 joueurs', async () => {
+    const a = await registered(server.url);
+    const r = await a.post('/api/rooms', { name: 'Trop grande', visibility: 'PUBLIC', stake: 0, turnSeconds: 30, maxPlayers: 5 });
+    expect(r.status).toBe(400);
+  });
+
+  it('partie complète à 4 : ordre rouge → jaune → vert → bleu, pot de 4 mises au vainqueur', async () => {
+    const { users, sockets, gameId, snap: first } = await seatedGroup(4, 50);
+    let snap = first;
+    expect(snap.state.colors).toEqual(['red', 'yellow', 'green', 'blue']);
+    expect(snap.paused).toBe(false);
+    const byColor: Record<string, Socket> = {};
+    snap.players.forEach((p) => (byColor[p.color] = sockets[users.findIndex((u) => u.user.id === p.userId)]));
+
+    const turns: string[] = [];
+    let actions = 0;
+    while (snap.status === 'ACTIVE' && actions < 20000) {
+      const s = byColor[snap.turnColor!];
+      if (snap.state.phase === 'roll') {
+        if (turns[turns.length - 1] !== snap.turnColor) turns.push(snap.turnColor!);
+        snap = (await emit<Snapshot>(s, 'game:roll', gameId)).data!;
+      } else {
+        snap = (await emit<Snapshot>(s, 'game:move', { gameId, pawn: snap.legalMoves[0].pawn })).data!;
+      }
+      actions++;
+    }
+    expect(snap.status).toBe('FINISHED');
+    expect(snap.endReason).toBe('COMPLETED');
+    // Les 4 premiers changements de main suivent le sens de la piste à partir du joueur tiré au sort.
+    const order = ['red', 'yellow', 'green', 'blue'];
+    const start = order.indexOf(turns[0]);
+    expect(turns.slice(0, 4)).toEqual([0, 1, 2, 3].map((k) => order[(start + k) % 4]));
+
+    for (const u of users) {
+      expect(await balance(u.user.id)).toBe(u.user.id === snap.winnerId ? 1150 : 950);
+    }
+    const results = await prisma.gamePlayer.findMany({ where: { gameId } });
+    expect(results.filter((r) => r.result === 'WIN')).toHaveLength(1);
+    expect(results.filter((r) => r.result === 'LOSS')).toHaveLength(3);
+  });
+
+  it('à 3 joueurs : un abandon élimine seulement ce joueur, la partie continue', async () => {
+    const { users, sockets, gameId } = await seatedGroup(3, 100);
+    const [a, b, c] = users;
+
+    const r1 = await emit<Snapshot>(sockets[0], 'game:forfeit', gameId);
+    expect(r1.data!.status).toBe('ACTIVE');
+    expect(r1.data!.players.find((p) => p.userId === a.user.id)).toMatchObject({ eliminated: true });
+    expect(r1.data!.turnColor).not.toBe(r1.data!.players.find((p) => p.userId === a.user.id)!.color);
+
+    // Le joueur éliminé est libéré : il peut créer une autre table tout de suite.
+    const other = await a.post('/api/rooms', { name: 'Nouvelle table', visibility: 'PUBLIC', stake: 0, turnSeconds: 30 });
+    expect(other.status).toBe(201);
+    await a.post(`/api/rooms/${other.body.room.id}/leave`);
+
+    // Il ne peut plus jouer dans la partie dont il est sorti.
+    expect((await emit(sockets[0], 'game:roll', gameId)).ok).toBe(false);
+
+    // Second abandon : le dernier joueur restant gagne les 3 mises.
+    const r2 = await emit<Snapshot>(sockets[1], 'game:forfeit', gameId);
+    expect(r2.data!.status).toBe('FINISHED');
+    expect(r2.data!.winnerId).toBe(c.user.id);
+    expect(r2.data!.endReason).toBe('FORFEIT');
+    expect(await balance(c.user.id)).toBe(1200);
+    expect(await balance(a.user.id)).toBe(900);
+    expect(await balance(b.user.id)).toBe(900);
+  });
+
+  it('à 3 joueurs : une déconnexion prolongée élimine le joueur absent', async () => {
+    const { users, sockets, gameId } = await seatedGroup(3, 0);
+    const resumed = new Promise<Snapshot>((r) =>
+      sockets[0].on('game:state', (s: Snapshot) => s.players.some((p) => p.eliminated) && r(s))
+    );
+    sockets[2].close();
+    const s = await resumed;
+    expect(s.status).toBe('ACTIVE');
+    expect(s.paused).toBe(false);
+    expect(s.players.find((p) => p.userId === users[2].user.id)).toMatchObject({ eliminated: true });
+    await gameManager.forfeit(gameId, users[0].user.id);
+  });
+
+  it('partie rapide à 4 : ne mélange pas les tables de tailles différentes', async () => {
+    const a = await registered(server.url);
+    const b = await registered(server.url);
+    const r1 = await a.post('/api/rooms/quick', { stake: 500, maxPlayers: 4 });
+    const r2 = await b.post('/api/rooms/quick', { stake: 500, maxPlayers: 3 });
+    expect(r2.body.room.id).not.toBe(r1.body.room.id);
+    const c = await registered(server.url);
+    const r3 = await c.post('/api/rooms/quick', { stake: 500, maxPlayers: 4 });
+    expect(r3.body.room.id).toBe(r1.body.room.id);
+    expect(r3.body.room.status).toBe('WAITING');
   });
 });

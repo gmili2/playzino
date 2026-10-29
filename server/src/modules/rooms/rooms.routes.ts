@@ -29,11 +29,14 @@ roomsRouter.get('/:id', requireAuth, async (req, res) => {
   res.json({ room: await getRoomFor(String(req.params.id), req.user!.id) });
 });
 
+const playersSchema = z.coerce.number().int().min(2, '2 à 4 joueurs').max(4, '2 à 4 joueurs').default(2);
+
 const createSchema = z.object({
   name: z.string().trim().min(3, '3 caractères minimum').max(40),
   visibility: z.enum(['PUBLIC', 'PRIVATE']),
   stake: stakeSchema.default(0),
-  turnSeconds: z.coerce.number().int().refine((v) => (TURN_SECONDS as readonly number[]).includes(v)).default(30)
+  turnSeconds: z.coerce.number().int().refine((v) => (TURN_SECONDS as readonly number[]).includes(v)).default(30),
+  maxPlayers: playersSchema
 });
 
 roomsRouter.post('/', requireAuth, async (req, res) => {
@@ -55,8 +58,8 @@ async function afterJoin(r: JoinResult) {
 }
 
 roomsRouter.post('/quick', requireAuth, async (req, res) => {
-  const { stake } = parse(z.object({ stake: stakeSchema.default(0) }), req.body ?? {});
-  res.json(await afterJoin(await quickJoin(req.user!.id, stake, req.ip)));
+  const { stake, maxPlayers } = parse(z.object({ stake: stakeSchema.default(0), maxPlayers: playersSchema }), req.body ?? {});
+  res.json(await afterJoin(await quickJoin(req.user!.id, stake, maxPlayers, req.ip)));
 });
 
 roomsRouter.post('/join-code', requireAuth, async (req, res) => {
