@@ -4,14 +4,24 @@ import { AdminPage } from './pages/Admin';
 import { LoginPage, RegisterPage } from './pages/Auth';
 import { GamePage } from './pages/Game';
 import { HomePage } from './pages/Home';
+import { LandingPage } from './pages/Landing';
+import { useAuth } from './lib/auth';
+import { Loading } from './components/ui';
 import { ProfilePage } from './pages/Profile';
 import { RulesPage } from './pages/Rules';
 import { TablesPage } from './pages/Tables';
 
+/** Visiteurs : page d'accueil vitrine ; joueurs connectés : tableau de bord avec les tables. */
+function Root() {
+  const { user, loading } = useAuth();
+  if (loading) return <Loading />;
+  return user ? <HomePage /> : <LandingPage />;
+}
+
 export function App() {
   return (
     <Routes>
-      <Route path="/" element={<HomePage />} />
+      <Route path="/" element={<Root />} />
       <Route path="/tables" element={<TablesPage />} />
       <Route path="/rules" element={<RulesPage />} />
       <Route path="/login" element={<LoginPage />} />

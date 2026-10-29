@@ -113,7 +113,10 @@ test('deux navigateurs : table privée, synchronisation temps réel, abandon et 
 
   // Déconnexion.
   await b.getByTestId('logout').click();
-  await expect(b.getByRole('link', { name: 'تسجيل الدخول' })).toBeVisible();
+  // Déconnecté : retour sur la page d'accueil vitrine.
+  await b.goto('/');
+  await expect(b.getByTestId('landing-cta')).toBeVisible();
+  await expect(b.getByTestId('user-chip')).toHaveCount(0);
   await ctxA.close();
   await ctxB.close();
 });
