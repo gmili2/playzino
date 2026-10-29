@@ -2,7 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { Link, NavLink } from 'react-router-dom';
 import { Board, SHOWCASE_PAWNS } from '../components/Board';
 import { Footer, Header } from '../components/AppShell';
-import { Gift, IconBolt, IconBook, IconCrown, IconGrid, IconHome, IconLock, IconShield, IconTrophy, IconUser, IconUsers } from '../components/Icons';
+import { Gift, IconBolt, IconRobot, IconBook, IconCrown, IconGrid, IconHome, IconLock, IconShield, IconTrophy, IconUser, IconUsers } from '../components/Icons';
 import { RoomCard } from '../components/RoomCard';
 import { Avatar, Empty } from '../components/ui';
 import { api, errorText } from '../lib/api';
@@ -126,6 +126,7 @@ export function HomePage() {
                     العب الآن
                   </button>
                   <Link className="pb-btn pb-ghost pb-lg" to="/tables#create"><IconLock size={20} />أنشئ طاولة خاصة</Link>
+                  <button type="button" className="pb-btn pb-ghost pb-lg" onClick={() => actions.practice(1)} disabled={actions.busy} data-testid="practice-home"><IconRobot size={20} />ضد الروبوت</button>
                 </div>
                 <form onSubmit={submitCode} style={{ display: 'flex', flexDirection: 'column', gap: 8, maxWidth: 440 }}>
                   <label htmlFor="lobby-code" style={{ fontSize: 13, fontWeight: 700, color: '#B4B6E4' }}>لديك رمز دعوة؟</label>

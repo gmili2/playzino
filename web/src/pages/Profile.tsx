@@ -10,7 +10,7 @@ import type { Me } from '../lib/types';
 
 interface HistoryItem {
   gameId: string;
-  room: { name: string; code: string; stake: number };
+  room: { name: string; code: string; stake: number; isPractice?: boolean };
   color: string;
   result: 'WIN' | 'LOSS' | null;
   payout: number;
@@ -112,7 +112,7 @@ export function ProfilePage() {
                       {history.map((h) => (
                         <tr key={h.gameId} className="pb-row">
                           <td>{fmtDate(h.endedAt ?? h.startedAt)}</td>
-                          <td style={{ fontWeight: 800 }}>{h.room.name}</td>
+                          <td style={{ fontWeight: 800 }}>{h.room.name}{h.room.isPractice && <span className="badge" style={{ marginInlineStart: 8, background: 'rgba(34,197,94,0.14)', color: '#4ADE80' }}>تدريب</span>}</td>
                           <td>{h.opponents.join('، ')}</td>
                           <td><span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><span style={{ width: 10, height: 10, borderRadius: '50%', background: COLOR_HEX[h.color] }} />{COLOR_NAME[h.color]}</span></td>
                           <td>

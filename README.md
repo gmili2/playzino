@@ -87,7 +87,7 @@ web/src
 | GET/PATCH | `/api/me` · POST `/api/me/password` · GET `/api/me/games` | utilisateur |
 | GET | `/api/wallet` · POST `/api/wallet/daily-bonus` | utilisateur |
 | GET | `/api/rooms`, `/api/rooms/:id`, `/api/rooms/current` | public / utilisateur |
-| POST | `/api/rooms`, `/api/rooms/quick`, `/api/rooms/join-code`, `/api/rooms/:id/join`, `/api/rooms/:id/leave` | utilisateur |
+| POST | `/api/rooms`, `/api/rooms/quick`, `/api/rooms/practice` (contre 1 à 3 robots), `/api/rooms/join-code`, `/api/rooms/:id/join`, `/api/rooms/:id/leave` | utilisateur |
 | GET/POST | `/api/games/:id`, `/roll`, `/move`, `/forfeit` (équivalents REST des événements Socket.IO) | joueur |
 | GET | `/api/stats` (classement, dernières victoires, joueurs en ligne) | public |
 | GET/POST | `/api/admin/overview`, `/users`, `/users/:id/suspend`, `/reactivate`, `/credits`, `/games`, `/games/:id/abort`, `/transactions`, `/audit` | ADMIN |

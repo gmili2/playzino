@@ -33,6 +33,7 @@ export const IconPlus = mk(<><path d="M12 5v14" /><path d="M5 12h14" /></>);
 export const IconArrowUp = mk(<><path d="m5 12 7-7 7 7" /><path d="M12 19V5" /></>);
 export const IconArrowDown = mk(<><path d="M12 5v14" /><path d="m19 12-7 7-7-7" /></>);
 export const IconCopy = mk(<><rect width="14" height="14" x="8" y="8" rx="2" /><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" /></>);
+export const IconRobot = mk(<><rect width="16" height="12" x="4" y="8" rx="3" /><path d="M12 8V4" /><circle cx="12" cy="3" r="1" /><path d="M9 13h.01M15 13h.01" /><path d="M10 17h4" /><path d="M2 13v2M22 13v2" /></>);
 export const IconMenu = mk(<><path d="M4 6h16" /><path d="M4 12h16" /><path d="M4 18h16" /></>);
 
 export const IconCrown = ({ size = 22, ...rest }: P) => (

@@ -7,7 +7,7 @@ import { hashPassword } from '../auth/auth.service.js';
 export async function userStats(userId: string) {
   const grouped = await prisma.gamePlayer.groupBy({
     by: ['result'],
-    where: { userId, game: { status: 'FINISHED' } },
+    where: { userId, game: { status: 'FINISHED', room: { isPractice: false } } },
     _count: { _all: true }
   });
   const wins = grouped.find((g) => g.result === 'WIN')?._count._all ?? 0;
@@ -95,7 +95,7 @@ export async function gameHistory(userId: string, take = 20) {
     include: {
       game: {
         include: {
-          room: { select: { name: true, code: true, stake: true } },
+          room: { select: { name: true, code: true, stake: true, isPractice: true } },
           players: { include: { user: { select: { username: true } } } }
         }
       }

@@ -20,11 +20,11 @@ adminRouter.get('/overview', async (_req, res) => {
   startOfDay.setUTCHours(0, 0, 0, 0);
   const weekAgo = new Date(Date.now() - 7 * 24 * 3600 * 1000);
   const [users, newUsers, gamesToday, activeGames, credits, suspended, privateOpen, abandonsToday] = await Promise.all([
-    prisma.user.count(),
-    prisma.user.count({ where: { createdAt: { gte: weekAgo } } }),
+    prisma.user.count({ where: { isBot: false } }),
+    prisma.user.count({ where: { isBot: false, createdAt: { gte: weekAgo } } }),
     prisma.game.count({ where: { startedAt: { gte: startOfDay } } }),
     prisma.game.count({ where: { status: 'ACTIVE' } }),
-    prisma.wallet.aggregate({ _sum: { balance: true } }),
+    prisma.wallet.aggregate({ _sum: { balance: true }, where: { user: { isBot: false } } }),
     prisma.user.count({ where: { status: 'SUSPENDED' } }),
     prisma.room.count({ where: { visibility: 'PRIVATE', status: { in: ['WAITING', 'PLAYING'] } } }),
     prisma.game.count({ where: { endedAt: { gte: startOfDay }, endReason: { in: ['FORFEIT', 'DISCONNECT'] } } })
@@ -45,7 +45,7 @@ adminRouter.get('/overview', async (_req, res) => {
 adminRouter.get('/users', async (req, res) => {
   const q = parse(z.object({ q: z.string().trim().max(100).optional(), take: z.coerce.number().int().min(1).max(100).default(50) }), req.query);
   const users = await prisma.user.findMany({
-    where: q.q ? { OR: [{ username: { contains: q.q } }, { email: { contains: q.q } }] } : {},
+    where: { isBot: false, ...(q.q ? { OR: [{ username: { contains: q.q } }, { email: { contains: q.q } }] } : {}) },
     orderBy: { createdAt: 'desc' },
     take: q.take,
     include: { wallet: { select: { balance: true } }, profile: { select: { xp: true, avatarColor: true } }, _count: { select: { gameSeats: true } } }

@@ -372,3 +372,43 @@ export function eliminate(state: GameState, color: Color): { state: GameState; e
 export function finishedCount(s: GameState, color: Color): number {
   return s.pawns[color].filter((p) => p === GOAL).length;
 }
+
+/**
+ * Stratégie du robot : choisit le meilleur coup légal selon des priorités simples.
+ * Arriver au centre > capturer > sortir un pion > se mettre à l'abri > avancer, en évitant
+ * de finir exposé juste devant un pion adverse. Déterministe (aucun aléa) pour être testable.
+ */
+export function botChooseMove(s: GameState): number | null {
+  const moves = legalMoves(s);
+  if (!moves.length) return null;
+  const color = currentColor(s);
+  const rivals = activeColors(s).filter((c) => c !== color);
+
+  // Un pion adverse situé 1 à 6 cases derrière une case peut l'atteindre au prochain lancer.
+  const threatened = (abs: number) =>
+    rivals.some((c) =>
+      s.pawns[c].some((p) => {
+        if (!isTrack(p)) return false;
+        const dist = (abs - absSquare(c, p) + TRACK_LENGTH) % TRACK_LENGTH;
+        return dist >= 1 && dist <= 6 && p + dist <= LAST_TRACK;
+      })
+    );
+
+  const score = (m: Move) => {
+    let v = m.to; // progression
+    if (m.to === GOAL) v += 1000;
+    if (m.capture) v += 500 + Math.max(0, s.pawns[m.capture.color][m.capture.pawn]);
+    if (m.from === NEST) v += 300;
+    if (m.to > LAST_TRACK && m.to < GOAL) v += 120; // à l'abri dans le couloir final
+    if (isTrack(m.to)) {
+      const abs = absSquare(color, m.to);
+      if (SAFE.includes(abs)) v += 60;
+      else if (threatened(abs)) v -= 150;
+      if (s.pawns[color].some((p, i) => i !== m.pawn && isTrack(p) && absSquare(color, p) === abs)) v += 40; // barrage
+    }
+    // Quitter une case menacée est une bonne idée.
+    if (isTrack(m.from) && !SAFE.includes(absSquare(color, m.from)) && threatened(absSquare(color, m.from))) v += 80;
+    return v;
+  };
+  return moves.reduce((best, m) => (score(m) > score(best) ? m : best)).pawn;
+}

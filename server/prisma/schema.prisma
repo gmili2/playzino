@@ -31,6 +31,8 @@ model User {
   suspendedReason String?    @db.VarChar(500)
   // Incrémenté pour invalider tous les jetons (suspension, changement de mot de passe).
   tokenVersion    Int        @default(0)
+  // Compte robot (adversaire d'entraînement) : ne peut pas se connecter, exclu du classement.
+  isBot           Boolean    @default(false)
   createdAt       DateTime   @default(now())
   updatedAt       DateTime   @updatedAt
   lastLoginAt     DateTime?
@@ -47,6 +49,7 @@ model User {
 
   @@index([status])
   @@index([createdAt])
+  @@index([isBot])
 }
 
 model Profile {
@@ -128,6 +131,8 @@ model Room {
   maxPlayers  Int            @default(2)
   stake       Int            @default(0)
   turnSeconds Int            @default(30)
+  // Partie d'entraînement contre des robots : sans mise, sans XP, hors classement.
+  isPractice  Boolean        @default(false)
   hostId      String         @db.VarChar(30)
   host        User           @relation("RoomHost", fields: [hostId], references: [id], onDelete: Restrict)
   createdAt   DateTime       @default(now())

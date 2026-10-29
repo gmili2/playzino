@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { Board, SHOWCASE_PAWNS } from '../components/Board';
-import { IconBolt, IconCrown, IconShield, IconTrophy, IconUser, IconUsers, Logo } from '../components/Icons';
+import { IconBolt, IconCrown, IconRobot, IconShield, IconTrophy, IconUser, IconUsers, Logo } from '../components/Icons';
 import { api } from '../lib/api';
 import { fmt } from '../lib/format';
 
@@ -151,6 +151,7 @@ export function LandingPage() {
         <ModeCard tone="#8B5CF6" icon={<IconBolt size={40} />} title="لعب سريع" text="نقرة واحدة وتجد طاولة عامة بالرهان الذي تختاره." />
         <ModeCard tone="#FFC83D" icon={<IconTrophy size={40} />} title="ترتيب ومكافآت" text="تصدّر ترتيب الأسبوع واستلم 200 عملة مجانًا كل يوم." />
         <ModeCard tone="#22D3EE" icon={<IconUsers size={40} />} title="لعب مع الأصدقاء" text="أنشئ طاولة خاصة وشارك رمز الدعوة PRC-XXXX." />
+        <ModeCard tone="#4ADE80" icon={<IconRobot size={40} />} title="ضد الروبوت" text="تدرّب في أي وقت ضد روبوت يلعب بنفس القواعد." />
       </section>
 
       <section className="ld-strip" aria-label="المزايا">

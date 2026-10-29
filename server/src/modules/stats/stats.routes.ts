@@ -12,7 +12,7 @@ statsRouter.get('/', async (req, res) => {
 
   const top = await prisma.gamePlayer.groupBy({
     by: ['userId'],
-    where: { result: 'WIN', game: { status: 'FINISHED', ...(since ? { endedAt: { gte: since } } : {}) } },
+    where: { result: 'WIN', user: { isBot: false }, game: { status: 'FINISHED', room: { isPractice: false }, ...(since ? { endedAt: { gte: since } } : {}) } },
     _count: { _all: true },
     _sum: { payout: true },
     orderBy: { _count: { userId: 'desc' } },
@@ -28,7 +28,7 @@ statsRouter.get('/', async (req, res) => {
   });
 
   const recent = await prisma.game.findMany({
-    where: { status: 'FINISHED', winnerId: { not: null } },
+    where: { status: 'FINISHED', winnerId: { not: null }, room: { isPractice: false } },
     orderBy: { endedAt: 'desc' },
     take: 5,
     include: {

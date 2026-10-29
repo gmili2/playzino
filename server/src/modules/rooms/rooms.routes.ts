@@ -6,7 +6,7 @@ import { requireAuth } from '../../middleware/auth.js';
 import { gameManager } from '../../realtime/gameManager.js';
 import { hub } from '../../realtime/hub.js';
 import {
-  createRoom, currentRoomOf, getRoomFor, joinByCode, joinRoom, leaveWaitingRoom, listPublicRooms, quickJoin,
+  createPracticeRoom, createRoom, currentRoomOf, getRoomFor, joinByCode, joinRoom, leaveWaitingRoom, listPublicRooms, quickJoin,
   type JoinResult
 } from './rooms.service.js';
 
@@ -56,6 +56,17 @@ async function afterJoin(r: JoinResult) {
   hub.lobbyChanged();
   return { room: r.startedGameId ? { ...r.room, status: 'PLAYING', gameId: r.startedGameId } : r.room };
 }
+
+roomsRouter.post('/practice', requireAuth, async (req, res) => {
+  const body = parse(
+    z.object({
+      bots: z.coerce.number().int().min(1, '1 à 3 robots').max(3, '1 à 3 robots').default(1),
+      turnSeconds: z.coerce.number().int().refine((v) => (TURN_SECONDS as readonly number[]).includes(v)).default(30)
+    }),
+    req.body ?? {}
+  );
+  res.status(201).json(await afterJoin(await createPracticeRoom(req.user!.id, body.bots, body.turnSeconds, req.ip)));
+});
 
 roomsRouter.post('/quick', requireAuth, async (req, res) => {
   const { stake, maxPlayers } = parse(z.object({ stake: stakeSchema.default(0), maxPlayers: playersSchema }), req.body ?? {});

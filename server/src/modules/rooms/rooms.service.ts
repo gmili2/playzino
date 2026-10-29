@@ -5,6 +5,7 @@ import { AppError, conflict, forbidden, notFound } from '../../lib/errors.js';
 import { prisma, type Tx } from '../../lib/prisma.js';
 import { createGame, turnOrder, type Color } from '../../game/engine.js';
 import { applyWalletOp } from '../wallet/wallet.service.js';
+import { ensureBots } from './bots.service.js';
 
 /** Couleurs par siège : les deux premiers joueurs occupent des coins opposés du plateau. */
 export const SEAT_COLORS: Color[] = ['blue', 'yellow', 'red', 'green'];
@@ -13,7 +14,7 @@ const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 export const roomInclude = {
   players: {
     orderBy: { seat: 'asc' },
-    include: { user: { select: { id: true, username: true, profile: { select: { avatarColor: true, xp: true } } } } }
+    include: { user: { select: { id: true, username: true, isBot: true, profile: { select: { avatarColor: true, xp: true } } } } }
   },
   games: { orderBy: { startedAt: 'desc' }, take: 1, select: { id: true, status: true } }
 } satisfies Prisma.RoomInclude;
@@ -32,6 +33,7 @@ export function serializeRoom(r: RoomWithPlayers, viewerId?: string) {
     maxPlayers: r.maxPlayers,
     stake: r.stake,
     turnSeconds: r.turnSeconds,
+    isPractice: r.isPractice,
     hostId: r.hostId,
     createdAt: r.createdAt,
     gameId: r.games[0]?.id ?? null,
@@ -41,6 +43,7 @@ export function serializeRoom(r: RoomWithPlayers, viewerId?: string) {
       seat: p.seat,
       color: p.color,
       avatarColor: p.user.profile?.avatarColor ?? '#2F6BFF',
+      isBot: p.user.isBot,
       level: Math.floor((p.user.profile?.xp ?? 0) / 1000) + 1
     }))
   };
@@ -154,6 +157,35 @@ async function startGame(tx: Tx, roomId: string) {
     }
   });
   return game.id;
+}
+
+/**
+ * Entraînement contre 1 à 3 robots : table privée sans mise, la partie démarre immédiatement.
+ * Hors classement et sans XP (voir gameManager.finish et stats).
+ */
+export async function createPracticeRoom(userId: string, bots: number, turnSeconds: number, ip?: string) {
+  const botIds = await ensureBots(bots);
+  for (let attempt = 0; attempt < 5; attempt++) {
+    try {
+      const result = await prisma.$transaction(async (tx) => {
+        await assertNotSeated(tx, userId);
+        const room = await tx.room.create({
+          data: { name: 'تدريب ضد الروبوت', visibility: 'PRIVATE', stake: 0, turnSeconds, maxPlayers: bots + 1, isPractice: true, code: newCode(), hostId: userId }
+        });
+        await tx.roomPlayer.create({ data: { roomId: room.id, userId, seat: 0, color: SEAT_COLORS[0] } });
+        for (let i = 0; i < botIds.length; i++) {
+          await tx.roomPlayer.create({ data: { roomId: room.id, userId: botIds[i], seat: i + 1, color: SEAT_COLORS[i + 1] } });
+        }
+        await audit({ actorId: userId, action: 'room.practice', targetType: 'room', targetId: room.id, details: { bots }, ip }, tx);
+        return { roomId: room.id, gameId: await startGame(tx, room.id) };
+      });
+      return { room: await getRoomFor(result.roomId, userId), startedGameId: result.gameId };
+    } catch (e) {
+      const target = e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002' ? String(e.meta?.target ?? '') : '';
+      if (!target.includes('code')) throw e;
+    }
+  }
+  throw new AppError(500, 'CODE_GENERATION_FAILED', 'Impossible de générer un code de table');
 }
 
 export async function joinByCode(userId: string, code: string, ip?: string) {

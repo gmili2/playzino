@@ -1,7 +1,7 @@
 import { useState, type FormEvent, type ReactNode } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Page } from '../components/AppShell';
-import { IconBolt, IconKey, IconLock, IconSearch } from '../components/Icons';
+import { IconBolt, IconKey, IconLock, IconRobot, IconSearch } from '../components/Icons';
 import { Credits, Empty, StatusChip } from '../components/ui';
 import { useAuth } from '../lib/auth';
 import { COLOR_HEX } from '../lib/format';
@@ -49,6 +49,7 @@ export function TablesPage() {
 
   const [quickStake, setQuickStake] = useState(0);
   const [quickPlayers, setQuickPlayers] = useState(2);
+  const [bots, setBots] = useState(1);
   const [form, setForm] = useState({ name: '', visibility: 'PRIVATE' as 'PUBLIC' | 'PRIVATE', stake: 0, turnSeconds: 30, maxPlayers: 2 });
   const [code, setCode] = useState('');
   const [localErr, setLocalErr] = useState('');
@@ -95,6 +96,11 @@ export function TablesPage() {
               <Seg label="الرهان" value={form.stake} options={STAKES} onChange={(v) => setForm({ ...form, stake: v })} render={stakeLabel} />
               <button type="submit" className="pb-btn pb-violet" disabled={actions.busy || form.stake > balance}>أنشئ الطاولة</button>
             </form>
+          </ActionCard>
+
+          <ActionCard icon={<IconRobot size={24} style={{ color: '#4ADE80' }} />} iconBg="rgba(34,197,94,0.16)" title="ضد الروبوت" sub="تدرّب بدون رهان ضد روبوت يلعب بنفس القواعد. لا تُحتسب في الترتيب.">
+            <Seg label="عدد الروبوتات" value={bots} options={[1, 2, 3]} onChange={setBots} render={(n) => (n === 1 ? 'روبوت واحد' : `${n} روبوتات`)} />
+            <button type="button" className="pb-btn pb-ghost" style={{ marginTop: 'auto' }} disabled={actions.busy} onClick={() => actions.practice(bots)} data-testid="practice">ابدأ التدريب</button>
           </ActionCard>
 
           <ActionCard icon={<IconKey size={24} style={{ color: '#22D3EE' }} />} iconBg="rgba(34,211,238,0.16)" title="الانضمام برمز" sub="أدخل الرمز الذي أرسله صديقك.">

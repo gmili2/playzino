@@ -180,3 +180,29 @@ test('trois navigateurs : table à 3, synchronisation, élimination puis victoir
   if (shots) await c.screenshot({ path: `${shots}/game3-win.png` });
   await Promise.all(ctxs.map((x) => x.close()));
 });
+
+test('entraînement contre un robot : le robot joue seul, sans enjeu', async ({ page }) => {
+  await register(page, 'solo' + uid());
+  await page.goto('/tables');
+  await page.getByTestId('practice').click();
+  await expect(page).toHaveURL(/\/room\//);
+  await expect(page.getByTestId('panel-opp')).toContainText('روبوت');
+  await expect(page.getByTestId('waiting-overlay')).toHaveCount(0);
+
+  // Le joueur joue ses tours ; entre deux, le robot doit jouer tout seul.
+  let mine = 0;
+  for (let i = 0; i < 400 && mine < 8; i++) {
+    if (await playIfMyTurn(page)) mine++;
+    else await page.waitForTimeout(200);
+  }
+  expect(mine).toBeGreaterThanOrEqual(8);
+  await expect(page.getByTestId('game-log')).toContainText('Robot_');
+  if (shots) await page.screenshot({ path: `${shots}/practice.png` });
+
+  await page.getByRole('button', { name: 'مغادرة' }).click();
+  await page.getByTestId('confirm-quit').click();
+  // À un contre un, quitter donne la victoire au robot ; aucune conséquence sur le solde ni le classement.
+  await expect(page.getByTestId('result')).toContainText('خسارة');
+  await expect(page.getByTestId('result')).toContainText('تدريب: بدون عملات ولا خبرة ولا ترتيب');
+  expect(await balanceOf(page)).toBe(1000);
+});

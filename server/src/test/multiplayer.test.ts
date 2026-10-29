@@ -3,6 +3,8 @@ import type { Socket } from 'socket.io-client';
 
 // Délai de reconnexion court pour tester l'abandon par déconnexion (lu au chargement de la config).
 process.env.RECONNECT_GRACE_SECONDS = '2';
+// Robots rapides pendant les tests.
+process.env.BOT_DELAY_MS = '15';
 
 const { prisma } = await import('../lib/prisma.js');
 const { gameManager } = await import('../realtime/gameManager.js');
@@ -13,7 +15,8 @@ type Snapshot = {
   status: string;
   turnColor: string | null;
   legalMoves: { pawn: number }[];
-  players: { userId: string; color: string; online: boolean; eliminated?: boolean }[];
+  players: { userId: string; username: string; color: string; online: boolean; eliminated?: boolean; isBot?: boolean }[];
+  room: { isPractice: boolean };
   state: { phase: string; pawns: Record<string, number[]>; colors: string[] };
   paused: boolean;
   winnerId: string | null;
@@ -369,6 +372,8 @@ describe('tables de 3 et 4 joueurs', () => {
   });
 
   it('partie rapide à 4 : ne mélange pas les tables de tailles différentes', async () => {
+    // Base de test conservée entre deux exécutions : on ferme les tables d'une exécution précédente.
+    await prisma.room.updateMany({ where: { visibility: 'PUBLIC', status: 'WAITING', stake: 500 }, data: { status: 'CANCELLED' } });
     const a = await registered(server.url);
     const b = await registered(server.url);
     const r1 = await a.post('/api/rooms/quick', { stake: 500, maxPlayers: 4 });
@@ -378,5 +383,95 @@ describe('tables de 3 et 4 joueurs', () => {
     const r3 = await c.post('/api/rooms/quick', { stake: 500, maxPlayers: 4 });
     expect(r3.body.room.id).toBe(r1.body.room.id);
     expect(r3.body.room.status).toBe('WAITING');
+  });
+});
+
+describe('entraînement contre les robots', () => {
+  /** Le joueur humain joue ses tours ; les robots jouent seuls côté serveur. */
+  async function playAgainstBots(s: Socket, gameId: string, me: string, first: Snapshot) {
+    let snap = first;
+    const next = () =>
+      new Promise<Snapshot>((resolve, reject) => {
+        const t = setTimeout(() => reject(new Error('aucun état reçu')), 10000);
+        s.once('game:state', (x: Snapshot) => { clearTimeout(t); resolve(x); });
+      });
+    let myActions = 0;
+    let botTurns = 0;
+    for (let i = 0; i < 20000 && snap.status === 'ACTIVE'; i++) {
+      const myColor = snap.players.find((p) => p.userId === me)!.color;
+      if (snap.turnColor === myColor) {
+        const r = snap.state.phase === 'roll'
+          ? await emit<Snapshot>(s, 'game:roll', gameId)
+          : await emit<Snapshot>(s, 'game:move', { gameId, pawn: snap.legalMoves[0].pawn });
+        expect(r.ok).toBe(true);
+        snap = r.data!;
+        myActions++;
+      } else {
+        // Un humain ne peut pas jouer à la place du robot.
+        if (botTurns++ === 0) expect((await emit(s, 'game:roll', gameId)).error?.code).toBe('NOT_YOUR_TURN');
+        snap = await next();
+      }
+    }
+    return { snap, myActions };
+  }
+
+  it('partie complète contre 1 robot : le robot joue seul, sans mise ni classement', async () => {
+    const a = await registered(server.url);
+    const r = await a.post('/api/rooms/practice', { bots: 1 });
+    expect(r.status).toBe(201);
+    expect(r.body.room).toMatchObject({ status: 'PLAYING', isPractice: true, stake: 0, maxPlayers: 2 });
+    expect(r.body.room.players.find((p: { isBot: boolean }) => p.isBot)).toBeTruthy();
+
+    const s = await sock(a.cookie);
+    const joined = await emit<Snapshot>(s, 'game:join', r.body.room.gameId);
+    expect(joined.data!.paused).toBe(false); // les robots sont toujours « connectés »
+    expect(joined.data!.room.isPractice).toBe(true);
+    const { snap, myActions } = await playAgainstBots(s, r.body.room.gameId, a.user.id, joined.data!);
+
+    expect(snap.status).toBe('FINISHED');
+    expect(myActions).toBeGreaterThan(5);
+    const moves = await prisma.gameMove.findMany({ where: { gameId: r.body.room.gameId, type: 'BOT' } });
+    expect(moves.length).toBeGreaterThan(5);
+    // Aucun crédit, aucune XP, rien dans les statistiques ni le classement.
+    expect(await balance(a.user.id)).toBe(1000);
+    expect((await prisma.profile.findUniqueOrThrow({ where: { userId: a.user.id } })).xp).toBe(0);
+    expect((await a.get('/api/me')).body.user.stats.played).toBe(0);
+    const stats = await a.get('/api/stats?period=all');
+    expect(stats.body.leaderboard.some((l: { username: string }) => l.username.startsWith('Robot_'))).toBe(false);
+    expect(stats.body.recentWins.some((w: { gameId: string }) => w.gameId === r.body.room.gameId)).toBe(false);
+    // L'historique garde la partie, marquée comme entraînement.
+    const hist = await a.get('/api/me/games');
+    expect(hist.body.items[0].room.isPractice).toBe(true);
+  });
+
+  it('contre 3 robots, l’abandon du joueur annule la partie (les robots ne jouent pas seuls)', async () => {
+    const a = await registered(server.url);
+    const r = await a.post('/api/rooms/practice', { bots: 3 });
+    expect(r.body.room.maxPlayers).toBe(4);
+    const s = await sock(a.cookie);
+    await emit(s, 'game:join', r.body.room.gameId);
+    const end = await emit<Snapshot>(s, 'game:forfeit', r.body.room.gameId);
+    expect(end.data!.status).toBe('ABORTED');
+    // Le joueur peut tout de suite rejouer.
+    expect((await a.post('/api/rooms/practice', { bots: 2 })).status).toBe(201);
+  });
+
+  it('les comptes robots ne peuvent pas se connecter et n’apparaissent pas dans l’admin', async () => {
+    const a = await registered(server.url);
+    await a.post('/api/rooms/practice', { bots: 1 });
+    const bot = await prisma.user.findFirstOrThrow({ where: { isBot: true } });
+    const login = await a.post('/api/auth/login', { login: bot.email, password: 'nimportequoi' });
+    expect(login.status).toBe(401);
+    await prisma.user.update({ where: { id: a.user.id }, data: { role: 'ADMIN' } });
+    const users = await a.get('/api/admin/users?take=100');
+    expect(users.body.items.some((u: { id: string }) => u.id === bot.id)).toBe(false);
+  });
+
+  it('refuse plus de 3 robots et une table d’entraînement n’est pas listée', async () => {
+    const a = await registered(server.url);
+    expect((await a.post('/api/rooms/practice', { bots: 4 })).status).toBe(400);
+    const r = await a.post('/api/rooms/practice', { bots: 1 });
+    const list = await a.get('/api/rooms');
+    expect(list.body.items.some((x: { id: string }) => x.id === r.body.room.id)).toBe(false);
   });
 });

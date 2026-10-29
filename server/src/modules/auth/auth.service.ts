@@ -54,7 +54,7 @@ export async function authenticate(login: string, password: string, ip?: string)
     where: key.includes('@') ? { email: key.toLowerCase() } : { username: key }
   });
   const ok = await bcrypt.compare(password, user?.passwordHash ?? DUMMY_HASH);
-  if (!user || !ok) {
+  if (!user || !ok || user.isBot) {
     await audit({ actorId: user?.id, action: 'auth.login_failed', targetType: 'user', targetId: user?.id, ip });
     throw new AppError(401, 'INVALID_CREDENTIALS', 'Identifiants incorrects');
   }

@@ -28,6 +28,7 @@ export interface RoomPlayer {
   color: Color;
   avatarColor: string;
   level: number;
+  isBot?: boolean;
 }
 
 export interface Room {
@@ -39,6 +40,7 @@ export interface Room {
   maxPlayers: number;
   stake: number;
   turnSeconds: number;
+  isPractice?: boolean;
   hostId: string;
   createdAt: string;
   gameId: string | null;
@@ -70,7 +72,7 @@ export type GameEvent =
 export interface GameSnapshot {
   gameId: string;
   roomId: string;
-  room: { name: string; code: string; stake: number; visibility: string; turnSeconds: number };
+  room: { name: string; code: string; stake: number; visibility: string; turnSeconds: number; isPractice?: boolean };
   status: 'ACTIVE' | 'FINISHED' | 'ABORTED';
   state: {
     colors: Color[];

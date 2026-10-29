@@ -5,7 +5,7 @@ import { audit } from '../lib/audit.js';
 import { AppError, forbidden, notFound } from '../lib/errors.js';
 import { prisma } from '../lib/prisma.js';
 import {
-  applyMove, applyRoll, autoMovePawn, currentColor, eliminate, legalMoves,
+  activeColors, applyMove, applyRoll, autoMovePawn, botChooseMove, currentColor, eliminate, legalMoves,
   type Color, type GameEvent, type GameState
 } from '../game/engine.js';
 import { applyWalletOp } from '../modules/wallet/wallet.service.js';
@@ -19,12 +19,16 @@ interface LivePlayer {
   color: Color;
   avatarColor: string;
   level: number;
+  isBot: boolean;
 }
+
+/** Délai entre deux actions d'un robot : assez long pour que les joueurs suivent son coup. */
+export const BOT_DELAY_MS = Number(process.env.BOT_DELAY_MS ?? 900);
 
 interface LiveGame {
   id: string;
   roomId: string;
-  room: { name: string; code: string; stake: number; visibility: string; turnSeconds: number };
+  room: { name: string; code: string; stake: number; visibility: string; turnSeconds: number; isPractice: boolean };
   state: GameState;
   players: LivePlayer[];
   status: 'ACTIVE' | 'FINISHED' | 'ABORTED';
@@ -66,6 +70,11 @@ export class GameManager {
     return !!p && (live.state.out ?? []).includes(p.color);
   }
 
+  private humanStillPlaying(live: LiveGame) {
+    const active = activeColors(live.state);
+    return live.players.some((p) => !p.isBot && active.includes(p.color));
+  }
+
   setBroadcaster(bc: Broadcaster) {
     this.bc = bc;
   }
@@ -78,7 +87,7 @@ export class GameManager {
       where: { id: gameId },
       include: {
         room: true,
-        players: { include: { user: { select: { username: true, profile: { select: { avatarColor: true, xp: true } } } } } }
+        players: { include: { user: { select: { username: true, isBot: true, profile: { select: { avatarColor: true, xp: true } } } } } }
       }
     });
     if (!g) throw notFound('Partie introuvable');
@@ -86,7 +95,7 @@ export class GameManager {
     const live: LiveGame = {
       id: g.id,
       roomId: g.roomId,
-      room: { name: g.room.name, code: g.room.code, stake: g.room.stake, visibility: g.room.visibility, turnSeconds: g.room.turnSeconds },
+      room: { name: g.room.name, code: g.room.code, stake: g.room.stake, visibility: g.room.visibility, turnSeconds: g.room.turnSeconds, isPractice: g.room.isPractice },
       state,
       players: state.colors.map((c) => {
         const p = g.players.find((x) => x.color === c)!;
@@ -95,7 +104,8 @@ export class GameManager {
           username: p.user.username,
           color: c,
           avatarColor: p.user.profile?.avatarColor ?? '#2F6BFF',
-          level: Math.floor((p.user.profile?.xp ?? 0) / 1000) + 1
+          level: Math.floor((p.user.profile?.xp ?? 0) / 1000) + 1,
+          isBot: p.user.isBot
         };
       }),
       status: g.status,
@@ -114,7 +124,7 @@ export class GameManager {
     if (live.status === 'ACTIVE') {
       // Personne n'est encore connecté : chacun dispose du délai de reconnexion.
       for (const p of live.players) {
-        if (!this.bc.isOnline(gameId, p.userId) && !this.isOut(live, p.userId)) this.markOffline(live, p.userId);
+        if (!p.isBot && !this.bc.isOnline(gameId, p.userId) && !this.isOut(live, p.userId)) this.markOffline(live, p.userId);
       }
       this.scheduleTurn(live);
     }
@@ -140,7 +150,7 @@ export class GameManager {
       legalMoves: live.status === 'ACTIVE' ? legalMoves(live.state) : [],
       players: live.players.map((p) => ({
         ...p,
-        online: this.bc.isOnline(live.id, p.userId),
+        online: p.isBot || this.bc.isOnline(live.id, p.userId),
         eliminated: (live.state.out ?? []).includes(p.color),
         offlineUntil: live.offline.get(p.userId)?.until ?? null
       })),
@@ -209,6 +219,12 @@ export class GameManager {
       }
       const r = eliminate(live.state, loser.color);
       await this.commit(live, r.state, r.events, userId, reason === 'FORFEIT' ? 'FORFEIT' : 'ELIMINATE', reason);
+      if (live.status === 'ACTIVE' && !this.humanStillPlaying(live)) {
+        // Plus aucun humain en jeu (entraînement abandonné) : les robots ne jouent pas seuls.
+        await prisma.gamePlayer.update({ where: { gameId_userId: { gameId: live.id, userId } }, data: { result: 'LOSS' } });
+        await this.abortNow(live, reason);
+        return this.snapshot(live);
+      }
       if (live.status === 'ACTIVE') {
         // Résultat enregistré dès l'élimination : le joueur peut rejoindre une autre table sans attendre la fin.
         await prisma.gamePlayer.update({ where: { gameId_userId: { gameId: live.id, userId } }, data: { result: 'LOSS' } });
@@ -263,7 +279,9 @@ export class GameManager {
           where: { gameId_userId: { gameId: live.id, userId: p.userId } },
           data: { result: won ? 'WIN' : 'LOSS', payout: won ? pot : 0 }
         });
-        await tx.profile.update({ where: { userId: p.userId }, data: { xp: { increment: won ? WIN_XP : LOSS_XP } } });
+        if (!live.room.isPractice) {
+          await tx.profile.update({ where: { userId: p.userId }, data: { xp: { increment: won ? WIN_XP : LOSS_XP } } });
+        }
       }
       if (pot > 0) {
         await applyWalletOp(tx, {
@@ -293,7 +311,11 @@ export class GameManager {
   /** Abandon sans vainqueur (aucun joueur revenu, ou décision admin) : mises remboursées. */
   async abort(gameId: string, reason: GameEndReason, actorId?: string) {
     const live = await this.load(gameId);
-    return this.enqueue(live, async () => {
+    return this.enqueue(live, () => this.abortNow(live, reason, actorId));
+  }
+
+  /** Corps de l'annulation, à appeler depuis une action déjà placée dans la file de la partie. */
+  private async abortNow(live: LiveGame, reason: GameEndReason, actorId?: string) {
       if (live.status !== 'ACTIVE') return this.snapshot(live);
       await prisma.$transaction(async (tx) => {
         const r = await tx.game.updateMany({
@@ -324,7 +346,6 @@ export class GameManager {
       this.bc.emitLobby();
       this.evictLater(live);
       return this.snapshot(live);
-    });
   }
 
   // ---------- minuterie de tour ----------
@@ -336,12 +357,32 @@ export class GameManager {
       live.deadline = null;
       return;
     }
+    const turnPlayer = live.players.find((p) => p.color === currentColor(live.state));
+    if (turnPlayer?.isBot) {
+      live.deadline = null;
+      live.turnTimer = setTimeout(() => {
+        this.enqueue(live, () => this.botStep(live)).catch((e) => console.error('[bot]', live.id, e));
+      }, BOT_DELAY_MS);
+      live.turnTimer.unref();
+      return;
+    }
     const ms = live.room.turnSeconds * 1000;
     live.deadline = Date.now() + ms;
     live.turnTimer = setTimeout(() => {
       this.enqueue(live, () => this.autoPlay(live)).catch((e) => console.error('[autoplay]', live.id, e));
     }, ms);
     live.turnTimer.unref();
+  }
+
+  /** Une action de robot (lancer OU déplacement), validée par le moteur comme pour un humain. */
+  private async botStep(live: LiveGame) {
+    if (live.status !== 'ACTIVE' || live.offline.size > 0) return;
+    const player = live.players.find((p) => p.color === currentColor(live.state));
+    if (!player?.isBot) return;
+    const r = live.state.phase === 'roll'
+      ? applyRoll(live.state, this.rollDie())
+      : applyMove(live.state, botChooseMove(live.state)!);
+    await this.commit(live, r.state, r.events, player.userId, 'BOT');
   }
 
   /** Temps écoulé : le serveur joue à la place du joueur (lancer + pion le plus avancé). */
@@ -379,7 +420,7 @@ export class GameManager {
 
   private onGraceExpired(live: LiveGame, userId: string) {
     if (live.status !== 'ACTIVE' || !live.offline.has(userId)) return;
-    const othersOnline = live.players.some((p) => p.userId !== userId && !live.offline.has(p.userId) && !this.isOut(live, p.userId));
+    const othersOnline = live.players.some((p) => p.userId !== userId && !p.isBot && !live.offline.has(p.userId) && !this.isOut(live, p.userId));
     const job = othersOnline ? this.forfeit(live.id, userId, 'DISCONNECT') : this.abort(live.id, 'DISCONNECT');
     job.catch((e) => console.error('[grace]', live.id, e));
   }

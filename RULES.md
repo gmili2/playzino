@@ -32,6 +32,15 @@ par `server/src/game/engine.ts` et couvertes par `server/src/game/engine.test.ts
 - **Mises** : débitées en rejoignant la table, remboursées si on la quitte avant le début ; le vainqueur reçoit la somme
   des mises. XP : +250 victoire, +60 défaite.
 
+## Entraînement contre les robots
+
+- 1 à 3 robots (`POST /api/rooms/practice`), table privée sans mise ; la partie démarre immédiatement.
+- Les robots jouent côté serveur avec les mêmes règles (`botChooseMove` : arriver au centre > capturer > sortir
+  un pion > se mettre à l'abri > avancer, en évitant de finir à portée d'un pion adverse), une action toutes les ~0,9 s.
+- Aucune mise, aucun gain, aucune XP ; ces parties ne comptent ni dans les statistiques ni dans le classement.
+- Si le joueur quitte : à un contre un le robot gagne ; contre plusieurs robots la partie est annulée.
+- Les comptes robots (`User.isBot`) ne peuvent pas se connecter et n'apparaissent pas dans l'administration.
+
 ## Différences avec le Parchís officiel (4 joueurs, 2 dés)
 
 Un seul dé (comme le design), piste réduite à 55 cases avant le couloir pour correspondre au plateau.

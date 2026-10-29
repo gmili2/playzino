@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  absSquare, activeColors, applyMove, applyRoll, autoMovePawn, createGame, currentColor, eliminate, GameState, GOAL,
+  absSquare, activeColors, applyMove, applyRoll, autoMovePawn, botChooseMove, createGame, currentColor, eliminate, GameState, GOAL,
   legalMoves, NEST, RuleError, START, turnOrder
 } from './engine.js';
 
@@ -322,5 +322,43 @@ describe('3 et 4 joueurs', () => {
         expect(s.pawns[s.winner!].every((p) => p === GOAL)).toBe(true);
       }
     }
+  });
+});
+
+describe('robot', () => {
+  const rel = (color: 'blue' | 'yellow', abs: number) => (abs - START[color] + 68) % 68;
+
+  it('préfère arriver au centre', () => {
+    const s = applyRoll(setup({ blue: [60, 10, NEST, NEST] }), 3).state;
+    expect(botChooseMove(s)).toBe(0);
+  });
+
+  it('préfère capturer un pion adverse', () => {
+    const victim = rel('yellow', absSquare('blue', 13));
+    const s = applyRoll(setup({ blue: [10, 30, NEST, NEST], yellow: [victim, NEST, NEST, NEST] }), 3).state;
+    expect(botChooseMove(s)).toBe(0);
+  });
+
+  it('évite de s’arrêter juste devant un pion adverse', () => {
+    // Pion 0 : 40 → 42 (abs 29), avec un jaune 3 cases derrière (abs 26) ; pion 1 : 30 → 32 (abs 19), sans danger.
+    const chaser = rel('yellow', 26);
+    const s = applyRoll(setup({ blue: [40, 30, NEST, NEST], yellow: [chaser, NEST, NEST, NEST] }), 2).state;
+    expect(botChooseMove(s)).toBe(1);
+  });
+
+  it('ne renvoie que des coups légaux, jusqu’à la fin d’une partie entre robots', () => {
+    let x = 4242;
+    const rnd = () => ((x = (x * 1103515245 + 12345) % 2147483648) % 6) + 1;
+    let s = createGame(turnOrder(['blue', 'yellow', 'red', 'green']));
+    let n = 0;
+    while (s.phase !== 'finished' && n++ < 40000) {
+      if (s.phase === 'roll') s = applyRoll(s, rnd()).state;
+      else {
+        const pawn = botChooseMove(s);
+        expect(legalMoves(s).some((m) => m.pawn === pawn)).toBe(true);
+        s = applyMove(s, pawn!).state;
+      }
+    }
+    expect(s.phase).toBe('finished');
   });
 });
