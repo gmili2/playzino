@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { api, ApiError, errorText } from './api';
 import { useAuth } from './auth';
 import { getSocket } from './socket';
-import type { Room } from './types';
+import type { GameType, Room } from './types';
 
 /** Liste des tables publiques, rafraîchie en temps réel (Socket.IO) ou par sondage pour les visiteurs. */
 export function useLobby(filter: { status?: string; q?: string } = {}) {
@@ -74,10 +74,10 @@ export function useRoomActions() {
     busy,
     error,
     setError,
-    quick: (stake = 0, maxPlayers = 2) => run(() => api.post('/api/rooms/quick', { stake, maxPlayers })),
+    quick: (stake = 0, maxPlayers = 2, gameType: GameType = 'PARCHEESI') => run(() => api.post('/api/rooms/quick', { stake, maxPlayers, gameType })),
     join: (id: string) => run(() => api.post(`/api/rooms/${id}/join`)),
-    practice: (bots = 1) => run(() => api.post('/api/rooms/practice', { bots })),
+    practice: (bots = 1, gameType: GameType = 'PARCHEESI') => run(() => api.post('/api/rooms/practice', { bots, gameType })),
     joinCode: (code: string) => run(() => api.post('/api/rooms/join-code', { code: code.trim().toUpperCase() })),
-    create: (body: { name: string; visibility: 'PUBLIC' | 'PRIVATE'; stake: number; turnSeconds: number; maxPlayers: number }) => run(() => api.post('/api/rooms', body))
+    create: (body: { name: string; gameType: GameType; visibility: 'PUBLIC' | 'PRIVATE'; stake: number; turnSeconds: number; maxPlayers: number }) => run(() => api.post('/api/rooms', body))
   };
 }

@@ -1,4 +1,4 @@
-import { COLOR_HEX } from '../lib/format';
+import { COLOR_HEX, GAME_LABEL } from '../lib/format';
 import type { Room } from '../lib/types';
 import { Credits, StatusChip } from './ui';
 
@@ -30,6 +30,7 @@ export function RoomCard({ room, onJoin, busy, mine }: { room: Room; onJoin: () 
       <div style={{ padding: '14px 16px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           <span style={{ fontWeight: 800, fontSize: 16 }}>{room.name}</span>
+          <span style={{ fontSize: 12, fontWeight: 700, color: room.gameType === 'CONNECT4' ? '#93B4FF' : '#FFC83D' }}>{GAME_LABEL[room.gameType]}</span>
           <span style={{ fontSize: 12, color: '#A6A8D6' }}><span dir="ltr">{room.code ?? ''}</span> · المضيف {host}</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>

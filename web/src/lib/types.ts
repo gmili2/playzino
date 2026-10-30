@@ -1,4 +1,5 @@
 export type Color = 'red' | 'yellow' | 'green' | 'blue';
+export type GameType = 'PARCHEESI' | 'CONNECT4';
 
 export interface Me {
   id: string;
@@ -18,7 +19,7 @@ export interface Me {
     invitesEnabled: boolean;
     hideOnline: boolean;
   };
-  stats: { played: number; wins: number; losses: number; winRate: number };
+  stats: { played: number; wins: number; losses: number; draws?: number; winRate: number };
 }
 
 export interface RoomPlayer {
@@ -35,6 +36,7 @@ export interface Room {
   id: string;
   code: string | null;
   name: string;
+  gameType: GameType;
   visibility: 'PUBLIC' | 'PRIVATE';
   status: 'WAITING' | 'PLAYING' | 'FINISHED' | 'CANCELLED';
   maxPlayers: number;
@@ -67,26 +69,35 @@ export type GameEvent =
   | { type: 'extra_turn'; color: Color }
   | { type: 'turn'; color: Color }
   | { type: 'eliminated'; color: Color }
-  | { type: 'win'; color: Color };
+  | { type: 'win'; color: Color }
+  | { type: 'drop'; color: Color; column: number; row: number }
+  | { type: 'draw' };
 
 export interface GameSnapshot {
   gameId: string;
   roomId: string;
+  gameType: GameType;
   room: { name: string; code: string; stake: number; visibility: string; turnSeconds: number; isPractice?: boolean };
   status: 'ACTIVE' | 'FINISHED' | 'ABORTED';
   state: {
     colors: Color[];
     turn: number;
-    phase: 'roll' | 'move' | 'bonus' | 'finished';
-    die: number | null;
-    moveValue: number | null;
-    pawns: Record<string, number[]>;
+    phase: 'roll' | 'move' | 'bonus' | 'play' | 'finished';
     winner: Color | null;
     out?: Color[];
     seq: number;
+    // Parchís
+    die?: number | null;
+    moveValue?: number | null;
+    pawns?: Record<string, number[]>;
+    // Puissance 4 (grille 6 × 7, ligne 0 en haut)
+    board?: (Color | null)[];
+    draw?: boolean;
+    winLine?: number[] | null;
+    last?: number | null;
   };
   turnColor: Color | null;
-  legalMoves: Move[];
+  legalMoves: (Move | { column: number })[];
   players: (RoomPlayer & { online: boolean; offlineUntil: number | null; eliminated?: boolean })[];
   deadline: number | null;
   paused: boolean;

@@ -1,14 +1,17 @@
 import { randomInt } from 'node:crypto';
-import { Prisma, type Room, type RoomVisibility } from '@prisma/client';
+import { Prisma, type GameType, type Room, type RoomVisibility } from '@prisma/client';
 import { audit } from '../../lib/audit.js';
 import { AppError, conflict, forbidden, notFound } from '../../lib/errors.js';
 import { prisma, type Tx } from '../../lib/prisma.js';
-import { createGame, turnOrder, type Color } from '../../game/engine.js';
+import type { Color } from '../../game/engine.js';
+import { GAME_RULES } from '../../game/rules.js';
 import { applyWalletOp } from '../wallet/wallet.service.js';
 import { ensureBots } from './bots.service.js';
 
-/** Couleurs par siège : les deux premiers joueurs occupent des coins opposés du plateau. */
-export const SEAT_COLORS: Color[] = ['blue', 'yellow', 'red', 'green'];
+/** Couleur d'un siège selon le jeu (Parchís : les deux premiers joueurs occupent des coins opposés). */
+const seatColor = (gameType: GameType, seat: number): Color => GAME_RULES[gameType].seatColors[seat];
+/** Nombre de joueurs ramené à ce que le jeu permet (Puissance 4 : toujours 2). */
+const playersFor = (gameType: GameType, n: number) => Math.min(GAME_RULES[gameType].maxPlayers, Math.max(GAME_RULES[gameType].minPlayers, n));
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
 export const roomInclude = {
@@ -28,6 +31,7 @@ export function serializeRoom(r: RoomWithPlayers, viewerId?: string) {
     // Le code d'une table privée n'est révélé qu'à ses membres.
     code: r.visibility === 'PUBLIC' || isMember ? r.code : null,
     name: r.name,
+    gameType: r.gameType,
     visibility: r.visibility,
     status: r.status,
     maxPlayers: r.maxPlayers,
@@ -91,6 +95,7 @@ export interface CreateRoomInput {
   stake: number;
   turnSeconds: number;
   maxPlayers: number;
+  gameType: GameType;
 }
 
 export async function createRoom(userId: string, input: CreateRoomInput, ip?: string) {
@@ -99,9 +104,9 @@ export async function createRoom(userId: string, input: CreateRoomInput, ip?: st
       const id = await prisma.$transaction(async (tx) => {
         await assertNotSeated(tx, userId);
         const room = await tx.room.create({
-          data: { ...input, code: newCode(), hostId: userId }
+          data: { ...input, maxPlayers: playersFor(input.gameType, input.maxPlayers), code: newCode(), hostId: userId }
         });
-        await tx.roomPlayer.create({ data: { roomId: room.id, userId, seat: 0, color: SEAT_COLORS[0] } });
+        await tx.roomPlayer.create({ data: { roomId: room.id, userId, seat: 0, color: seatColor(room.gameType, 0) } });
         await debitStake(tx, room, userId);
         await audit({ actorId: userId, action: 'room.create', targetType: 'room', targetId: room.id, details: { ...input }, ip }, tx);
         return room.id;
@@ -132,7 +137,7 @@ export async function joinRoom(userId: string, roomId: string, ip?: string): Pro
 
     const taken = new Set(room.players.map((p) => p.seat));
     const seat = Array.from({ length: room.maxPlayers }, (_, i) => i).find((s) => !taken.has(s))!;
-    await tx.roomPlayer.create({ data: { roomId, userId, seat, color: SEAT_COLORS[seat] } });
+    await tx.roomPlayer.create({ data: { roomId, userId, seat, color: seatColor(room.gameType, seat) } });
     await debitStake(tx, room, userId);
     await audit({ actorId: userId, action: 'room.join', targetType: 'room', targetId: roomId, ip }, tx);
 
@@ -145,8 +150,9 @@ export async function joinRoom(userId: string, roomId: string, ip?: string): Pro
 /** Table complète : création de la partie et de son état initial dans la même transaction. */
 async function startGame(tx: Tx, roomId: string) {
   const players = await tx.roomPlayer.findMany({ where: { roomId }, orderBy: { seat: 'asc' } });
-  const state = createGame(turnOrder(players.map((p) => p.color as Color)));
-  state.turn = randomInt(players.length); // tirage au sort du premier joueur
+  const { gameType } = await tx.room.findUniqueOrThrow({ where: { id: roomId }, select: { gameType: true } });
+  // Tirage au sort du premier joueur.
+  const state = GAME_RULES[gameType].create(players.map((p) => p.color as Color), randomInt(players.length));
   await tx.room.update({ where: { id: roomId }, data: { status: 'PLAYING' } });
   const game = await tx.game.create({
     data: {
@@ -160,23 +166,24 @@ async function startGame(tx: Tx, roomId: string) {
 }
 
 /**
- * Entraînement contre 1 à 3 robots : table privée sans mise, la partie démarre immédiatement.
+ * Entraînement contre 1 à 3 robots (1 au Puissance 4) : table privée sans mise, la partie démarre immédiatement.
  * Hors classement et sans XP (voir gameManager.finish et stats).
  */
-export async function createPracticeRoom(userId: string, bots: number, turnSeconds: number, ip?: string) {
+export async function createPracticeRoom(userId: string, bots: number, turnSeconds: number, gameType: GameType = 'PARCHEESI', ip?: string) {
+  bots = playersFor(gameType, bots + 1) - 1;
   const botIds = await ensureBots(bots);
   for (let attempt = 0; attempt < 5; attempt++) {
     try {
       const result = await prisma.$transaction(async (tx) => {
         await assertNotSeated(tx, userId);
         const room = await tx.room.create({
-          data: { name: 'تدريب ضد الروبوت', visibility: 'PRIVATE', stake: 0, turnSeconds, maxPlayers: bots + 1, isPractice: true, code: newCode(), hostId: userId }
+          data: { name: 'تدريب ضد الروبوت', gameType, visibility: 'PRIVATE', stake: 0, turnSeconds, maxPlayers: bots + 1, isPractice: true, code: newCode(), hostId: userId }
         });
-        await tx.roomPlayer.create({ data: { roomId: room.id, userId, seat: 0, color: SEAT_COLORS[0] } });
+        await tx.roomPlayer.create({ data: { roomId: room.id, userId, seat: 0, color: seatColor(gameType, 0) } });
         for (let i = 0; i < botIds.length; i++) {
-          await tx.roomPlayer.create({ data: { roomId: room.id, userId: botIds[i], seat: i + 1, color: SEAT_COLORS[i + 1] } });
+          await tx.roomPlayer.create({ data: { roomId: room.id, userId: botIds[i], seat: i + 1, color: seatColor(gameType, i + 1) } });
         }
-        await audit({ actorId: userId, action: 'room.practice', targetType: 'room', targetId: room.id, details: { bots }, ip }, tx);
+        await audit({ actorId: userId, action: 'room.practice', targetType: 'room', targetId: room.id, details: { bots, gameType }, ip }, tx);
         return { roomId: room.id, gameId: await startGame(tx, room.id) };
       });
       return { room: await getRoomFor(result.roomId, userId), startedGameId: result.gameId };
@@ -194,10 +201,11 @@ export async function joinByCode(userId: string, code: string, ip?: string) {
   return joinRoom(userId, room.id, ip);
 }
 
-/** Partie rapide : rejoint la plus ancienne table publique ouverte à cette mise, sinon en crée une. */
-export async function quickJoin(userId: string, stake: number, maxPlayers: number, ip?: string): Promise<JoinResult> {
+/** Partie rapide : rejoint la plus ancienne table publique ouverte à ce jeu et cette mise, sinon en crée une. */
+export async function quickJoin(userId: string, stake: number, maxPlayers: number, gameType: GameType = 'PARCHEESI', ip?: string): Promise<JoinResult> {
+  maxPlayers = playersFor(gameType, maxPlayers);
   const candidates = await prisma.room.findMany({
-    where: { visibility: 'PUBLIC', status: 'WAITING', stake, maxPlayers, players: { none: { userId } } },
+    where: { visibility: 'PUBLIC', status: 'WAITING', gameType, stake, maxPlayers, players: { none: { userId } } },
     orderBy: { createdAt: 'asc' },
     take: 5,
     select: { id: true }
@@ -212,7 +220,7 @@ export async function quickJoin(userId: string, stake: number, maxPlayers: numbe
     }
   }
   const user = await prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { username: true } });
-  const room = await createRoom(userId, { name: `Table de ${user.username}`, visibility: 'PUBLIC', stake, turnSeconds: 30, maxPlayers }, ip);
+  const room = await createRoom(userId, { name: `Table de ${user.username}`, gameType, visibility: 'PUBLIC', stake, turnSeconds: 30, maxPlayers }, ip);
   return { room, startedGameId: null };
 }
 

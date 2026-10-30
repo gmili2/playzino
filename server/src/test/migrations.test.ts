@@ -10,7 +10,7 @@ describe('migrations MariaDB', () => {
       SELECT TABLE_NAME, ENGINE FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE()`;
     const names = rows.map((r) => r.TABLE_NAME);
     expect(names).toEqual(expect.arrayContaining([
-      'User', 'Profile', 'Wallet', 'WalletTransaction', 'Room', 'RoomPlayer', 'Game', 'GamePlayer', 'GameMove', 'AuditLog'
+      'User', 'Profile', 'Wallet', 'WalletTransaction', 'Room', 'RoomPlayer', 'Game', 'GamePlayer', 'GameMove', 'AuditLog', 'Setting'
     ]));
     expect(rows.every((r) => r.ENGINE === 'InnoDB')).toBe(true);
   });

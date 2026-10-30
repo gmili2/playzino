@@ -3,6 +3,7 @@ export const signed = (n: number) => (n > 0 ? '+' : '') + fmt(n);
 export const initials = (name: string) => name.replace(/[^A-Za-z0-9]/g, '').slice(0, 2).toUpperCase() || '؟';
 
 export const COLOR_NAME: Record<string, string> = { blue: 'أزرق', yellow: 'أصفر', red: 'أحمر', green: 'أخضر' };
+export const GAME_LABEL: Record<string, string> = { PARCHEESI: 'بارتشيزي', CONNECT4: 'أربعة على التوالي' };
 export const COLOR_HEX: Record<string, string> = { blue: '#2F6BFF', yellow: '#F5C21B', red: '#E5484D', green: '#1FB57A' };
 
 const dateFmt = new Intl.DateTimeFormat('ar', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit', hour12: false, numberingSystem: 'latn' });

@@ -5,14 +5,14 @@ import { IconCrown } from '../components/Icons';
 import { Avatar, Coin, Empty } from '../components/ui';
 import { api, errorText, fieldErrors } from '../lib/api';
 import { useAuth } from '../lib/auth';
-import { COLOR_HEX, COLOR_NAME, fmt, fmtDate, fmtMonth, signed, TX_LABEL } from '../lib/format';
+import { COLOR_HEX, COLOR_NAME, fmt, fmtDate, fmtMonth, signed, TX_LABEL, GAME_LABEL } from '../lib/format';
 import type { Me } from '../lib/types';
 
 interface HistoryItem {
   gameId: string;
-  room: { name: string; code: string; stake: number; isPractice?: boolean };
+  room: { name: string; code: string; stake: number; isPractice?: boolean; gameType?: string };
   color: string;
-  result: 'WIN' | 'LOSS' | null;
+  result: 'WIN' | 'LOSS' | 'DRAW' | null;
   payout: number;
   status: string;
   endReason: string | null;
@@ -112,15 +112,16 @@ export function ProfilePage() {
                       {history.map((h) => (
                         <tr key={h.gameId} className="pb-row">
                           <td>{fmtDate(h.endedAt ?? h.startedAt)}</td>
-                          <td style={{ fontWeight: 800 }}>{h.room.name}{h.room.isPractice && <span className="badge" style={{ marginInlineStart: 8, background: 'rgba(34,197,94,0.14)', color: '#4ADE80' }}>تدريب</span>}</td>
+                          <td style={{ fontWeight: 800 }}>{h.room.name}{h.room.gameType === 'CONNECT4' && <span className="badge" style={{ marginInlineStart: 8, background: 'rgba(47,107,255,0.2)', color: '#93B4FF' }}>{GAME_LABEL.CONNECT4}</span>}{h.room.isPractice && <span className="badge" style={{ marginInlineStart: 8, background: 'rgba(34,197,94,0.14)', color: '#4ADE80' }}>تدريب</span>}</td>
                           <td>{h.opponents.join('، ')}</td>
                           <td><span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><span style={{ width: 10, height: 10, borderRadius: '50%', background: COLOR_HEX[h.color] }} />{COLOR_NAME[h.color]}</span></td>
                           <td>
                             {h.status === 'ABORTED' ? <span className="badge" style={{ background: 'rgba(140,130,255,0.14)', color: '#B4B6E4' }}>ملغاة</span>
                               : h.result === 'WIN' ? <span className="badge" style={{ background: 'rgba(34,197,94,0.14)', color: '#4ADE80' }}>فوز</span>
+                              : h.result === 'DRAW' ? <span className="badge" style={{ background: 'rgba(34,211,238,0.14)', color: '#22D3EE' }}>تعادل</span>
                               : <span className="badge" style={{ background: 'rgba(244,63,94,0.14)', color: '#FB7185' }}>خسارة</span>}
                           </td>
-                          <td dir="ltr" style={{ fontWeight: 800, color: h.payout ? '#FFC83D' : '#A6A8D6', textAlign: 'end' }}>{h.payout ? '+' + fmt(h.payout) : h.room.stake ? '-' + fmt(h.room.stake) : '0'}</td>
+                          <td dir="ltr" style={{ fontWeight: 800, color: h.payout ? '#FFC83D' : '#A6A8D6', textAlign: 'end' }}>{h.result === 'DRAW' ? '0' : h.payout ? '+' + fmt(h.payout) : h.room.stake ? '-' + fmt(h.room.stake) : '0'}</td>
                         </tr>
                       ))}
                     </tbody>

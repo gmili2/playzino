@@ -44,3 +44,19 @@ par `server/src/game/engine.ts` et couvertes par `server/src/game/engine.test.ts
 ## Différences avec le Parchís officiel (4 joueurs, 2 dés)
 
 Un seul dé (comme le design), piste réduite à 55 cases avant le couloir pour correspondre au plateau.
+
+---
+
+# Règles — Puissance 4 (« أربعة على التوالي »)
+
+Appliquées côté serveur par `server/src/game/connect4.ts`, couvertes par `server/src/game/connect4.test.ts`.
+
+| # | Règle | Référence moteur |
+|---|-------|------------------|
+| 1 | Deux joueurs, rouge et jaune ; le premier joueur est tiré au sort. Grille de 7 colonnes × 6 lignes. | `createConnect4`, `rooms.service#startGame` |
+| 2 | À son tour, le joueur choisit une colonne non pleine ; le jeton tombe sur la case libre la plus basse. | `c4Drop`, `c4LegalMoves` |
+| 3 | **Victoire** : 4 jetons alignés ou plus (horizontal, vertical, diagonal). Le gagnant reçoit le pot. | `c4Drop` |
+| 4 | **Match nul** : grille pleine sans alignement ; chaque joueur récupère sa mise, résultat `DRAW`. | `c4Drop`, `gameManager#finish` |
+| 5 | **Abandon / déconnexion prolongée** : l'adversaire gagne. | `c4Eliminate` |
+| 6 | **Temps écoulé** : le serveur joue un coup prudent (gagner, sinon bloquer, sinon le centre). | `GAME_RULES.CONNECT4.auto` |
+| 7 | **Robot** (niveau réglé dans l'admin) : bas = colonne au hasard ; moyen = gagne/bloque et évite d'offrir la victoire ; haut = recherche négamax à 6 demi-coups. | `c4BotColumn` |

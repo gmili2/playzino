@@ -12,8 +12,9 @@ export async function userStats(userId: string) {
   });
   const wins = grouped.find((g) => g.result === 'WIN')?._count._all ?? 0;
   const losses = grouped.find((g) => g.result === 'LOSS')?._count._all ?? 0;
-  const played = wins + losses;
-  return { played, wins, losses, winRate: played ? Math.round((wins / played) * 1000) / 10 : 0 };
+  const draws = grouped.find((g) => g.result === 'DRAW')?._count._all ?? 0;
+  const played = wins + losses + draws;
+  return { played, wins, losses, draws, winRate: played ? Math.round((wins / played) * 1000) / 10 : 0 };
 }
 
 /** Niveau dérivé de l'XP : 1 000 XP par niveau. */
@@ -95,7 +96,7 @@ export async function gameHistory(userId: string, take = 20) {
     include: {
       game: {
         include: {
-          room: { select: { name: true, code: true, stake: true, isPractice: true } },
+          room: { select: { name: true, code: true, stake: true, isPractice: true, gameType: true } },
           players: { include: { user: { select: { username: true } } } }
         }
       }

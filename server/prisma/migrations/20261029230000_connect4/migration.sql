@@ -1,0 +1,5 @@
+-- AlterTable
+ALTER TABLE `Room` ADD COLUMN `gameType` ENUM('PARCHEESI', 'CONNECT4') NOT NULL DEFAULT 'PARCHEESI';
+
+-- AlterTable
+ALTER TABLE `GamePlayer` MODIFY `result` ENUM('WIN', 'LOSS', 'DRAW') NULL;

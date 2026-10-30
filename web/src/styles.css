@@ -125,7 +125,10 @@ select.pb-input{appearance:auto}
 @media (max-width:900px){.pb-hide-md{display:none !important}}
 @media (max-width:760px){.pb-hide-sm{display:none !important}}
 @media (min-width:901px){.pb-show-md{display:none !important}}
-@media (prefers-reduced-motion:reduce){.pc-rolling,.pc-pulse,.pb-spin,.pc-toast{animation:none}}
+/* Puissance 4 : chute du dernier jeton joué (hauteur passée par --c4-from) */
+@keyframes c4-drop{0%{transform:translateY(var(--c4-from))}70%{transform:translateY(0)}82%{transform:translateY(-9%)}100%{transform:translateY(0)}}
+.c4-drop{animation:c4-drop .45s cubic-bezier(.55,0,1,.45)}
+@media (prefers-reduced-motion:reduce){.pc-rolling,.pc-pulse,.pb-spin,.pc-toast,.c4-drop{animation:none}}
 
 /* ===== Page d'accueil visiteurs — « nuit orientale » ===== */
 .ld{--ld-bg:#0B0718;--ld-plum:#1C1033;--ld-gold:#FFC83D;--ld-gold-2:#FFE08A;--ld-gold-3:#B87400;background:var(--ld-bg);color:#F6F1FF;overflow-x:hidden}

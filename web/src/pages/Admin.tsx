@@ -4,16 +4,16 @@ import { IconActivity, IconArrowDown, IconArrowUp, IconClock, IconCoins, IconGri
 import { Avatar, Coin, Empty, StatusChip } from '../components/ui';
 import { api, errorText } from '../lib/api';
 import { useAuth } from '../lib/auth';
-import { fmt, fmtDate, signed, TX_LABEL } from '../lib/format';
+import { fmt, fmtDate, GAME_LABEL, signed, TX_LABEL } from '../lib/format';
 
 interface Overview { users: number; newUsersWeek: number; online: number; gamesToday: number; activeGames: number; creditsInCirculation: number; suspended: number; privateOpen: number; abandonsToday: number }
 interface AdminUser { id: string; username: string; email: string; role: string; status: 'ACTIVE' | 'SUSPENDED'; suspendedReason: string | null; balance: number; level: number; avatarColor: string; games: number; createdAt: string }
-interface AdminGame { id: string; room: { name: string; code: string; stake: number }; status: string; endReason: string | null; players: { username: string; color: string; result: string | null }[]; winner: string | null; moves: number; startedAt: string; endedAt: string | null }
+interface AdminGame { id: string; room: { name: string; code: string; stake: number; gameType?: string }; status: string; endReason: string | null; players: { username: string; color: string; result: string | null }[]; winner: string | null; moves: number; startedAt: string; endedAt: string | null }
 interface AdminTx { id: string; type: string; amount: number; reason: string; username: string; actor: string | null; createdAt: string }
 interface Audit { id: string; action: string; actor: string | null; targetType: string; targetId: string | null; details: Record<string, unknown> | null; createdAt: string }
 
 const ACTION_LABEL: Record<string, string> = {
-  'admin.user_suspend': 'إيقاف حساب', 'admin.user_reactivate': 'إعادة تفعيل', 'admin.credit_adjust': 'تعديل رصيد', 'admin.game_abort_request': 'إلغاء مباراة',
+  'admin.user_suspend': 'إيقاف حساب', 'admin.user_reactivate': 'إعادة تفعيل', 'admin.credit_adjust': 'تعديل رصيد', 'admin.game_abort_request': 'إلغاء مباراة', 'admin.bot_level': 'مستوى الروبوت',
   'game.finish': 'نهاية مباراة', 'game.abort': 'إلغاء مباراة', 'auth.register': 'تسجيل', 'auth.login': 'دخول', 'auth.login_failed': 'دخول فاشل', 'auth.logout': 'خروج',
   'room.create': 'إنشاء طاولة', 'room.join': 'انضمام', 'room.leave': 'مغادرة', 'user.update_profile': 'تعديل الملف', 'user.change_password': 'تغيير كلمة المرور'
 };
@@ -178,7 +178,7 @@ export function AdminPage() {
                     <tbody>
                       {games.map((g) => (
                         <tr key={g.id} className="pb-row">
-                          <td><div style={{ fontWeight: 800 }}>{g.room.name}</div><div dir="ltr" style={{ fontSize: 12, color: '#A6A8D6', textAlign: 'end' }}>{g.room.code}{g.room.stake ? ` · ${g.room.stake}` : ''}</div></td>
+                          <td><div style={{ fontWeight: 800 }}>{g.room.name}{g.room.gameType && <span style={{ marginInlineStart: 6, fontSize: 11, color: g.room.gameType === 'CONNECT4' ? '#93B4FF' : '#FFC83D' }}>· {GAME_LABEL[g.room.gameType]}</span>}</div><div dir="ltr" style={{ fontSize: 12, color: '#A6A8D6', textAlign: 'end' }}>{g.room.code}{g.room.stake ? ` · ${g.room.stake}` : ''}</div></td>
                           <td>{g.players.map((p) => p.username).join('، ')}</td>
                           <td>{g.winner ?? '—'}</td>
                           <td>{g.moves}</td>
@@ -215,6 +215,7 @@ export function AdminPage() {
           </div>
 
           <div style={{ flex: '1 1 320px', maxWidth: 420, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 24 }}>
+            <BotLevelControl onDone={load} />
             <CreditControl users={users} onDone={async () => { await load(); await refresh(); }} />
             <section className="panel">
               <h2 className="panel-title"><IconClock size={22} />سجل النشاطات</h2>
@@ -226,6 +227,7 @@ export function AdminPage() {
                       {ACTION_LABEL[a.action] ?? a.action}
                       {a.details && 'reason' in a.details ? ` — ${String(a.details.reason)}` : ''}
                       {a.details && 'amount' in a.details && a.action === 'admin.credit_adjust' ? ` (${signed(Number(a.details.amount))})` : ''}
+                      {a.details && a.action === 'admin.bot_level' ? ` : ${BOT_LEVEL_LABEL[String(a.details.to)] ?? String(a.details.to)}` : ''}
                     </span>
                   </li>
                 ))}
@@ -236,6 +238,53 @@ export function AdminPage() {
       </div>
       {dialog && <ReasonDialog title={dialog.title} confirm={dialog.confirm} danger={dialog.danger} onCancel={() => setDialog(null)} onConfirm={dialog.run} />}
     </>
+  );
+}
+
+const BOT_LEVEL_LABEL: Record<string, string> = { LOW: 'سهل', MEDIUM: 'متوسط', HIGH: 'صعب' };
+const BOT_LEVEL_HINT: Record<string, string> = {
+  LOW: 'يلعب حركة عشوائية: مناسب للمبتدئين.',
+  MEDIUM: 'يُدخل البيادق ويأسر ويتقدّم، دون حساب الخطر.',
+  HIGH: 'يحتمي في الخانات الآمنة ويتجنّب الوقوف أمام الخصم.'
+};
+
+/** Niveau de jeu des robots d'entraînement, appliqué dès leur prochain coup. */
+function BotLevelControl({ onDone }: { onDone: () => void }) {
+  const [level, setLevel] = useState<string | null>(null);
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    api.get<{ level: string }>('/api/admin/settings/bot-level').then((r) => setLevel(r.level), (e) => setMsg({ ok: false, text: errorText(e) }));
+  }, []);
+
+  const choose = async (next: string) => {
+    if (next === level || busy) return;
+    setBusy(true);
+    setMsg(null);
+    try {
+      const r = await api.patch<{ level: string }>('/api/admin/settings/bot-level', { level: next });
+      setLevel(r.level);
+      setMsg({ ok: true, text: `تم: مستوى الروبوت الآن ${BOT_LEVEL_LABEL[r.level]}` });
+      onDone();
+    } catch (e) {
+      setMsg({ ok: false, text: errorText(e) });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <section className="panel" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <h2 className="panel-title"><IconActivity size={22} style={{ color: '#22D3EE' }} />مستوى الروبوت</h2>
+      <div className="seg" data-testid="bot-level">
+        {['LOW', 'MEDIUM', 'HIGH'].map((k) => (
+          <button key={k} type="button" aria-pressed={level === k} disabled={busy || !level} onClick={() => choose(k)}>{BOT_LEVEL_LABEL[k]}</button>
+        ))}
+      </div>
+      {level && <span className="hint">{BOT_LEVEL_HINT[level]} يُطبَّق على مباريات التدريب، بما فيها الجارية، من الحركة التالية.</span>}
+      {msg && <div role="status" className={'alert ' + (msg.ok ? 'alert-ok' : 'alert-error')}>{msg.text}</div>}
+    </section>
   );
 }
 

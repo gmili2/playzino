@@ -30,13 +30,15 @@ roomsRouter.get('/:id', requireAuth, async (req, res) => {
 });
 
 const playersSchema = z.coerce.number().int().min(2, '2 à 4 joueurs').max(4, '2 à 4 joueurs').default(2);
+const gameTypeSchema = z.enum(['PARCHEESI', 'CONNECT4']).default('PARCHEESI');
 
 const createSchema = z.object({
   name: z.string().trim().min(3, '3 caractères minimum').max(40),
   visibility: z.enum(['PUBLIC', 'PRIVATE']),
   stake: stakeSchema.default(0),
   turnSeconds: z.coerce.number().int().refine((v) => (TURN_SECONDS as readonly number[]).includes(v)).default(30),
-  maxPlayers: playersSchema
+  maxPlayers: playersSchema,
+  gameType: gameTypeSchema
 });
 
 roomsRouter.post('/', requireAuth, async (req, res) => {
@@ -61,16 +63,17 @@ roomsRouter.post('/practice', requireAuth, async (req, res) => {
   const body = parse(
     z.object({
       bots: z.coerce.number().int().min(1, '1 à 3 robots').max(3, '1 à 3 robots').default(1),
-      turnSeconds: z.coerce.number().int().refine((v) => (TURN_SECONDS as readonly number[]).includes(v)).default(30)
+      turnSeconds: z.coerce.number().int().refine((v) => (TURN_SECONDS as readonly number[]).includes(v)).default(30),
+      gameType: gameTypeSchema
     }),
     req.body ?? {}
   );
-  res.status(201).json(await afterJoin(await createPracticeRoom(req.user!.id, body.bots, body.turnSeconds, req.ip)));
+  res.status(201).json(await afterJoin(await createPracticeRoom(req.user!.id, body.bots, body.turnSeconds, body.gameType, req.ip)));
 });
 
 roomsRouter.post('/quick', requireAuth, async (req, res) => {
-  const { stake, maxPlayers } = parse(z.object({ stake: stakeSchema.default(0), maxPlayers: playersSchema }), req.body ?? {});
-  res.json(await afterJoin(await quickJoin(req.user!.id, stake, maxPlayers, req.ip)));
+  const { stake, maxPlayers, gameType } = parse(z.object({ stake: stakeSchema.default(0), maxPlayers: playersSchema, gameType: gameTypeSchema }), req.body ?? {});
+  res.json(await afterJoin(await quickJoin(req.user!.id, stake, maxPlayers, gameType, req.ip)));
 });
 
 roomsRouter.post('/join-code', requireAuth, async (req, res) => {

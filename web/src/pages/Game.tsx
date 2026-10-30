@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Board, type BoardPawn, type BoardTarget } from '../components/Board';
+import { Connect4Board } from '../components/Connect4Board';
 import { IconArrowBack, IconDice, IconLogout, IconMute, IconVolume, IconWifiOff } from '../components/Icons';
 import { Avatar, Die, Loading, Spinner } from '../components/ui';
 import { api, errorText } from '../lib/api';
@@ -8,7 +9,7 @@ import { useAuth } from '../lib/auth';
 import { COLOR_HEX, COLOR_NAME, fmt } from '../lib/format';
 import { useRoomActions } from '../lib/hooks';
 import { emitAck, getSocket } from '../lib/socket';
-import type { Color, GameEvent, GameSnapshot, Room } from '../lib/types';
+import type { Color, GameEvent, GameSnapshot, Move, Room } from '../lib/types';
 
 const WIN_XP = 250;
 const LOSS_XP = 60;
@@ -51,6 +52,8 @@ function eventText(ev: GameEvent, name: (c: Color) => string): string | null {
     case 'extra_turn': return `${name(ev.color)} يلعب مجددًا (6).`;
     case 'eliminated': return `${name(ev.color)} خرج من المباراة.`;
     case 'win': return `${name(ev.color)} فاز بالمباراة!`;
+    case 'drop': return `${name(ev.color)} لعب في العمود ${ev.column + 1}.`;
+    case 'draw': return 'تعادل: امتلأت الشبكة.';
     default: return null;
   }
 }
@@ -145,6 +148,7 @@ export function GamePage() {
           : extra ? (extra.color === myColorRef.current ? 'رميت 6: العب مرة أخرى!' : 'الخصم يلعب مجددًا (6)') : null;
         if (t) setToast(t);
         if (s.events.some((e) => e.type === 'roll')) play(cap ? 220 : 520);
+        if (s.events.some((e) => e.type === 'drop')) play(300, 70);
         if (cap) play(180, 220);
       }
       lastSeq.current = Math.max(lastSeq.current, s.state.seq);
@@ -215,6 +219,18 @@ export function GamePage() {
     }
   };
 
+  const drop = async (column: number) => {
+    if (!gameId || busy) return;
+    setBusy(true);
+    try {
+      applySnap(await emitAck<GameSnapshot>('game:drop', { gameId, column }));
+    } catch (e) {
+      setToast(errorText(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const move = async (pawn: number) => {
     if (!gameId || busy) return;
     setBusy(true);
@@ -258,17 +274,19 @@ export function GamePage() {
     const active = snap.status === 'ACTIVE';
     const myTurn = active && !snap.paused && snap.turnColor === me.color;
     const phase = snap.state.phase;
+    // Puissance 4 : colonnes jouables par ce joueur.
+    const columns = myTurn && snap.gameType === 'CONNECT4' ? snap.legalMoves.map((m) => (m as { column: number }).column) : [];
     const movable = new Map<number, number>();
-    if (myTurn && (phase === 'move' || phase === 'bonus')) snap.legalMoves.forEach((m) => movable.set(m.pawn, m.to));
+    if (myTurn && (phase === 'move' || phase === 'bonus')) (snap.legalMoves as Move[]).forEach((m) => movable.set(m.pawn, m.to));
     const pawns: BoardPawn[] = snap.state.colors.flatMap((c) =>
-      snap.state.pawns[c].map((p, slot) => ({
+      (snap.state.pawns?.[c] ?? []).map((p, slot) => ({
         color: c, p, slot,
         movable: c === me.color && movable.has(slot),
         onPick: c === me.color && movable.has(slot) && !busy ? () => move(slot) : undefined
       }))
     );
     const targets: BoardTarget[] = [...movable.entries()].map(([slot, to]) => ({ color: me.color, p: to, slot }));
-    return { active, myTurn, phase, pawns, targets };
+    return { active, myTurn, phase, pawns, targets, columns };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [snap, me, busy]);
 
@@ -287,8 +305,12 @@ export function GamePage() {
   const deadlineLeft = snap?.deadline ? Math.max(0, Math.ceil((snap.deadline - (now - skew)) / 1000)) : null;
   const offlineOpp = offP?.offlineUntil ? Math.max(0, Math.ceil((offP.offlineUntil - (now - skew)) / 1000)) : null;
   const iAmOut = !!me?.eliminated && snap?.status === 'ACTIVE';
-  const result = snap && snap.status !== 'ACTIVE' ? (snap.status === 'ABORTED' ? 'aborted' : snap.winnerId === user?.id ? 'victory' : 'defeat') : iAmOut ? 'defeat' : null;
+  const result = snap && snap.status !== 'ACTIVE'
+    ? (snap.status === 'ABORTED' ? 'aborted' : snap.winnerId === user?.id ? 'victory' : snap.winnerId === null ? 'draw' : 'defeat')
+    : iAmOut ? 'defeat' : null;
   const practice = !!room.isPractice;
+  const c4 = room.gameType === 'CONNECT4';
+  const seatColors: Color[] = c4 ? ['red', 'yellow'] : ['blue', 'yellow', 'red', 'green'];
   const playersLabel = (n: number) => (n === 2 ? 'لاعبان' : `${n} لاعبين`);
 
   // Bandeau d'état (couleurs du design).
@@ -296,22 +318,24 @@ export function GamePage() {
   if (waiting) { bannerTitle = 'في انتظار خصم'; bannerSub = room.code ? `شارك الرمز ${room.code} لدعوة صديق` : 'ستبدأ المباراة عند انضمام لاعب'; }
   else if (!snap || !view) { bannerTitle = 'جارٍ الاتصال…'; bannerSub = 'تحميل حالة المباراة'; tone = '#B9A8FF'; }
   else if (result) {
-    bannerTitle = result === 'victory' ? 'فوز!' : result === 'aborted' ? 'أُلغيت المباراة' : 'انتهت المباراة';
-    bannerSub = result === 'victory' ? 'بيادقك الأربعة في البيت' : result === 'aborted' ? (practice ? 'انتهت جلسة التدريب' : 'تمت إعادة الرهانات') : iAmOut ? 'خرجت من المباراة، والآخرون يواصلون اللعب' : `فاز ${winnerP?.username ?? 'الخصم'} بهذه الجولة`;
-    tone = result === 'victory' ? '#22C55E' : '#F43F5E';
+    bannerTitle = result === 'victory' ? 'فوز!' : result === 'aborted' ? 'أُلغيت المباراة' : result === 'draw' ? 'تعادل' : 'انتهت المباراة';
+    bannerSub = result === 'victory' ? (c4 ? 'صففت أربع قطع على التوالي' : 'بيادقك الأربعة في البيت') : result === 'draw' ? 'امتلأت الشبكة دون أربع قطع متتالية' : result === 'aborted' ? (practice ? 'انتهت جلسة التدريب' : 'تمت إعادة الرهانات') : iAmOut ? 'خرجت من المباراة، والآخرون يواصلون اللعب' : `فاز ${winnerP?.username ?? 'الخصم'} بهذه الجولة`;
+    tone = result === 'victory' ? '#22C55E' : result === 'draw' ? '#22D3EE' : '#F43F5E';
   } else if (snap.paused) { bannerTitle = 'المباراة متوقفة'; bannerSub = `${offP ? offP.username : 'أنت'} يحاول إعادة الاتصال`; tone = '#F59E0B'; }
   else if (view.myTurn) {
     tone = '#FFC83D';
     bannerTitle = 'دورك!';
-    bannerSub = view.phase === 'bonus' ? `مكافأة: اختر بيدقًا للتقدم ${snap.state.moveValue} خانة`
+    bannerSub = c4 ? 'اختر عمودًا لإسقاط قطعتك'
+      : view.phase === 'bonus' ? `مكافأة: اختر بيدقًا للتقدم ${snap.state.moveValue} خانة`
       : view.phase === 'move' ? `اختر بيدقًا مضيئًا للتقدم ${snap.state.moveValue} خانات`
       : rolling ? 'النرد يتدحرج…' : 'ارمِ النرد';
   } else { tone = '#B9A8FF'; bannerTitle = `دور ${turnP?.username ?? 'الخصم'}`; bannerSub = 'يلعب الآن… انتظر قليلًا'; }
 
-  const panel = (p: GameSnapshot['players'][number] | null, isMe: boolean, fallbackName: string, fallbackColor: Color = isMe ? 'blue' : 'yellow') => {
+  const panel = (p: GameSnapshot['players'][number] | null, isMe: boolean, fallbackName: string, fallbackColor: Color = isMe ? seatColors[0] : seatColors[1]) => {
     const color = p?.color ?? fallbackColor;
     const hex = COLOR_HEX[color];
-    const arr = snap?.state.pawns[color] ?? [-1, -1, -1, -1];
+    const arr = snap?.state.pawns?.[color] ?? [-1, -1, -1, -1];
+    const tokens = snap?.state.board?.filter((c) => c === color).length ?? 0;
     const activeTurn = !!snap && snap.status === 'ACTIVE' && !snap.paused && snap.turnColor === color;
     const out = !!p?.eliminated;
     const offline = !!p && !p.online && !out && snap?.status === 'ACTIVE';
@@ -327,12 +351,18 @@ export function GamePage() {
             <span style={{ fontSize: 12, color: '#A6A8D6' }}>{isMe ? 'أنت · ' : p ? `المستوى ${p.level} · ` : ''}{COLOR_NAME[color]}</span>
             <span style={{ fontSize: 11, fontWeight: 800, padding: '2px 9px', borderRadius: 999, ...(offline ? { background: 'rgba(245,158,11,0.18)', color: '#FCD34D' } : activeTurn ? { background: hex, color: color === 'yellow' ? '#2A1E00' : '#fff' } : { background: 'rgba(140,130,255,0.14)', color: '#B4B6E4' }) }}>{tag}</span>
           </div>
+          {c4 ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#B4B6E4' }}>
+              <span style={{ width: 16, height: 16, borderRadius: '50%', background: hex, boxShadow: 'inset 0 0 0 2px rgba(0,0,0,0.25)' }} />{tokens} / 21 قطعة
+            </div>
+          ) : (
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             {arr.map((v, i) => (
               <span key={i} style={{ width: 14, height: 14, borderRadius: '50%', boxSizing: 'border-box', ...(v === 63 ? { background: hex } : v >= 0 ? { background: hex + '80', border: `2px solid ${hex}` } : { border: '2px solid rgba(140,130,255,0.4)' }) }} />
             ))}
             <span style={{ fontSize: 12, color: '#B4B6E4', marginInlineStart: 4 }}>{arr.filter((v) => v === 63).length}/4 في البيت</span>
           </div>
+          )}
         </div>
       </div>
     );
@@ -380,10 +410,24 @@ export function GamePage() {
           {error && <div role="alert" className="alert alert-error" style={{ width: 'min(100%,720px)' }}>{error}</div>}
 
           <div style={{ position: 'relative', width: 'min(100%, 720px, calc(100vh - 190px))', minWidth: 'min(100%, 320px)' }}>
+            {c4 ? (
+              <Connect4Board
+                board={snap?.state.board}
+                last={snap?.state.last}
+                winLine={snap?.state.winLine}
+                playable={busy ? [] : view?.columns}
+                myColor={me?.color}
+                onDrop={drop}
+              />
+            ) : (
             <Board
               pawns={view?.pawns ?? (['blue', 'yellow', 'red', 'green'] as Color[]).slice(0, room.maxPlayers).flatMap((c) => [0, 1, 2, 3].map((slot) => ({ color: c, p: -1, slot })))}
               targets={view?.targets}
+              names={Object.fromEntries((snap?.players ?? room.players).map((p) => [p.color, p.userId === user?.id ? 'أنت' : p.username]))}
+              turn={view?.active ? snap?.turnColor : null}
+              die={snap?.state.die}
             />
+            )}
             {toast && (
               <div className="pc-toast" role="status" style={{ position: 'absolute', left: '50%', top: 16, transform: 'translateX(-50%)', zIndex: 20, padding: '10px 20px', borderRadius: 999, background: 'linear-gradient(180deg,#FFDA5C,#FFB21E)', color: '#2B1A00', fontWeight: 800, fontSize: 15, boxShadow: '0 12px 30px rgba(0,0,0,0.45)', whiteSpace: 'nowrap' }}>{toast}</div>
             )}
@@ -433,9 +477,21 @@ export function GamePage() {
             : Array.from({ length: room.maxPlayers }, (_, seat) => room.players.find((p) => p.seat === seat) ?? seat)
                 .filter((x) => typeof x === 'number' || x.userId !== user?.id)
                 .map((x) => (typeof x === 'number'
-                  ? panel(null, false, 'مكان شاغر', (['blue', 'yellow', 'red', 'green'] as Color[])[x])
+                  ? panel(null, false, 'مكان شاغر', seatColors[x])
                   : panel(null, false, x.username, x.color)))}
 
+          {c4 ? (
+            <div style={{ padding: 20, borderRadius: 22, background: 'linear-gradient(160deg, #1E1A52, #14153A 60%)', border: '1px solid rgba(140,130,255,0.22)', display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <span style={{ fontWeight: 800, fontSize: 16 }}>أربعة على التوالي</span>
+              <span style={{ fontSize: 14, lineHeight: 1.8, color: '#B4B6E4' }}>
+                {waiting ? 'ستبدأ المباراة عند اكتمال الطاولة.'
+                  : result ? 'انتهت المباراة.'
+                  : snap?.paused ? 'متوقف أثناء إعادة الاتصال.'
+                  : !view?.myTurn ? 'انتظر حتى يلعب الخصم.'
+                  : 'انقر على عمود لإسقاط قطعتك. أول من يصفّ أربع قطع أفقيًا أو عموديًا أو قطريًا يفوز.'}
+              </span>
+            </div>
+          ) : (
           <div style={{ padding: 20, borderRadius: 22, background: 'linear-gradient(160deg, #1E1A52, #14153A 60%)', border: '1px solid rgba(140,130,255,0.22)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 20, width: '100%' }}>
               <Die face={face} rolling={rolling} />
@@ -457,6 +513,7 @@ export function GamePage() {
               {rolling ? 'جارٍ الرمي…' : view?.myTurn ? 'ارمِ النرد' : 'دور الخصم'}
             </button>
           </div>
+          )}
 
           {panel(me, true, user?.username ?? '')}
 
@@ -479,14 +536,15 @@ export function GamePage() {
             <span style={{ width: 88, height: 88, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', ...(result === 'victory' ? { background: 'rgba(255,200,61,0.18)', color: '#FFC83D', boxShadow: '0 0 0 8px rgba(255,200,61,0.08), 0 0 40px rgba(255,200,61,0.35)' } : { background: 'rgba(140,130,255,0.14)', color: '#B4B6E4' }) }}>
               <svg width="44" height="44" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="m2 4 3 12h14l3-12-6 7-4-7-4 7-6-7zm3 16h14v2H5z" /></svg>
             </span>
-            <span id="result-title" style={{ fontWeight: 900, fontSize: 34 }}>{result === 'victory' ? 'فوز!' : result === 'aborted' ? (practice ? 'انتهى التدريب' : 'أُلغيت') : 'خسارة'}</span>
+            <span id="result-title" style={{ fontWeight: 900, fontSize: 34 }}>{result === 'victory' ? 'فوز!' : result === 'aborted' ? (practice ? 'انتهى التدريب' : 'أُلغيت') : result === 'draw' ? 'تعادل' : 'خسارة'}</span>
             {practice && <span className="badge" style={{ background: 'rgba(34,197,94,0.14)', color: '#4ADE80' }}>تدريب: بدون عملات ولا خبرة ولا ترتيب</span>}
             <span style={{ fontSize: 15, lineHeight: 1.7, color: '#D4D2F2' }}>
               {result === 'victory'
-                ? snap!.endReason === 'COMPLETED' ? 'أوصلت بيادقك الأربعة إلى البيت قبل الجميع.' : 'انسحب منافسوك، الفوز لك.'
+                ? snap!.endReason === 'COMPLETED' ? (c4 ? 'صففت أربع قطع على التوالي قبل خصمك.' : 'أوصلت بيادقك الأربعة إلى البيت قبل الجميع.') : 'انسحب منافسوك، الفوز لك.'
+                : result === 'draw' ? `امتلأت الشبكة دون فائز${room.stake && !practice ? '، وأُعيد رهان كل لاعب' : ''}.`
                 : result === 'aborted' ? (practice ? 'انتهت جلسة التدريب.' : 'أُلغيت المباراة وأُعيدت الرهانات.')
                 : iAmOut ? 'خرجت من المباراة. يواصل الآخرون اللعب ويحصل الفائز على الرهانات.'
-                : snap!.endReason === 'COMPLETED' ? `أوصل ${winnerP?.username} بيادقه الأربعة أولًا. الثأر بانتظارك!`
+                : snap!.endReason === 'COMPLETED' ? (c4 ? `صفّ ${winnerP?.username} أربع قطع أولًا. الثأر بانتظارك!` : `أوصل ${winnerP?.username} بيادقه الأربعة أولًا. الثأر بانتظارك!`)
                 : me?.eliminated ? 'خرجت من المباراة.' : `فاز ${winnerP?.username} بالانسحاب.`}
             </span>
             {result !== 'aborted' && !practice && (
@@ -502,7 +560,7 @@ export function GamePage() {
               </div>
             )}
             <div style={{ display: 'flex', gap: 10, width: '100%', flexWrap: 'wrap' }}>
-              <button type="button" className="pb-btn pb-gold" style={{ flex: '1 1 140px' }} disabled={actions.busy} onClick={() => (practice ? actions.practice(room.maxPlayers - 1) : actions.quick(room.stake, room.maxPlayers))}>{result === 'defeat' ? 'مباراة الثأر' : 'العب مجددًا'}</button>
+              <button type="button" className="pb-btn pb-gold" style={{ flex: '1 1 140px' }} disabled={actions.busy} onClick={() => (practice ? actions.practice(room.maxPlayers - 1, room.gameType) : actions.quick(room.stake, room.maxPlayers, room.gameType))}>{result === 'defeat' ? 'مباراة الثأر' : 'العب مجددًا'}</button>
               <Link className="pb-btn pb-ghost" to="/" style={{ flex: '1 1 140px' }}>العودة للرئيسية</Link>
               {iAmOut && <button type="button" className="pb-btn pb-plain" style={{ flex: '1 1 100%' }} onClick={() => setDismissed(true)}>متابعة مشاهدة المباراة</button>}
             </div>

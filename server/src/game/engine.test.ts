@@ -346,6 +346,26 @@ describe('robot', () => {
     expect(botChooseMove(s)).toBe(1);
   });
 
+  it('niveau moyen : ne lit pas le danger, contrairement au niveau haut', () => {
+    const chaser = rel('yellow', 26);
+    const s = applyRoll(setup({ blue: [40, 30, NEST, NEST], yellow: [chaser, NEST, NEST, NEST] }), 2).state;
+    expect(botChooseMove(s, 'HIGH')).toBe(1);
+    expect(botChooseMove(s, 'MEDIUM')).toBe(0);
+  });
+
+  it('niveau moyen : capture et arrivée restent prioritaires', () => {
+    const victim = rel('yellow', absSquare('blue', 13));
+    expect(botChooseMove(applyRoll(setup({ blue: [10, 30, NEST, NEST], yellow: [victim, NEST, NEST, NEST] }), 3).state, 'MEDIUM')).toBe(0);
+    expect(botChooseMove(applyRoll(setup({ blue: [60, 10, NEST, NEST] }), 3).state, 'MEDIUM')).toBe(0);
+  });
+
+  it('niveau bas : coup légal tiré au hasard', () => {
+    const s = applyRoll(setup({ blue: [60, 10, NEST, NEST] }), 3).state;
+    const legal = legalMoves(s).map((m) => m.pawn);
+    expect(botChooseMove(s, 'LOW', () => 0)).toBe(legal[0]);
+    expect(botChooseMove(s, 'LOW', () => 0.999)).toBe(legal[legal.length - 1]);
+  });
+
   it('ne renvoie que des coups légaux, jusqu’à la fin d’une partie entre robots', () => {
     let x = 4242;
     const rnd = () => ((x = (x * 1103515245 + 12345) % 2147483648) % 6) + 1;
@@ -354,7 +374,7 @@ describe('robot', () => {
     while (s.phase !== 'finished' && n++ < 40000) {
       if (s.phase === 'roll') s = applyRoll(s, rnd()).state;
       else {
-        const pawn = botChooseMove(s);
+        const pawn = botChooseMove(s, (['LOW', 'MEDIUM', 'HIGH'] as const)[n % 3]);
         expect(legalMoves(s).some((m) => m.pawn === pawn)).toBe(true);
         s = applyMove(s, pawn!).state;
       }

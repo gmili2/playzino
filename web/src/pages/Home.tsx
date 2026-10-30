@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { Link, NavLink } from 'react-router-dom';
 import { Board, SHOWCASE_PAWNS } from '../components/Board';
+import { Connect4Board, SHOWCASE_C4 } from '../components/Connect4Board';
 import { Footer, Header } from '../components/AppShell';
 import { Gift, IconBolt, IconRobot, IconBook, IconCrown, IconGrid, IconHome, IconLock, IconShield, IconTrophy, IconUser, IconUsers } from '../components/Icons';
 import { RoomCard } from '../components/RoomCard';
@@ -142,6 +143,29 @@ export function HomePage() {
                   <Board pawns={SHOWCASE_PAWNS} label="لوحة توضيحية" />
                 </div>
               </div>
+            </div>
+          </section>
+
+          <section aria-labelledby="games-title" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <h2 id="games-title" style={{ fontWeight: 800, fontSize: 22 }}>الألعاب</h2>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16 }}>
+              {([
+                ['PARCHEESI', 'بارتشيزي', 'من 2 إلى 4 لاعبين. ارمِ النرد وأوصل بيادقك الأربعة إلى البيت.', <Board pawns={SHOWCASE_PAWNS} label="لوحة توضيحية" />],
+                ['CONNECT4', 'أربعة على التوالي', 'لاعبان. أسقط قطعك في الأعمدة وصُفّ أربعًا أفقيًا أو عموديًا أو قطريًا.', <Connect4Board board={SHOWCASE_C4} label="لوحة توضيحية" />]
+              ] as const).map(([g, title, sub, art]) => (
+                <article key={g} data-testid={`home-game-${g}`} style={{ display: 'flex', gap: 16, alignItems: 'center', padding: 18, borderRadius: 22, background: 'linear-gradient(160deg, #1E1A52, #14153A 65%)', border: '1px solid rgba(140,130,255,0.22)' }}>
+                  <div aria-hidden="true" style={{ flex: '0 0 120px', pointerEvents: 'none' }}>{art}</div>
+                  <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    <span style={{ fontWeight: 900, fontSize: 20 }}>{title}</span>
+                    <span style={{ fontSize: 13, lineHeight: 1.7, color: '#B4B6E4' }}>{sub}</span>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                      <button type="button" className="pb-btn pb-gold pb-sm" disabled={actions.busy} onClick={() => actions.quick(0, 2, g)}>العب الآن</button>
+                      <button type="button" className="pb-btn pb-ghost pb-sm" disabled={actions.busy} onClick={() => actions.practice(1, g)}><IconRobot size={16} />ضد الروبوت</button>
+                      <Link className="pb-btn pb-plain pb-sm" to={`/tables?game=${g}#create`}>طاولة خاصة</Link>
+                    </div>
+                  </div>
+                </article>
+              ))}
             </div>
           </section>
 

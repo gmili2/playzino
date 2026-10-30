@@ -1,9 +1,11 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { MAX_ADMIN_ADJUST } from '../../config.js';
+import { BOT_LEVELS } from '../../game/engine.js';
 import { audit } from '../../lib/audit.js';
 import { badRequest, conflict, notFound } from '../../lib/errors.js';
 import { prisma } from '../../lib/prisma.js';
+import { getBotLevel, setBotLevel } from '../../lib/settings.js';
 import { parse } from '../../lib/validate.js';
 import { requireAdmin } from '../../middleware/auth.js';
 import { gameManager } from '../../realtime/gameManager.js';
@@ -147,7 +149,7 @@ adminRouter.get('/games', async (req, res) => {
     orderBy: { startedAt: 'desc' },
     take: 50,
     include: {
-      room: { select: { name: true, code: true, stake: true, visibility: true } },
+      room: { select: { name: true, code: true, stake: true, visibility: true, gameType: true } },
       players: { include: { user: { select: { username: true } } } },
       winner: { select: { username: true } },
       _count: { select: { moves: true } }
@@ -173,6 +175,16 @@ adminRouter.post('/games/:id/abort', async (req, res) => {
   const id = String(req.params.id);
   await audit({ actorId: req.user!.id, action: 'admin.game_abort_request', targetType: 'game', targetId: id, details: { reason }, ip: req.ip });
   res.json({ game: await gameManager.abort(id, 'ADMIN', req.user!.id) });
+});
+
+adminRouter.get('/settings/bot-level', async (_req, res) => {
+  res.json({ level: await getBotLevel() });
+});
+
+adminRouter.patch('/settings/bot-level', async (req, res) => {
+  const { level } = parse(z.object({ level: z.enum(BOT_LEVELS) }), req.body);
+  await setBotLevel(level, req.user!.id, req.ip);
+  res.json({ level });
 });
 
 adminRouter.get('/transactions', async (_req, res) => {

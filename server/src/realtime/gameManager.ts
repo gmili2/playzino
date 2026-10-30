@@ -1,13 +1,12 @@
 import { randomInt } from 'node:crypto';
-import type { GameEndReason } from '@prisma/client';
+import type { GameEndReason, GameType } from '@prisma/client';
 import { config } from '../config.js';
 import { audit } from '../lib/audit.js';
 import { AppError, forbidden, notFound } from '../lib/errors.js';
 import { prisma } from '../lib/prisma.js';
-import {
-  activeColors, applyMove, applyRoll, autoMovePawn, botChooseMove, currentColor, eliminate, legalMoves,
-  type Color, type GameEvent, type GameState
-} from '../game/engine.js';
+import { getBotLevel } from '../lib/settings.js';
+import type { Color } from '../game/engine.js';
+import { GAME_RULES, type Action, type AnyEvent, type AnyState, type GameRules, type Step } from '../game/rules.js';
 import { applyWalletOp } from '../modules/wallet/wallet.service.js';
 
 export const WIN_XP = 250;
@@ -28,8 +27,10 @@ export const BOT_DELAY_MS = Number(process.env.BOT_DELAY_MS ?? 900);
 interface LiveGame {
   id: string;
   roomId: string;
+  gameType: GameType;
+  rules: GameRules;
   room: { name: string; code: string; stake: number; visibility: string; turnSeconds: number; isPractice: boolean };
-  state: GameState;
+  state: AnyState;
   players: LivePlayer[];
   status: 'ACTIVE' | 'FINISHED' | 'ABORTED';
   winnerId: string | null;
@@ -41,7 +42,7 @@ interface LiveGame {
   offline: Map<string, { until: number; timer: NodeJS.Timeout }>;
   /** File d'attente : les actions d'une partie sont traitées strictement une par une. */
   queue: Promise<unknown>;
-  lastEvents: GameEvent[];
+  lastEvents: AnyEvent[];
 }
 
 export interface Broadcaster {
@@ -71,7 +72,7 @@ export class GameManager {
   }
 
   private humanStillPlaying(live: LiveGame) {
-    const active = activeColors(live.state);
+    const active = live.rules.active(live.state);
     return live.players.some((p) => !p.isBot && active.includes(p.color));
   }
 
@@ -91,10 +92,12 @@ export class GameManager {
       }
     });
     if (!g) throw notFound('Partie introuvable');
-    const state = JSON.parse(g.state) as GameState;
+    const state = JSON.parse(g.state) as AnyState;
     const live: LiveGame = {
       id: g.id,
       roomId: g.roomId,
+      gameType: g.room.gameType,
+      rules: GAME_RULES[g.room.gameType],
       room: { name: g.room.name, code: g.room.code, stake: g.room.stake, visibility: g.room.visibility, turnSeconds: g.room.turnSeconds, isPractice: g.room.isPractice },
       state,
       players: state.colors.map((c) => {
@@ -143,11 +146,12 @@ export class GameManager {
     return {
       gameId: live.id,
       roomId: live.roomId,
+      gameType: live.gameType,
       room: live.room,
       status: live.status,
       state: live.state,
-      turnColor: live.status === 'ACTIVE' ? currentColor(live.state) : null,
-      legalMoves: live.status === 'ACTIVE' ? legalMoves(live.state) : [],
+      turnColor: live.status === 'ACTIVE' ? live.rules.current(live.state) : null,
+      legalMoves: live.status === 'ACTIVE' ? live.rules.legalMoves(live.state) : [],
       players: live.players.map((p) => ({
         ...p,
         online: p.isBot || this.bc.isOnline(live.id, p.userId),
@@ -181,27 +185,30 @@ export class GameManager {
     const player = live.players.find((p) => p.userId === userId);
     if (!player) throw forbidden('Vous ne participez pas à cette partie');
     if (live.offline.size > 0) throw new AppError(409, 'GAME_PAUSED', 'Partie en pause : un joueur est déconnecté');
-    if (currentColor(live.state) !== player.color) throw new AppError(409, 'NOT_YOUR_TURN', 'Ce n’est pas votre tour');
+    if (live.rules.current(live.state) !== player.color) throw new AppError(409, 'NOT_YOUR_TURN', 'Ce n’est pas votre tour');
   }
 
-  async roll(gameId: string, userId: string) {
+  /** Action d'un joueur (lancer, déplacer un pion, lâcher un jeton), validée par les règles du jeu de la partie. */
+  async act(gameId: string, userId: string, action: Action) {
     const live = await this.load(gameId);
     return this.enqueue(live, async () => {
       this.assertTurn(live, userId);
-      const r = applyRoll(live.state, this.rollDie());
-      await this.commit(live, r.state, r.events, userId, 'ROLL');
+      const r = live.rules.apply(live.state, action, this.rollDie);
+      await this.commit(live, r.state, r.events, userId, action.type.toUpperCase());
       return this.snapshot(live);
     });
   }
 
-  async move(gameId: string, userId: string, pawn: number) {
-    const live = await this.load(gameId);
-    return this.enqueue(live, async () => {
-      this.assertTurn(live, userId);
-      const r = applyMove(live.state, pawn);
-      await this.commit(live, r.state, r.events, userId, 'MOVE');
-      return this.snapshot(live);
-    });
+  roll(gameId: string, userId: string) {
+    return this.act(gameId, userId, { type: 'roll' });
+  }
+
+  move(gameId: string, userId: string, pawn: number) {
+    return this.act(gameId, userId, { type: 'move', pawn });
+  }
+
+  drop(gameId: string, userId: string, column: number) {
+    return this.act(gameId, userId, { type: 'drop', column });
   }
 
   async forfeit(gameId: string, userId: string, reason: GameEndReason = 'FORFEIT') {
@@ -217,7 +224,7 @@ export class GameManager {
         clearTimeout(entry.timer);
         live.offline.delete(userId);
       }
-      const r = eliminate(live.state, loser.color);
+      const r = live.rules.eliminate(live.state, loser.color);
       await this.commit(live, r.state, r.events, userId, reason === 'FORFEIT' ? 'FORFEIT' : 'ELIMINATE', reason);
       if (live.status === 'ACTIVE' && !this.humanStillPlaying(live)) {
         // Plus aucun humain en jeu (entraînement abandonné) : les robots ne jouent pas seuls.
@@ -236,7 +243,7 @@ export class GameManager {
 
   /** Persiste l'état (verrou optimiste sur stateVersion) puis diffuse. */
   private async commit(
-    live: LiveGame, next: GameState, events: GameEvent[], userId: string | null, type: string,
+    live: LiveGame, next: AnyState, events: AnyEvent[], userId: string | null, type: string,
     endReason: GameEndReason = 'COMPLETED'
   ) {
     const prevVersion = live.state.seq;
@@ -252,9 +259,10 @@ export class GameManager {
     });
     live.state = next;
     live.lastEvents = events;
-    if (next.phase === 'finished' && next.winner) {
-      const winner = live.players.find((p) => p.color === next.winner)!;
-      await this.finish(live, winner.userId, endReason, events);
+    if (next.phase === 'finished') {
+      // Sans vainqueur (grille pleine au Puissance 4) : match nul.
+      const winner = live.players.find((p) => p.color === next.winner);
+      await this.finish(live, winner?.userId ?? null, endReason, events);
       return;
     }
     this.scheduleTurn(live);
@@ -264,9 +272,12 @@ export class GameManager {
   /**
    * Fin de partie atomique : statut, résultats, XP et gain du vainqueur.
    * La clé d'idempotence win:<gameId> garantit un seul versement.
+   * Match nul (winnerId null) : chacun récupère sa mise et reçoit l'XP de participation.
    */
-  private async finish(live: LiveGame, winnerId: string, reason: GameEndReason, events: GameEvent[]) {
+  private async finish(live: LiveGame, winnerId: string | null, reason: GameEndReason, events: AnyEvent[]) {
+    const draw = winnerId === null;
     const pot = live.room.stake * live.players.length;
+    const payoutOf = (userId: string) => (draw ? live.room.stake : userId === winnerId ? pot : 0);
     await prisma.$transaction(async (tx) => {
       const r = await tx.game.updateMany({
         where: { id: live.id, status: 'ACTIVE' },
@@ -277,15 +288,26 @@ export class GameManager {
         const won = p.userId === winnerId;
         await tx.gamePlayer.update({
           where: { gameId_userId: { gameId: live.id, userId: p.userId } },
-          data: { result: won ? 'WIN' : 'LOSS', payout: won ? pot : 0 }
+          data: { result: draw ? 'DRAW' : won ? 'WIN' : 'LOSS', payout: payoutOf(p.userId) }
         });
         if (!live.room.isPractice) {
           await tx.profile.update({ where: { userId: p.userId }, data: { xp: { increment: won ? WIN_XP : LOSS_XP } } });
         }
+        if (draw && live.room.stake > 0) {
+          await applyWalletOp(tx, {
+            userId: p.userId,
+            amount: live.room.stake,
+            type: 'REFUND',
+            reason: `Match nul — mise rendue (table ${live.room.code})`,
+            idempotencyKey: `draw:${live.id}:${p.userId}`,
+            gameId: live.id,
+            roomId: live.roomId
+          });
+        }
       }
-      if (pot > 0) {
+      if (!draw && pot > 0) {
         await applyWalletOp(tx, {
-          userId: winnerId,
+          userId: winnerId!,
           amount: pot,
           type: 'WIN',
           reason: `Gain — table ${live.room.code}`,
@@ -295,12 +317,12 @@ export class GameManager {
         });
       }
       await tx.room.update({ where: { id: live.roomId }, data: { status: 'FINISHED' } });
-      await audit({ action: 'game.finish', targetType: 'game', targetId: live.id, details: { winnerId, reason, pot } }, tx);
+      await audit({ action: 'game.finish', targetType: 'game', targetId: live.id, details: { winnerId, reason, pot, draw } }, tx);
     });
     live.status = 'FINISHED';
     live.winnerId = winnerId;
     live.endReason = reason;
-    live.payouts = Object.fromEntries(live.players.map((p) => [p.userId, p.userId === winnerId ? pot : 0]));
+    live.payouts = Object.fromEntries(live.players.map((p) => [p.userId, payoutOf(p.userId)]));
     live.lastEvents = events;
     this.clearTimers(live);
     this.bc.emitGame(live.id, 'game:state', this.snapshot(live));
@@ -357,7 +379,7 @@ export class GameManager {
       live.deadline = null;
       return;
     }
-    const turnPlayer = live.players.find((p) => p.color === currentColor(live.state));
+    const turnPlayer = live.players.find((p) => p.color === live.rules.current(live.state));
     if (turnPlayer?.isBot) {
       live.deadline = null;
       live.turnTimer = setTimeout(() => {
@@ -374,37 +396,22 @@ export class GameManager {
     live.turnTimer.unref();
   }
 
-  /** Une action de robot (lancer OU déplacement), validée par le moteur comme pour un humain. */
+  /** Une action de robot, validée par les règles du jeu comme pour un humain. */
   private async botStep(live: LiveGame) {
     if (live.status !== 'ACTIVE' || live.offline.size > 0) return;
-    const player = live.players.find((p) => p.color === currentColor(live.state));
+    const player = live.players.find((p) => p.color === live.rules.current(live.state));
     if (!player?.isBot) return;
-    const r = live.state.phase === 'roll'
-      ? applyRoll(live.state, this.rollDie())
-      : applyMove(live.state, botChooseMove(live.state)!);
+    const r = live.rules.bot(live.state, await getBotLevel(), this.rollDie);
     await this.commit(live, r.state, r.events, player.userId, 'BOT');
   }
 
-  /** Temps écoulé : le serveur joue à la place du joueur (lancer + pion le plus avancé). */
+  /** Temps écoulé : le serveur joue le tour à la place du joueur. */
   private async autoPlay(live: LiveGame) {
     if (live.status !== 'ACTIVE' || live.offline.size > 0) return;
-    const color = currentColor(live.state);
-    const player = live.players.find((p) => p.color === color)!;
-    let state = live.state;
-    const events: GameEvent[] = [];
-    const start = state.seq;
-    if (state.phase === 'roll') {
-      const r = applyRoll(state, this.rollDie());
-      state = r.state;
-      events.push(...r.events);
-    }
-    while ((state.phase === 'move' || state.phase === 'bonus') && currentColor(state) === color) {
-      const r = applyMove(state, autoMovePawn(state)!);
-      state = r.state;
-      events.push(...r.events);
-    }
-    if (state.seq === start) return;
-    await this.commit(live, state, events, player.userId, 'AUTO');
+    const player = live.players.find((p) => p.color === live.rules.current(live.state))!;
+    const r: Step | null = live.rules.auto(live.state, this.rollDie);
+    if (!r) return;
+    await this.commit(live, r.state, r.events, player.userId, 'AUTO');
   }
 
   // ---------- présence / reconnexion ----------

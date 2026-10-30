@@ -14,6 +14,7 @@ type Ack = (res: { ok: true; data?: unknown } | { ok: false; error: { code: stri
 
 const idSchema = z.string().min(1).max(30);
 const moveSchema = z.object({ gameId: idSchema, pawn: z.number().int().min(0).max(3) });
+const dropSchema = z.object({ gameId: idSchema, column: z.number().int().min(0).max(6) });
 
 function toError(e: unknown) {
   if (e instanceof AppError || e instanceof RuleError) return { code: e.code, message: e.message };
@@ -83,6 +84,10 @@ export function createSocketServer(http: HttpServer) {
     handle(socket, 'game:move', async (p) => {
       const { gameId, pawn } = moveSchema.parse(p);
       return gameManager.move(gameId, user.id, pawn);
+    });
+    handle(socket, 'game:drop', async (p) => {
+      const { gameId, column } = dropSchema.parse(p);
+      return gameManager.drop(gameId, user.id, column);
     });
     handle(socket, 'game:forfeit', async (p) => gameManager.forfeit(idSchema.parse(p), user.id));
 

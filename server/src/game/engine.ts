@@ -373,14 +373,24 @@ export function finishedCount(s: GameState, color: Color): number {
   return s.pawns[color].filter((p) => p === GOAL).length;
 }
 
+export const BOT_LEVELS = ['LOW', 'MEDIUM', 'HIGH'] as const;
+export type BotLevel = (typeof BOT_LEVELS)[number];
+
 /**
- * Stratégie du robot : choisit le meilleur coup légal selon des priorités simples.
- * Arriver au centre > capturer > sortir un pion > se mettre à l'abri > avancer, en évitant
- * de finir exposé juste devant un pion adverse. Déterministe (aucun aléa) pour être testable.
+ * Stratégie du robot selon le niveau choisi par l'administrateur :
+ * - LOW : un coup légal au hasard ;
+ * - MEDIUM : glouton simple (arriver au centre > capturer > sortir un pion > avancer), sans lire le danger ;
+ * - HIGH : en plus, se mettre à l'abri, former des barrages et éviter de finir exposé juste devant
+ *   un pion adverse. MEDIUM et HIGH sont déterministes (aucun aléa) pour être testables.
  */
-export function botChooseMove(s: GameState): number | null {
+export function botChooseMove(s: GameState, level: BotLevel = 'HIGH', rand: () => number = Math.random): number | null {
   const moves = legalMoves(s);
   if (!moves.length) return null;
+  if (level === 'LOW') return moves[Math.floor(rand() * moves.length)].pawn;
+  if (level === 'MEDIUM') {
+    const simple = (m: Move) => m.to + (m.to === GOAL ? 1000 : 0) + (m.capture ? 500 : 0) + (m.from === NEST ? 300 : 0);
+    return moves.reduce((best, m) => (simple(m) > simple(best) ? m : best)).pawn;
+  }
   const color = currentColor(s);
   const rivals = activeColors(s).filter((c) => c !== color);
 

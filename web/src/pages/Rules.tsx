@@ -13,19 +13,35 @@ const RULES: [string, string, string][] = [
   ['🚪', 'الانسحاب', 'من ينسحب يخسر رهانه ويخرج من المباراة، وتُزال بيادقه من اللوحة. يواصل الباقون اللعب، وآخر لاعب متبقٍّ يفوز.']
 ];
 
+const C4_RULES: [string, string, string][] = [
+  ['⬇', 'إسقاط قطعة', 'لاعبان، أحمر وأصفر. في دورك اختر عمودًا من الأعمدة السبعة: تسقط قطعتك إلى أدنى خانة فارغة فيه. يُختار أول لاعب بالقرعة.'],
+  ['4', 'الفوز', 'أول من يصفّ أربع قطع من لونه على التوالي، أفقيًا أو عموديًا أو قطريًا، يفوز ويحصل على مجموع الرهانات.'],
+  ['=', 'التعادل', 'إذا امتلأت الشبكة (42 خانة) دون أربع قطع متتالية، تنتهي المباراة بالتعادل ويُعاد لكل لاعب رهانه.'],
+  ['⏱', 'الوقت والانسحاب', 'إذا انتهى وقت الدور يلعب الخادم حركة حذرة مكانك. الانقطاع والانسحاب كما في البارتشيزي: من ينسحب يخسر وخصمه يفوز.']
+];
+
+function RuleGrid({ rules }: { rules: [string, string, string][] }) {
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 14, marginTop: 20 }}>
+      {rules.map(([n, t, d]) => (
+        <div key={t} style={{ padding: 18, borderRadius: 18, background: '#14153A', border: '1px solid rgba(140,130,255,0.14)', display: 'flex', gap: 14, alignItems: 'flex-start' }}>
+          <span style={{ flex: 'none', minWidth: 34, fontWeight: 900, fontSize: 26, color: '#FFC83D', lineHeight: 1 }}>{n}</span>
+          <span style={{ display: 'flex', flexDirection: 'column', gap: 4 }}><span style={{ fontWeight: 800 }}>{t}</span><span style={{ fontSize: 14, lineHeight: 1.8, color: '#A6A8D6' }}>{d}</span></span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function RulesPage() {
   return (
     <Page width={1100}>
       <h1 style={{ fontWeight: 900, fontSize: 36 }}>قواعد اللعب</h1>
       <p style={{ color: '#B4B6E4', lineHeight: 1.8, maxWidth: 760 }}>نسخة البارتشيزي الإسبانية (Parchís) بنرد واحد، من لاعبَين إلى أربعة لاعبين. كل الرميات والحركات يتحقق منها الخادم.</p>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 14, marginTop: 20 }}>
-        {RULES.map(([n, t, d]) => (
-          <div key={t} style={{ padding: 18, borderRadius: 18, background: '#14153A', border: '1px solid rgba(140,130,255,0.14)', display: 'flex', gap: 14, alignItems: 'flex-start' }}>
-            <span style={{ flex: 'none', minWidth: 34, fontWeight: 900, fontSize: 26, color: '#FFC83D', lineHeight: 1 }}>{n}</span>
-            <span style={{ display: 'flex', flexDirection: 'column', gap: 4 }}><span style={{ fontWeight: 800 }}>{t}</span><span style={{ fontSize: 14, lineHeight: 1.8, color: '#A6A8D6' }}>{d}</span></span>
-          </div>
-        ))}
-      </div>
+      <RuleGrid rules={RULES} />
+      <h2 id="connect4" style={{ fontWeight: 900, fontSize: 28, marginTop: 40 }}>أربعة على التوالي</h2>
+      <p style={{ color: '#B4B6E4', lineHeight: 1.8, maxWidth: 760 }}>اللعبة الكلاسيكية على شبكة من 7 أعمدة و6 صفوف. كل الحركات يتحقق منها الخادم.</p>
+      <RuleGrid rules={C4_RULES} />
     </Page>
   );
 }

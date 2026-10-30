@@ -110,6 +110,11 @@ model WalletTransaction {
   @@index([gameId])
 }
 
+enum GameType {
+  PARCHEESI
+  CONNECT4
+}
+
 enum RoomVisibility {
   PUBLIC
   PRIVATE
@@ -131,6 +136,7 @@ model Room {
   maxPlayers  Int            @default(2)
   stake       Int            @default(0)
   turnSeconds Int            @default(30)
+  gameType    GameType       @default(PARCHEESI)
   // Partie d'entraînement contre des robots : sans mise, sans XP, hors classement.
   isPractice  Boolean        @default(false)
   hostId      String         @db.VarChar(30)
@@ -199,6 +205,7 @@ model Game {
 enum GameResult {
   WIN
   LOSS
+  DRAW
 }
 
 model GamePlayer {
@@ -244,4 +251,11 @@ model AuditLog {
   @@index([actorId, createdAt])
   @@index([targetType, targetId])
   @@index([action, createdAt])
+}
+
+/// Réglages de la plateforme modifiables par l'administration (ex. botLevel).
+model Setting {
+  key       String   @id @db.VarChar(64)
+  value     String   @db.VarChar(255)
+  updatedAt DateTime @updatedAt
 }
