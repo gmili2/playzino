@@ -37,15 +37,19 @@ model User {
   updatedAt       DateTime   @updatedAt
   lastLoginAt     DateTime?
 
-  profile      Profile?
-  wallet       Wallet?
-  hostedRooms  Room[]        @relation("RoomHost")
-  roomSeats    RoomPlayer[]
-  gameSeats    GamePlayer[]
-  wonGames     Game[]        @relation("GameWinner")
-  moves        GameMove[]
-  auditActions AuditLog[]    @relation("AuditActor")
-  adminTxs     WalletTransaction[] @relation("TxActor")
+  profile             Profile?
+  wallet              Wallet?
+  hostedRooms         Room[]              @relation("RoomHost")
+  roomSeats           RoomPlayer[]
+  gameSeats           GamePlayer[]
+  wonGames            Game[]              @relation("GameWinner")
+  moves               GameMove[]
+  auditActions        AuditLog[]          @relation("AuditActor")
+  adminTxs            WalletTransaction[] @relation("TxActor")
+  deposits            DepositRequest[]    @relation("DepositUser")
+  withdrawals         WithdrawalRequest[] @relation("WithdrawalUser")
+  reviewedDeposits    DepositRequest[]    @relation("DepositReviewer")
+  reviewedWithdrawals WithdrawalRequest[] @relation("WithdrawalReviewer")
 
   @@index([status])
   @@index([createdAt])
@@ -84,6 +88,9 @@ enum TxType {
   REFUND
   ADMIN_CREDIT
   ADMIN_DEBIT
+  DEPOSIT
+  WITHDRAWAL
+  WITHDRAWAL_REFUND
 }
 
 model WalletTransaction {
@@ -153,14 +160,14 @@ model Room {
 }
 
 model RoomPlayer {
-  id       String    @id @default(cuid()) @db.VarChar(30)
-  roomId   String    @db.VarChar(30)
-  room     Room      @relation(fields: [roomId], references: [id], onDelete: Cascade)
-  userId   String    @db.VarChar(30)
-  user     User      @relation(fields: [userId], references: [id], onDelete: Restrict)
+  id       String   @id @default(cuid()) @db.VarChar(30)
+  roomId   String   @db.VarChar(30)
+  room     Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  userId   String   @db.VarChar(30)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Restrict)
   seat     Int
-  color    String    @db.VarChar(10)
-  joinedAt DateTime  @default(now())
+  color    String   @db.VarChar(10)
+  joinedAt DateTime @default(now())
 
   @@unique([roomId, userId])
   @@unique([roomId, seat])
@@ -209,14 +216,14 @@ enum GameResult {
 }
 
 model GamePlayer {
-  id      String      @id @default(cuid()) @db.VarChar(30)
-  gameId  String      @db.VarChar(30)
-  game    Game        @relation(fields: [gameId], references: [id], onDelete: Cascade)
-  userId  String      @db.VarChar(30)
-  user    User        @relation(fields: [userId], references: [id], onDelete: Restrict)
-  color   String      @db.VarChar(10)
-  result  GameResult?
-  payout  Int         @default(0)
+  id     String      @id @default(cuid()) @db.VarChar(30)
+  gameId String      @db.VarChar(30)
+  game   Game        @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  userId String      @db.VarChar(30)
+  user   User        @relation(fields: [userId], references: [id], onDelete: Restrict)
+  color  String      @db.VarChar(10)
+  result GameResult?
+  payout Int         @default(0)
 
   @@unique([gameId, userId])
   @@unique([gameId, color])
@@ -258,4 +265,73 @@ model Setting {
   key       String   @id @db.VarChar(64)
   value     String   @db.VarChar(255)
   updatedAt DateTime @updatedAt
+}
+
+enum PaymentStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+/// Compte bancaire de l'administration sur lequel les joueurs font leurs virements de dépôt.
+model PaymentBank {
+  id            String   @id @default(cuid()) @db.VarChar(30)
+  name          String   @db.VarChar(60)
+  accountHolder String   @db.VarChar(100)
+  // RIB marocain : 24 chiffres.
+  rib           String   @db.VarChar(24)
+  active        Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  deposits DepositRequest[]
+
+  @@index([active])
+}
+
+/// Dépôt par virement : crédité seulement quand un admin valide le reçu (1 DH = 1 pièce).
+model DepositRequest {
+  id             String        @id @default(cuid()) @db.VarChar(30)
+  // userId:requestId fourni par le client : un double envoi ne crée qu'une demande.
+  clientRef      String        @unique @db.VarChar(80)
+  userId         String        @db.VarChar(30)
+  user           User          @relation("DepositUser", fields: [userId], references: [id], onDelete: Restrict)
+  bankId         String        @db.VarChar(30)
+  bank           PaymentBank   @relation(fields: [bankId], references: [id], onDelete: Restrict)
+  amount         Int
+  // Montant réellement crédité (l'admin peut le corriger d'après le reçu).
+  creditedAmount Int?
+  receiptFile    String        @db.VarChar(64)
+  receiptMime    String        @db.VarChar(32)
+  status         PaymentStatus @default(PENDING)
+  note           String?       @db.VarChar(500)
+  reviewedById   String?       @db.VarChar(30)
+  reviewedBy     User?         @relation("DepositReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  reviewedAt     DateTime?
+  createdAt      DateTime      @default(now())
+
+  @@index([status, createdAt])
+  @@index([userId, createdAt])
+}
+
+/// Retrait : le montant est bloqué (débité) dès la demande, remboursé si l'admin la refuse.
+model WithdrawalRequest {
+  id            String        @id @default(cuid()) @db.VarChar(30)
+  clientRef     String        @unique @db.VarChar(80)
+  userId        String        @db.VarChar(30)
+  user          User          @relation("WithdrawalUser", fields: [userId], references: [id], onDelete: Restrict)
+  amount        Int
+  bankName      String        @db.VarChar(60)
+  accountHolder String        @db.VarChar(100)
+  rib           String        @db.VarChar(24)
+  // APPROVED = virement exécuté par l'admin.
+  status        PaymentStatus @default(PENDING)
+  note          String?       @db.VarChar(500)
+  reviewedById  String?       @db.VarChar(30)
+  reviewedBy    User?         @relation("WithdrawalReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  reviewedAt    DateTime?
+  createdAt     DateTime      @default(now())
+
+  @@index([status, createdAt])
+  @@index([userId, createdAt])
 }

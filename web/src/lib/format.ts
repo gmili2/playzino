@@ -18,5 +18,11 @@ export const TX_LABEL: Record<string, string> = {
   WIN: 'فوز في مباراة',
   REFUND: 'استرداد',
   ADMIN_CREDIT: 'إضافة إدارية',
-  ADMIN_DEBIT: 'خصم إداري'
+  ADMIN_DEBIT: 'خصم إداري',
+  DEPOSIT: 'إيداع بنكي',
+  WITHDRAWAL: 'طلب سحب',
+  WITHDRAWAL_REFUND: 'استرجاع سحب مرفوض'
 };
+
+/** RIB affiché par groupes (banque · ville · compte · clé) pour être recopié sans erreur. */
+export const fmtRib = (rib: string) => (rib.length === 24 ? `${rib.slice(0, 3)} ${rib.slice(3, 6)} ${rib.slice(6, 22)} ${rib.slice(22)}` : rib);

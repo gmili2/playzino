@@ -11,6 +11,7 @@ import { authRouter } from './modules/auth/auth.routes.js';
 import { gamesRouter } from './modules/games/games.routes.js';
 import { roomsRouter } from './modules/rooms/rooms.routes.js';
 import { statsRouter } from './modules/stats/stats.routes.js';
+import { paymentsAdminRouter, paymentsRouter } from './modules/payments/payments.routes.js';
 import { meRouter } from './modules/users/users.routes.js';
 import { walletRouter } from './modules/wallet/wallet.routes.js';
 import { wheelRouter } from './modules/wheel/wheel.routes.js';
@@ -48,6 +49,8 @@ export function createApp() {
     next();
   });
 
+  // Seul l'envoi d'un dépôt porte un fichier (reçu en base64, 5 Mo max) ; partout ailleurs 20 ko suffisent.
+  app.use('/api/payments/deposits', express.json({ limit: '8mb' }));
   app.use(express.json({ limit: '20kb' }));
   app.use(cookieParser());
 
@@ -64,6 +67,8 @@ export function createApp() {
   app.use('/api/rooms', roomsRouter);
   app.use('/api/games', gamesRouter);
   app.use('/api/stats', statsRouter);
+  app.use('/api/payments', paymentsRouter);
+  app.use('/api/admin/payments', paymentsAdminRouter);
   app.use('/api/admin', adminRouter);
   app.use('/api', notFoundHandler);
 

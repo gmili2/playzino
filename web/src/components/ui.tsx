@@ -13,7 +13,7 @@ export function Coin({ size = 16 }: { size?: number }) {
 
 export function Credits({ value, size = 14, color = '#FFD54A' }: { value: number; size?: number; color?: string }) {
   return (
-    <span title="عملات افتراضية بدون قيمة مالية" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontWeight: 800, fontSize: size, color }}>
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontWeight: 800, fontSize: size, color }}>
       <Coin size={size + 2} />
       <span dir="ltr">{fmt(value)}</span>
     </span>

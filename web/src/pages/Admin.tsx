@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { IconActivity, IconArrowDown, IconArrowUp, IconChevron, IconClock, IconCoins, IconCrown, IconDice, IconHome, IconList, IconLock, IconLogout, IconMenu, IconPlus, IconRobot, IconSearch, IconSettings, IconShield, IconUsers, IconWheel } from '../components/Icons';
+import { IconActivity, IconArrowDown, IconArrowUp, IconBank, IconChevron, IconClock, IconCoins, IconCrown, IconDice, IconHome, IconList, IconLock, IconLogout, IconMenu, IconPlus, IconRobot, IconSearch, IconSettings, IconShield, IconUsers, IconWheel } from '../components/Icons';
 import { Wheel } from '../components/Wheel';
 import { Avatar, Coin, Empty, StatusChip } from '../components/ui';
 import { api, errorText } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { fmt, fmtDate, GAME_LABEL, signed, TX_LABEL } from '../lib/format';
+import { BanksAdmin, DepositsAdmin, WithdrawalsAdmin } from './AdminPayments';
 
-interface Overview { users: number; newUsersWeek: number; online: number; gamesToday: number; activeGames: number; creditsInCirculation: number; suspended: number; privateOpen: number; abandonsToday: number }
+interface Overview { users: number; newUsersWeek: number; online: number; gamesToday: number; activeGames: number; creditsInCirculation: number; suspended: number; privateOpen: number; abandonsToday: number; pendingDeposits: number; pendingWithdrawals: number }
 interface AdminUser { id: string; username: string; email: string; role: string; status: 'ACTIVE' | 'SUSPENDED'; suspendedReason: string | null; balance: number; level: number; avatarColor: string; games: number; createdAt: string }
 interface AdminGame { id: string; room: { name: string; code: string; stake: number; gameType?: string }; status: string; endReason: string | null; players: { username: string; color: string; result: string | null }[]; winner: string | null; moves: number; startedAt: string; endedAt: string | null }
 interface AdminTx { id: string; type: string; amount: number; reason: string; username: string; actor: string | null; createdAt: string }
@@ -15,6 +16,8 @@ interface Audit { id: string; action: string; actor: string | null; targetType: 
 
 const ACTION_LABEL: Record<string, string> = {
   'admin.user_suspend': 'إيقاف حساب', 'admin.user_reactivate': 'إعادة تفعيل', 'admin.credit_adjust': 'تعديل رصيد', 'admin.game_abort_request': 'إلغاء مباراة', 'admin.bot_level': 'مستوى الروبوت', 'admin.wheel': 'تعديل عجلة الحظ',
+  'admin.deposit_approve': 'قبول إيداع', 'admin.deposit_reject': 'رفض إيداع', 'admin.withdrawal_paid': 'تنفيذ سحب', 'admin.withdrawal_reject': 'رفض سحب', 'admin.bank_create': 'إضافة حساب بنكي', 'admin.bank_update': 'تعديل حساب بنكي',
+  'payment.deposit_request': 'طلب إيداع', 'payment.withdrawal_request': 'طلب سحب',
   'game.finish': 'نهاية مباراة', 'game.abort': 'إلغاء مباراة', 'auth.register': 'تسجيل', 'auth.login': 'دخول', 'auth.login_failed': 'دخول فاشل', 'auth.logout': 'خروج',
   'room.create': 'إنشاء طاولة', 'room.join': 'انضمام', 'room.leave': 'مغادرة', 'user.update_profile': 'تعديل الملف', 'user.change_password': 'تغيير كلمة المرور'
 };
@@ -60,11 +63,14 @@ function ReasonDialog({ title, confirm, danger, onCancel, onConfirm }: { title: 
   );
 }
 
-type View = 'dashboard' | 'users' | 'credits' | 'games' | 'transactions' | 'wheel' | 'settings' | 'audit';
+type View = 'dashboard' | 'users' | 'deposits' | 'withdrawals' | 'banks' | 'credits' | 'games' | 'transactions' | 'wheel' | 'settings' | 'audit';
 
 const NAV: [View, ReactNode, string][] = [
   ['dashboard', <IconHome size={22} />, 'لوحة التحكم'],
   ['users', <IconUsers size={22} />, 'المستخدمون'],
+  ['deposits', <IconArrowDown size={22} />, 'طلبات الإيداع'],
+  ['withdrawals', <IconArrowUp size={22} />, 'طلبات السحب'],
+  ['banks', <IconBank size={22} />, 'حسابات الإيداع'],
   ['credits', <IconCoins size={22} />, 'التحكم في الرصيد'],
   ['transactions', <IconList size={22} />, 'سجل المعاملات'],
   ['games', <IconDice size={22} />, 'المباريات'],
@@ -235,6 +241,10 @@ export function AdminPage() {
       run: async (reason) => { await api.post(`/api/admin/games/${g.id}/abort`, { reason }); setDialog(null); load(); }
     });
 
+  const pending: Partial<Record<View, number>> = { deposits: ov?.pendingDeposits, withdrawals: ov?.pendingWithdrawals };
+  const ask = (d: { title: string; confirm: string; danger?: boolean; run: (r: string) => Promise<void> }) =>
+    setDialog({ ...d, run: async (r) => { await d.run(r); setDialog(null); } });
+
   const go = (v: View) => { setView(v); setMenu(false); window.scrollTo({ top: 0 }); };
   const usersTable = (list: AdminUser[]) => (
     <div className="table-wrap">
@@ -311,7 +321,10 @@ export function AdminPage() {
         </Link>
         <nav className="ad-nav">
           {NAV.map(([k, icon, label]) => (
-            <button key={k} type="button" className={'ad-nav-item' + (view === k ? ' active' : '')} aria-current={view === k ? 'page' : undefined} onClick={() => go(k)}>{icon}<span>{label}</span></button>
+            <button key={k} type="button" className={'ad-nav-item' + (view === k ? ' active' : '')} aria-current={view === k ? 'page' : undefined} onClick={() => go(k)}>
+              {icon}<span>{label}</span>
+              {pending[k] ? <span className="badge" style={{ marginInlineStart: 'auto', padding: '2px 9px', background: '#F43F5E', color: '#fff' }}>{pending[k]}</span> : null}
+            </button>
           ))}
         </nav>
         <button type="button" className="ad-logout" onClick={async () => { await logout(); navigate('/'); }}><IconLogout size={20} />تسجيل الخروج</button>
@@ -342,7 +355,7 @@ export function AdminPage() {
                 <Stat icon={<IconUsers size={26} />} color="#3B82F6" label="إجمالي المستخدمين" value={fmt(ov?.users ?? 0)} sub={`+${ov?.newUsersWeek ?? 0} هذا الأسبوع · ${ov?.suspended ?? 0} موقوف`} />
                 <Stat icon={<IconActivity size={26} />} color="#22C55E" label="متصلون الآن" value={fmt(ov?.online ?? 0)} sub={`${ov?.activeGames ?? 0} مباراة جارية`} />
                 <Stat icon={<IconDice size={26} />} color="#EF4444" label="مباريات اليوم" value={fmt(ov?.gamesToday ?? 0)} sub={`${ov?.abandonsToday ?? 0} انسحاب · ${ov?.privateOpen ?? 0} طاولة خاصة`} />
-                <Stat icon={<IconCoins size={26} />} color="#8B5CF6" label="عملات متداولة" value={fmt(ov?.creditsInCirculation ?? 0)} sub="افتراضية · غير قابلة للصرف" />
+                <Stat icon={<IconCoins size={26} />} color="#8B5CF6" label="عملات متداولة" value={fmt(ov?.creditsInCirculation ?? 0)} sub="مجموع أرصدة اللاعبين" />
               </div>
               <div className="ad-grid">
                 <div className="ad-col">
@@ -357,6 +370,13 @@ export function AdminPage() {
                   <QuickStats games={games} txs={txs} />
                 </div>
                 <div className="ad-col ad-col-side">
+                  <section className="panel" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    <h2 className="panel-title"><IconBank size={22} style={{ color: '#F2B232' }} />طلبات بانتظار المعالجة</h2>
+                    <div className="ad-quick" style={{ gridTemplateColumns: '1fr 1fr' }}>
+                      <button type="button" onClick={() => go('deposits')} style={{ background: 'linear-gradient(160deg,#16A34A40,#16A34A12)', borderColor: '#16A34A66', cursor: 'pointer', color: 'inherit', font: 'inherit' }}><span>إيداعات</span><b data-testid="pending-deposits">{fmt(ov?.pendingDeposits ?? 0)}</b></button>
+                      <button type="button" onClick={() => go('withdrawals')} style={{ background: 'linear-gradient(160deg,#DC262640,#DC262612)', borderColor: '#DC262666', cursor: 'pointer', color: 'inherit', font: 'inherit' }}><span>سحوبات</span><b data-testid="pending-withdrawals">{fmt(ov?.pendingWithdrawals ?? 0)}</b></button>
+                    </div>
+                  </section>
                   <CreditControl users={users} onDone={async () => { await load(); await refresh(); }} />
                   <section className="panel">
                     <h2 className="panel-title"><IconShield size={22} style={{ color: '#F2B232' }} />المناطق الحساسة</h2>
@@ -382,6 +402,10 @@ export function AdminPage() {
               {users.length ? usersTable(users) : <div style={{ padding: '0 22px 22px' }}><Empty>لا يوجد مستخدمون.</Empty></div>}
             </section>
           )}
+
+          {view === 'deposits' && <DepositsAdmin ask={ask} onChange={load} />}
+          {view === 'withdrawals' && <WithdrawalsAdmin ask={ask} onChange={load} />}
+          {view === 'banks' && <BanksAdmin />}
 
           {view === 'credits' && (
             <div style={{ maxWidth: 520 }}><CreditControl users={users} onDone={async () => { await load(); await refresh(); }} /></div>
@@ -415,7 +439,7 @@ export function AdminPage() {
 
           {view === 'transactions' && (
             <section className="panel ad-panel">
-              {head(<IconCoins size={22} />, 'آخر المعاملات الافتراضية')}
+              {head(<IconCoins size={22} />, 'آخر المعاملات')}
               {txTable(txs)}
             </section>
           )}
@@ -546,7 +570,7 @@ function CreditControl({ users, onDone }: { users: AdminUser[]; onDone: () => Pr
           <span style={{ color: '#B8B2C4' }}>الرصيد الحالي</span><b dir="ltr" style={{ color: '#FFC83D' }}>{fmt(selected.balance)}</b>
         </div>
       )}
-      <label className="field"><span>المبلغ (عملات افتراضية)</span>
+      <label className="field"><span>المبلغ (عملات)</span>
         <input className="pb-input" type="number" min={1} max={100000} value={amount} onChange={(e) => setAmount(Math.max(1, Math.min(100000, Number(e.target.value) || 1)))} dir="ltr" style={{ fontSize: 20, fontWeight: 900, textAlign: 'center' }} />
       </label>
       <div style={{ display: 'flex', gap: 6 }}>

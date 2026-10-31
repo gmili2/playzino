@@ -107,3 +107,37 @@ export interface GameSnapshot {
   events: GameEvent[];
   serverTime: number;
 }
+
+export type PaymentStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
+
+export interface Bank { id: string; name: string; accountHolder: string; rib: string; active?: boolean }
+
+export interface Deposit {
+  id: string;
+  username: string;
+  userId: string;
+  bank: string;
+  amount: number;
+  creditedAmount: number | null;
+  status: PaymentStatus;
+  note: string | null;
+  receiptMime: string;
+  reviewedBy: string | null;
+  reviewedAt: string | null;
+  createdAt: string;
+}
+
+export interface Withdrawal {
+  id: string;
+  username: string;
+  userId: string;
+  amount: number;
+  bankName: string;
+  accountHolder: string;
+  rib: string;
+  status: PaymentStatus;
+  note: string | null;
+  reviewedBy: string | null;
+  reviewedAt: string | null;
+  createdAt: string;
+}

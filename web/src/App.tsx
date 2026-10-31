@@ -1,6 +1,7 @@
 import { Link, Route, Routes } from 'react-router-dom';
 import { Page, RequireAuth } from './components/AppShell';
 import { AdminPage } from './pages/Admin';
+import { CashierPage } from './pages/Cashier';
 import { LoginPage, RegisterPage } from './pages/Auth';
 import { GamePage } from './pages/Game';
 import { HomePage } from './pages/Home';
@@ -28,6 +29,7 @@ export function App() {
       <Route path="/wheel" element={<WheelPage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
+      <Route path="/cashier" element={<RequireAuth><CashierPage /></RequireAuth>} />
       <Route path="/profile" element={<RequireAuth><ProfilePage /></RequireAuth>} />
       <Route path="/room/:roomId" element={<RequireAuth><GamePage /></RequireAuth>} />
       <Route path="/admin" element={<RequireAuth admin><AdminPage /></RequireAuth>} />

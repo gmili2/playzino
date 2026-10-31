@@ -55,7 +55,12 @@ const MESSAGES: Record<string, string> = {
   UNAUTHORIZED: 'يجب تسجيل الدخول',
   FORBIDDEN: 'غير مسموح',
   SELF_SUSPEND: 'لا يمكنك إيقاف حسابك',
-  TARGET_IS_ADMIN: 'لا يمكن إيقاف مسؤول'
+  TARGET_IS_ADMIN: 'لا يمكن إيقاف مسؤول',
+  BAD_RECEIPT: 'الوصل يجب أن يكون صورة (JPG أو PNG أو WEBP) أو ملف PDF',
+  RECEIPT_TOO_LARGE: 'حجم الوصل كبير جدًا (5 ميغابايت كحد أقصى)',
+  BANK_UNAVAILABLE: 'هذا البنك غير متاح حاليًا',
+  TOO_MANY_PENDING: 'لديك طلبات إيداع قيد المراجعة، انتظر معالجتها',
+  ALREADY_REVIEWED: 'تمت معالجة هذا الطلب بالفعل'
 };
 
 export function errorText(e: unknown): string {

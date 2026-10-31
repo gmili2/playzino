@@ -551,7 +551,7 @@ export function GamePage() {
               <div style={{ display: 'flex', gap: 10, width: '100%', margin: '6px 0' }}>
                 <div style={{ flex: 1, padding: 12, borderRadius: 16, background: '#110E17', display: 'flex', flexDirection: 'column', gap: 2 }}>
                   <span dir="ltr" style={{ fontWeight: 900, fontSize: 22, color: '#FFC83D' }}>+{fmt(myPayout)}</span>
-                  <span style={{ fontSize: 12, color: '#A9A3B5' }}>عملة افتراضية</span>
+                  <span style={{ fontSize: 12, color: '#A9A3B5' }}>عملة</span>
                 </div>
                 <div style={{ flex: 1, padding: 12, borderRadius: 16, background: '#110E17', display: 'flex', flexDirection: 'column', gap: 2 }}>
                   <span dir="ltr" style={{ fontWeight: 900, fontSize: 22, color: '#B9A8FF' }}>+{result === 'victory' ? WIN_XP : LOSS_XP}</span>

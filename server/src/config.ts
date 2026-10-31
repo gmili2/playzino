@@ -12,7 +12,9 @@ const schema = z.object({
     .transform((v) => v === 'true'),
   /** Délai accordé à un joueur déconnecté avant défaite par abandon. */
   RECONNECT_GRACE_SECONDS: z.coerce.number().int().positive().default(60),
-  WEB_DIST: z.string().optional()
+  WEB_DIST: z.string().optional(),
+  /** Reçus de virement envoyés par les joueurs (hors du dossier déployé, jamais servis en statique). */
+  UPLOAD_DIR: z.string().optional()
 });
 
 const parsed = schema.safeParse(process.env);
@@ -27,3 +29,10 @@ export const SIGNUP_CREDITS = 0;
 export const ALLOWED_STAKES = [0, 50, 100, 250, 500, 1000] as const;
 export const TURN_SECONDS = [15, 30, 60] as const;
 export const MAX_ADMIN_ADJUST = 100_000;
+// Dépôts et retraits par virement (1 DH = 1 pièce), validés à la main par l'administration.
+export const DEPOSIT_MIN = 50;
+export const DEPOSIT_MAX = 50_000;
+export const WITHDRAWAL_MIN = 100;
+export const WITHDRAWAL_MAX = 50_000;
+export const MAX_PENDING_DEPOSITS = 3;
+export const RECEIPT_MAX_BYTES = 5 * 1024 * 1024;

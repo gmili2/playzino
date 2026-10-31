@@ -104,7 +104,7 @@ export function LandingPage() {
 
         <div className="ld-hero-grid">
           <div className="ld-copy">
-            <span className="ld-badge"><IconShield size={15} />عملات افتراضية فقط · بلا أموال حقيقية</span>
+            <span className="ld-badge"><IconShield size={15} />إيداع وسحب بالتحويل البنكي</span>
             <h1>
               <span className="ld-h1-a">العب</span>
               <span className="ld-h1-b">بارتشيسي</span>
@@ -158,7 +158,7 @@ export function LandingPage() {
         <span><IconUsers size={26} /><b>من 2 إلى 4 لاعبين</b><small>طاولات على مقاسك</small></span>
         <span><IconShield size={26} /><b>لعب نزيه</b><small>كل رمية يتحقق منها الخادم</small></span>
         <span><IconBolt size={26} /><b>إعادة الاتصال</b><small>60 ثانية للعودة إلى مباراتك</small></span>
-        <span><IconCrown size={26} /><b>بلا أموال حقيقية</b><small>عملات افتراضية للمتعة فقط</small></span>
+        <span><IconCrown size={26} /><b>إيداع وسحب</b><small>بالتحويل البنكي، تراجعه الإدارة</small></span>
       </section>
 
       <section className="ld-exp">
@@ -200,7 +200,7 @@ export function LandingPage() {
           <Link to="/tables">الطاولات</Link>
           <Link to="/login">تسجيل الدخول</Link>
         </nav>
-        <p>العملات افتراضية: تُكسب باللعب فقط، لا قيمة مالية لها، ولا يمكن شراؤها أو سحبها.</p>
+        <p>1 عملة = 1 درهم. الإيداع والسحب بالتحويل البنكي فقط، وكل عملية تراجعها الإدارة.</p>
         <p dir="ltr">© {new Date().getFullYear()} Parcheesi Online</p>
       </footer>
     </div>

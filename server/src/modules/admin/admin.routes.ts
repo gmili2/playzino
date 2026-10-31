@@ -22,7 +22,7 @@ adminRouter.get('/overview', async (_req, res) => {
   const startOfDay = new Date();
   startOfDay.setUTCHours(0, 0, 0, 0);
   const weekAgo = new Date(Date.now() - 7 * 24 * 3600 * 1000);
-  const [users, newUsers, gamesToday, activeGames, credits, suspended, privateOpen, abandonsToday] = await Promise.all([
+  const [users, newUsers, gamesToday, activeGames, credits, suspended, privateOpen, abandonsToday, pendingDeposits, pendingWithdrawals] = await Promise.all([
     prisma.user.count({ where: { isBot: false } }),
     prisma.user.count({ where: { isBot: false, createdAt: { gte: weekAgo } } }),
     prisma.game.count({ where: { startedAt: { gte: startOfDay } } }),
@@ -30,7 +30,9 @@ adminRouter.get('/overview', async (_req, res) => {
     prisma.wallet.aggregate({ _sum: { balance: true }, where: { user: { isBot: false } } }),
     prisma.user.count({ where: { status: 'SUSPENDED' } }),
     prisma.room.count({ where: { visibility: 'PRIVATE', status: { in: ['WAITING', 'PLAYING'] } } }),
-    prisma.game.count({ where: { endedAt: { gte: startOfDay }, endReason: { in: ['FORFEIT', 'DISCONNECT'] } } })
+    prisma.game.count({ where: { endedAt: { gte: startOfDay }, endReason: { in: ['FORFEIT', 'DISCONNECT'] } } }),
+    prisma.depositRequest.count({ where: { status: 'PENDING' } }),
+    prisma.withdrawalRequest.count({ where: { status: 'PENDING' } })
   ]);
   res.json({
     users,
@@ -41,7 +43,9 @@ adminRouter.get('/overview', async (_req, res) => {
     creditsInCirculation: credits._sum.balance ?? 0,
     suspended,
     privateOpen,
-    abandonsToday
+    abandonsToday,
+    pendingDeposits,
+    pendingWithdrawals
   });
 });
 

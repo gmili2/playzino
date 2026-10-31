@@ -67,7 +67,7 @@ export function WheelPage() {
     <Page width={1100}>
       <section className="panel" style={{ position: 'relative', overflow: 'hidden', padding: '28px 20px 32px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 18, textAlign: 'center', background: 'radial-gradient(600px 360px at 50% 0%, rgba(139,92,246,0.35), transparent 70%), linear-gradient(180deg,#221A33,#15111D)' }}>
         <h1 style={{ fontWeight: 900, fontSize: 'clamp(34px, 6vw, 54px)', lineHeight: 1.1, background: 'linear-gradient(180deg,#FFE9A8,#F2B232)', WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent' }}>عجلة الحظ</h1>
-        <p style={{ margin: 0, fontSize: 18, fontWeight: 700, color: '#EFEAF5' }}>دورة مجانية كل يوم · اربح عملات افتراضية لتلعب بها!</p>
+        <p style={{ margin: 0, fontSize: 18, fontWeight: 700, color: '#EFEAF5' }}>دورة مجانية كل يوم · اربح عملات لتلعب بها!</p>
 
         {!user ? (
           <>
@@ -93,7 +93,7 @@ export function WheelPage() {
             {error && <div role="alert" className="alert alert-error">{error}</div>}
           </>
         )}
-        <p className="hint" style={{ maxWidth: 520, margin: 0 }}>دورة واحدة لكل لاعب في اليوم (بتوقيت المغرب). العملات افتراضية: بلا قيمة مالية، لا تُشترى ولا تُسحب.</p>
+        <p className="hint" style={{ maxWidth: 520, margin: 0 }}>دورة واحدة لكل لاعب في اليوم (بتوقيت المغرب).</p>
       </section>
 
       {won !== null && (

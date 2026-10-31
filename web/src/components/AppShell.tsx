@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link, NavLink, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
 import { fmt } from '../lib/format';
-import { IconBook, IconChevron, IconCrown, IconGrid, IconHome, IconLogout, IconShield, IconUser, IconWheel } from './Icons';
+import { IconArrowDown, IconArrowUp, IconBook, IconChevron, IconCrown, IconGrid, IconHome, IconLogout, IconShield, IconUser, IconWheel } from './Icons';
 import { Avatar, Coin, Loading } from './ui';
 
 /** Logo façon Rolly : couronne dorée dans un rond, nom en or. */
@@ -47,10 +47,13 @@ function AccountMenu({ onClose }: { onClose: () => void }) {
           <span className="rl-tag rl-tag-gold">المستوى {user.profile.level}</span>
         </span>
       </div>
-      <Link to="/wheel" className="rl-menu-card" onClick={onClose}>
+      <Link to="/cashier" className="rl-menu-card" onClick={onClose}>
         <span>الرصيد</span>
         <b><Coin size={18} /><span dir="ltr">{fmt(user.balance)}</span></b>
       </Link>
+      <div className="rl-menu-sec">المحفظة</div>
+      {item('/cashier', <IconArrowDown size={20} />, 'إيداع')}
+      {item('/cashier', <IconArrowUp size={20} />, 'سحب')}
       <div className="rl-menu-sec">اللعب</div>
       {item('/tables', <IconGrid size={20} />, 'الطاولات')}
       {item('/wheel', <IconWheel size={20} />, 'عجلة الحظ', <span className="rl-tag rl-tag-gold">مجانًا</span>)}
@@ -103,7 +106,7 @@ export function Header() {
           <div className="rl-top-right">
             {user ? (
               <>
-                <Link to="/wheel" className="rl-pill" title="عملات افتراضية · أدر العجلة لتربح المزيد" data-testid="balance">
+                <Link to="/cashier" className="rl-pill" title="رصيدي · إيداع أو سحب" data-testid="balance">
                   <Coin size={20} /><span dir="ltr">{fmt(user.balance)}</span><span className="rl-pill-plus" aria-hidden="true">+</span>
                 </Link>
                 <span className="rl-avatar-wrap">
@@ -133,7 +136,8 @@ export function Footer() {
     <footer style={{ borderTop: '1px solid rgba(255,222,170,0.12)', marginTop: 32 }}>
       <div style={{ maxWidth: 1500, margin: '0 auto', padding: 24, display: 'flex', flexWrap: 'wrap', gap: '14px 28px', alignItems: 'center', fontSize: 13, color: '#8C8698' }}>
         <span style={{ fontWeight: 800, color: '#FFC83D' }}>أكثر من مجرد لعبة… مجتمع!</span>
-        <span style={{ flex: '1 1 320px' }}>العملات افتراضية: تُكسب باللعب فقط، لا قيمة مالية لها، ولا يمكن شراؤها أو سحبها.</span>
+        <span style={{ flex: '1 1 320px' }}>1 عملة = 1 درهم. الإيداع والسحب بالتحويل البنكي فقط، وكل عملية تراجعها الإدارة.</span>
+        <Link to="/cashier" style={{ color: '#A9A3B5' }}>الإيداع والسحب</Link>
         <Link to="/rules" style={{ color: '#A9A3B5' }}>القواعد</Link>
       </div>
     </footer>

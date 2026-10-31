@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Page } from '../components/AppShell';
 import { IconCrown } from '../components/Icons';
 import { Avatar, Coin, Empty } from '../components/ui';
@@ -81,7 +81,7 @@ export function ProfilePage() {
               <span style={{ display: 'flex', flexDirection: 'column', textAlign: 'start' }}>
                 <span style={{ fontSize: 13, color: '#B8B2C4' }}>رصيدي</span>
                 <span dir="ltr" data-testid="profile-balance" style={{ fontWeight: 900, fontSize: 26, color: '#FFC83D' }}>{fmt(user.balance)}</span>
-                <span style={{ fontSize: 12, color: '#8C8698' }}>عملات افتراضية · بلا قيمة مالية</span>
+                <Link to="/cashier" style={{ fontSize: 12, color: '#FFC83D' }}>إيداع · سحب</Link>
               </span>
             </div>
           </section>

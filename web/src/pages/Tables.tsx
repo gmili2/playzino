@@ -125,7 +125,7 @@ export function TablesPage() {
         <div id="create" style={{ display: 'flex', flexWrap: 'wrap', gap: 20 }}>
           <ActionCard highlight icon={<IconBolt size={24} style={{ color: '#FFC83D' }} />} iconBg="rgba(255,200,61,0.16)" title="طاولة عامة" sub="نضعك في أول طاولة عامة فيها مكان شاغر بنفس الرهان.">
             {!c4 && <Seg label="عدد اللاعبين" value={quickPlayers} options={PLAYERS} onChange={setQuickPlayers} render={playersLabel} />}
-            <Seg label="الرهان (عملات افتراضية)" value={quickStake} options={STAKES} onChange={setQuickStake} render={stakeLabel} />
+            <Seg label="الرهان (عملات)" value={quickStake} options={STAKES} onChange={setQuickStake} render={stakeLabel} />
             <button type="button" className="pb-btn pb-gold" style={{ marginTop: 'auto' }} disabled={actions.busy || quickStake > balance} onClick={() => actions.quick(quickStake, c4 ? 2 : quickPlayers, game)}>ابحث عن طاولة</button>
           </ActionCard>
 
