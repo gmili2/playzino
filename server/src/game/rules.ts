@@ -39,7 +39,8 @@ const unsupported = () => {
 };
 
 const parcheesi: GameRules = {
-  seatColors: ['blue', 'yellow', 'red', 'green'],
+  // À deux, couleurs face à face (bleu en bas à gauche, vert en haut à droite).
+  seatColors: ['blue', 'green', 'yellow', 'red'],
   minPlayers: 2,
   maxPlayers: 4,
   create(colors, firstTurn) {

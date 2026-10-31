@@ -5,7 +5,7 @@ import { audit } from '../lib/audit.js';
 import { AppError, forbidden, notFound } from '../lib/errors.js';
 import { prisma } from '../lib/prisma.js';
 import { getBotLevel } from '../lib/settings.js';
-import type { Color } from '../game/engine.js';
+import { upgradeState, type Color, type GameState } from '../game/engine.js';
 import { GAME_RULES, type Action, type AnyEvent, type AnyState, type GameRules, type Step } from '../game/rules.js';
 import { applyWalletOp } from '../modules/wallet/wallet.service.js';
 
@@ -92,7 +92,8 @@ export class GameManager {
       }
     });
     if (!g) throw notFound('Partie introuvable');
-    const state = JSON.parse(g.state) as AnyState;
+    const parsed = JSON.parse(g.state) as AnyState;
+    const state = g.room.gameType === 'PARCHEESI' ? upgradeState(parsed as GameState) : parsed;
     const live: LiveGame = {
       id: g.id,
       roomId: g.roomId,

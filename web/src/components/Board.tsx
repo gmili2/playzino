@@ -7,41 +7,47 @@ import type { Color } from '../lib/types';
  * (piste de 68 cases) ; seule l'échelle est non uniforme (8 unités par camp, 3 unités par bras).
  */
 
+// Disposition du Parchís classique : jaune en haut à gauche, vert en haut à droite, bleu en bas à gauche,
+// rouge en bas à droite ; chaque couloir final part de la case d'extrémité du bras de sa couleur.
 const PAL: Record<Color, { name: string; fill: string; deep: string; tint: string; start: number; nest: [number, number]; home: (k: number) => [number, number] }> = {
-  red: { name: 'الأحمر', fill: '#E5484D', deep: '#A3262B', tint: '#F6C9CB', start: 4, nest: [0, 0], home: (k) => [9, k] },
-  yellow: { name: 'الأصفر', fill: '#F5C21B', deep: '#A67700', tint: '#FBE7A6', start: 21, nest: [0, 11], home: (k) => [k, 9] },
-  green: { name: 'الأخضر', fill: '#1FB57A', deep: '#0C7149', tint: '#BDEBD7', start: 38, nest: [11, 11], home: (k) => [9, 18 - k] },
-  blue: { name: 'الأزرق', fill: '#2F6BFF', deep: '#1A3FB0', tint: '#CAD9FF', start: 55, nest: [11, 0], home: (k) => [18 - k, 9] }
+  yellow: { name: 'الأصفر', fill: '#F5C21B', deep: '#A67700', tint: '#FBE7A6', start: 4, nest: [0, 0], home: (k) => [k, 9] },
+  blue: { name: 'الأزرق', fill: '#2F6BFF', deep: '#1A3FB0', tint: '#CAD9FF', start: 21, nest: [11, 0], home: (k) => [9, k] },
+  red: { name: 'الأحمر', fill: '#E5484D', deep: '#A3262B', tint: '#F6C9CB', start: 38, nest: [11, 11], home: (k) => [18 - k, 9] },
+  green: { name: 'الأخضر', fill: '#1FB57A', deep: '#0C7149', tint: '#BDEBD7', start: 55, nest: [0, 11], home: (k) => [9, 18 - k] }
 };
 const COLORS = Object.keys(PAL) as Color[];
+// Cases sûres (numéros 5, 12, 17, 22, 29, 34, 39, 46, 51, 56, 63, 68) : départs colorés, les autres en gris.
 const SAFE = [4, 11, 16, 21, 28, 33, 38, 45, 50, 55, 62, 67];
 const LINE = '#7D8597';
+/** Dernière position sur la piste (couloir final ensuite, arrivée au centre à GOAL), comme le moteur. */
+const LAST_TRACK = 63;
+const GOAL = 71;
 
 /** Unité de grille (0‥19) → pourcentage du plateau : camp = 8 unités sur un tiers, bras = 3 unités sur un tiers. */
 const T = 100 / 3;
 const G = (g: number) => (g <= 8 ? (g * T) / 8 : g <= 11 ? T + ((g - 8) * T) / 3 : 2 * T + ((g - 11) * T) / 8);
-/**
- * Plateau affiché en miroir gauche-droite : les pions avancent dans le sens inverse des aiguilles d'une montre
- * (vers la droite en sortant du camp), comme au Parchís. Le moteur et la numérotation de la piste sont inchangés.
- */
-const mirror = (c: number) => 19 - c;
 /** Case d'un bras vertical (colonnes 8‥10 hors centre) : allongée horizontalement. */
 const wide = (r: number, c: number) => c >= 8 && c < 11 && !(r >= 8 && r < 11);
 
+/**
+ * Case i (numéro affiché i + 1) → (ligne, colonne). Sens antihoraire : 1 en haut du bras du haut, on descend,
+ * puis le bras gauche vers la gauche, le bras du bas vers le bas, etc. ; 17, 34, 51 et 68 sont les cases
+ * d'extrémité, d'où partent les couloirs bleu, rouge, vert et jaune.
+ */
 function trackCoord(i: number): [number, number] {
   i = ((i % 68) + 68) % 68;
-  if (i <= 7) return [7 - i, 8];
-  if (i === 8) return [0, 9];
-  if (i <= 16) return [i - 9, 10];
-  if (i <= 24) return [8, i - 6];
-  if (i === 25) return [9, 18];
-  if (i <= 33) return [10, 44 - i];
-  if (i <= 41) return [i - 23, 10];
-  if (i === 42) return [18, 9];
-  if (i <= 50) return [61 - i, 8];
-  if (i <= 58) return [10, 58 - i];
-  if (i === 59) return [9, 0];
-  return [8, i - 60];
+  if (i <= 7) return [i, 8];
+  if (i <= 15) return [8, 15 - i];
+  if (i === 16) return [9, 0];
+  if (i <= 24) return [10, i - 17];
+  if (i <= 32) return [i - 14, 8];
+  if (i === 33) return [18, 9];
+  if (i <= 41) return [52 - i, 10];
+  if (i <= 49) return [10, i - 31];
+  if (i === 50) return [9, 18];
+  if (i <= 58) return [8, 69 - i];
+  if (i <= 66) return [66 - i, 10];
+  return [0, 9];
 }
 
 /** Centre (en unités de grille), diamètre (en % du plateau) et case d'un pion. */
@@ -49,20 +55,20 @@ function center(color: Color, p: number, slot: number) {
   const C = PAL[color];
   if (p < 0) {
     const [nr, nc] = C.nest;
-    return { r: nr + 2.6 + (slot >= 2 ? 2.8 : 0), c: mirror(nc + 2.6 + (slot % 2 ? 2.8 : 0)), size: 6.2, key: 'n' + color + slot, wide: false };
+    return { r: nr + 2.6 + (slot >= 2 ? 2.8 : 0), c: nc + 2.6 + (slot % 2 ? 2.8 : 0), size: 6.2, key: 'n' + color + slot, wide: false };
   }
-  if (p >= 63) {
+  if (p >= GOAL) {
     const off = [-0.75, -0.25, 0.25, 0.75][slot % 4];
-    const base = { yellow: [8.55, 9.5], green: [9.5, 10.45], blue: [10.45, 9.5], red: [9.5, 8.55] }[color];
-    const vertical = color === 'yellow' || color === 'blue';
-    return { r: base[0] + (vertical ? 0 : off), c: mirror(base[1] + (vertical ? off : 0)), size: 3.6, key: 'h' + color + slot, wide: false };
+    const base = { yellow: [8.55, 9.5], green: [9.5, 10.45], red: [10.45, 9.5], blue: [9.5, 8.55] }[color];
+    const vertical = color === 'yellow' || color === 'red';
+    return { r: base[0] + (vertical ? 0 : off), c: base[1] + (vertical ? off : 0), size: 3.6, key: 'h' + color + slot, wide: false };
   }
-  const [r, c] = p <= 55 ? trackCoord(C.start + p) : C.home(p - 55);
-  return { r: r + 0.5, c: mirror(c + 0.5), size: 4.5, key: r + '-' + c, wide: wide(r, c) };
+  const [r, c] = p <= LAST_TRACK ? trackCoord(C.start + p) : C.home(p - LAST_TRACK);
+  return { r: r + 0.5, c: c + 0.5, size: 4.5, key: r + '-' + c, wide: wide(r, c) };
 }
 
 const rect = (r: number, c: number, h = 1, w = 1): CSSProperties => ({
-  position: 'absolute', left: `${G(mirror(c + w))}%`, top: `${G(r)}%`, width: `${G(mirror(c)) - G(mirror(c + w))}%`, height: `${G(r + h) - G(r)}%`, boxSizing: 'border-box'
+  position: 'absolute', left: `${G(c)}%`, top: `${G(r)}%`, width: `${G(c + w) - G(c)}%`, height: `${G(r + h) - G(r)}%`, boxSizing: 'border-box'
 });
 
 const cellBase: CSSProperties = { border: `0.5px solid ${LINE}`, display: 'flex', alignItems: 'center', justifyContent: 'center' };
@@ -149,7 +155,7 @@ export function Board({
                 <div className="pc-pulse" style={{ position: 'absolute', inset: 0, boxShadow: 'inset 0 0 0 0.6cqw rgba(255,255,255,0.85)', pointerEvents: 'none' }} />
               )}
               {active && die && (
-                <svg viewBox="0 0 100 100" aria-hidden="true" style={{ position: 'absolute', width: '20%', height: '20%', [c === 0 ? 'left' : 'right']: '5%', [top ? 'bottom' : 'top']: '5%', filter: 'drop-shadow(0 2px 3px rgba(0,0,0,0.45))' }}>
+                <svg viewBox="0 0 100 100" aria-hidden="true" style={{ position: 'absolute', width: '20%', height: '20%', [c === 0 ? 'right' : 'left']: '5%', [top ? 'bottom' : 'top']: '5%', filter: 'drop-shadow(0 2px 3px rgba(0,0,0,0.45))' }}>
                   <rect x="4" y="4" width="92" height="92" rx="20" fill="#FFFFFF" stroke="#C3CDE0" strokeWidth="4" />
                   {(PIPS[die] ?? []).map(([x, y], n) => <circle key={n} cx={x} cy={y} r="9" fill="#0B1326" />)}
                 </svg>
@@ -188,9 +194,9 @@ export function Board({
         )}
         <svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true" style={{ ...rect(8, 8, 3, 3), display: 'block' }}>
           <polygon points="0,0 100,0 50,50" fill={PAL.yellow.fill} />
-          <polygon points="100,0 100,100 50,50" fill={PAL.red.fill} />
-          <polygon points="0,100 100,100 50,50" fill={PAL.blue.fill} />
-          <polygon points="0,0 0,100 50,50" fill={PAL.green.fill} />
+          <polygon points="100,0 100,100 50,50" fill={PAL.green.fill} />
+          <polygon points="0,100 100,100 50,50" fill={PAL.red.fill} />
+          <polygon points="0,0 0,100 50,50" fill={PAL.blue.fill} />
           <path d="M0,0 L100,100 M100,0 L0,100" stroke="#FFFFFF" strokeWidth="1.2" />
           <rect x="0" y="0" width="100" height="100" fill="none" stroke={LINE} strokeWidth="1" />
           <circle cx="50" cy="50" r="7" fill="#FFFFFF" stroke={LINE} strokeWidth="1" />
@@ -219,7 +225,7 @@ export function Board({
             else y += d;
           }
           const mv = !!pw.movable;
-          const where = pw.p < 0 ? 'في البيت' : pw.p >= 63 ? 'وصل' : pw.p > 55 ? 'في الممر الأخير' : 'الخانة ' + pw.p;
+          const where = pw.p < 0 ? 'في البيت' : pw.p >= GOAL ? 'وصل' : pw.p > LAST_TRACK ? 'في الممر الأخير' : 'الخانة ' + (((C.start + pw.p) % 68) + 1);
           return (
             <button
               key={pw.color + pw.slot}
@@ -253,5 +259,5 @@ export function Board({
 
 /** Position d'exposition pour l'accueil (plateau décoratif, aucune donnée de partie). */
 export const SHOWCASE_PAWNS: BoardPawn[] = (
-  [['blue', [-1, -1, 12, 40]], ['yellow', [-1, 5, 30, 63]], ['red', [-1, -1, -1, 18]], ['green', [-1, -1, 26, -1]]] as [Color, number[]][]
+  [['blue', [-1, -1, 12, 40]], ['yellow', [-1, 5, 30, 71]], ['red', [-1, -1, -1, 18]], ['green', [-1, -1, 26, -1]]] as [Color, number[]][]
 ).flatMap(([color, arr]) => arr.map((p, slot) => ({ color, p, slot })));

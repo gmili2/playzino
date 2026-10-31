@@ -6,10 +6,10 @@ par `server/src/game/engine.ts` et couvertes par `server/src/game/engine.test.ts
 
 | # | Règle | Référence moteur |
 |---|-------|------------------|
-| 1 | 2 à 4 joueurs. Couleurs par siège : bleu (sortie 55), jaune (21), rouge (4), vert (38) — à deux, coins opposés. Le tour suit le sens de la piste (rouge → jaune → vert → bleu) ; le premier joueur est tiré au sort. | `createGame`, `turnOrder`, `rooms.service#startGame` |
+| 1 | 2 à 4 joueurs. Couleurs par siège : bleu (sortie n° 22), vert (n° 56), jaune (n° 5), rouge (n° 39) — à deux, coins opposés. Le tour suit le sens de la piste, antihoraire (jaune → bleu → rouge → vert) ; le premier joueur est tiré au sort. | `createGame`, `turnOrder`, `rooms.service#startGame` |
 | 2 | Chaque tour : lancer d'**un dé** (1–6), tiré par le serveur (`crypto.randomInt`). | `applyRoll` |
 | 3 | Un **5** fait sortir un pion du nid vers sa case de sortie. Sortir est **obligatoire** si c'est possible. | `legalMoves` |
-| 4 | Un pion avance exactement du nombre de cases. Après 55 cases sur la piste, il entre dans son couloir (56–62) puis au centre (63). Le **compte exact** est exigé pour arriver. | `stepMove` |
+| 4 | Un pion avance exactement du nombre de cases. Après un tour complet (positions 0–63, de sa case de sortie à la case d'extrémité de son bras : n° 68 pour le jaune, 17 bleu, 34 rouge, 51 vert), il entre dans son couloir (64–70) puis au centre (71). Le **compte exact** est exigé pour arriver. | `stepMove` |
 | 5 | Un **6** donne un nouveau lancer. Si aucun pion n'est au nid, le 6 vaut **7**. | `applyRoll`, `endOfMove` |
 | 6 | **Trois 6 consécutifs** : le dernier pion déplacé retourne au nid (sauf s'il est dans le couloir final) et le tour passe. | `applyRoll` |
 | 7 | **Capture** : finir sur une case non sûre occupée par un seul pion adverse le renvoie au nid. Le capteur gagne un **bonus de 20 cases** à jouer avec le pion de son choix. | `applyMove`, `resolveBonuses` |
@@ -43,7 +43,7 @@ par `server/src/game/engine.ts` et couvertes par `server/src/game/engine.test.ts
 
 ## Différences avec le Parchís officiel (4 joueurs, 2 dés)
 
-Un seul dé (comme le design), piste réduite à 55 cases avant le couloir pour correspondre au plateau.
+Un seul dé (comme le design). Plateau et parcours du Parchís classique : jaune en haut à gauche, vert en haut à droite, bleu en bas à gauche, rouge en bas à droite, sens antihoraire, 64 cases de piste avant le couloir. Les parties commencées avec l'ancien parcours (56 cases) sont converties au chargement (`upgradeState`).
 
 ---
 

@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { Socket } from 'socket.io-client';
+import { GOAL } from '../game/engine.js';
 
 // Délai de reconnexion court pour tester l'abandon par déconnexion (lu au chargement de la config).
 process.env.RECONNECT_GRACE_SECONDS = '2';
@@ -108,7 +109,7 @@ describe('multijoueur temps réel', () => {
     sa.on('game:state', () => broadcasts++);
 
     // Jouer hors de son tour est refusé.
-    const idle = snap.turnColor === 'blue' ? byColor.yellow : byColor.blue;
+    const idle = snap.turnColor === 'blue' ? byColor.green : byColor.blue;
     expect((await emit(idle, 'game:roll', gameId)).error?.code).toBe('NOT_YOUR_TURN');
 
     let actions = 0;
@@ -135,7 +136,7 @@ describe('multijoueur temps réel', () => {
     expect(snap.status).toBe('FINISHED');
     expect(snap.endReason).toBe('COMPLETED');
     const winnerColor = snap.players.find((p) => p.userId === snap.winnerId)!.color;
-    expect(snap.state.pawns[winnerColor].every((p) => p === 63)).toBe(true);
+    expect(snap.state.pawns[winnerColor].every((p) => p === GOAL)).toBe(true);
     expect(broadcasts).toBeGreaterThan(10);
 
     // Base de données : partie, coups, résultats et gains cohérents.
@@ -296,10 +297,10 @@ describe('tables de 3 et 4 joueurs', () => {
     expect(r.status).toBe(400);
   });
 
-  it('partie complète à 4 : ordre rouge → jaune → vert → bleu, pot de 4 mises au vainqueur', async () => {
+  it('partie complète à 4 : ordre jaune → bleu → rouge → vert, pot de 4 mises au vainqueur', async () => {
     const { users, sockets, gameId, snap: first } = await seatedGroup(4, 50);
     let snap = first;
-    expect(snap.state.colors).toEqual(['red', 'yellow', 'green', 'blue']);
+    expect(snap.state.colors).toEqual(['yellow', 'blue', 'red', 'green']);
     expect(snap.paused).toBe(false);
     const byColor: Record<string, Socket> = {};
     snap.players.forEach((p) => (byColor[p.color] = sockets[users.findIndex((u) => u.user.id === p.userId)]));
@@ -319,7 +320,7 @@ describe('tables de 3 et 4 joueurs', () => {
     expect(snap.status).toBe('FINISHED');
     expect(snap.endReason).toBe('COMPLETED');
     // Les 4 premiers changements de main suivent le sens de la piste à partir du joueur tiré au sort.
-    const order = ['red', 'yellow', 'green', 'blue'];
+    const order = ['yellow', 'blue', 'red', 'green'];
     const start = order.indexOf(turns[0]);
     expect(turns.slice(0, 4)).toEqual([0, 1, 2, 3].map((k) => order[(start + k) % 4]));
 

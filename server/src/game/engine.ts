@@ -4,22 +4,23 @@
  *
  * Position d'un pion (relative à sa couleur) :
  *   -1        dans le nid (maison de départ)
- *   0..55     sur la piste commune (0 = case de sortie)
- *   56..62    dans le couloir final (privé)
- *   63        arrivé au centre
+ *   0..63     sur la piste commune (0 = case de sortie, 63 = case d'entrée du couloir, 5 cases avant la sortie)
+ *   64..70    dans le couloir final (privé)
+ *   71        arrivé au centre
  */
 
 export const COLORS = ['red', 'yellow', 'green', 'blue'] as const;
 export type Color = (typeof COLORS)[number];
 
 export const TRACK_LENGTH = 68;
-export const LAST_TRACK = 55;
-export const GOAL = 63;
+export const LAST_TRACK = 63;
+export const GOAL = 71;
 export const NEST = -1;
 export const PAWNS_PER_PLAYER = 4;
 
 /** Case absolue de sortie de chaque couleur (identique au plateau du design). */
-export const START: Record<Color, number> = { red: 4, yellow: 21, green: 38, blue: 55 };
+// Cases de sortie (numéros 5, 22, 39, 56 affichés) : jaune en haut à gauche, puis bleu, rouge, vert dans le sens antihoraire.
+export const START: Record<Color, number> = { yellow: 4, blue: 21, red: 38, green: 55 };
 /** Cases sûres (absolues) : pas de capture. Inclut les 4 cases de sortie. */
 export const SAFE = [4, 11, 16, 21, 28, 33, 38, 45, 50, 55, 62, 67];
 
@@ -48,6 +49,8 @@ export interface GameState {
   out?: Color[];
   /** Numéro d'action, incrémenté à chaque lancer/déplacement accepté. */
   seq: number;
+  /** Longueur du parcours sur la piste (64) ; absent des parties créées avec l'ancien parcours de 56 cases. */
+  track?: number;
 }
 
 export interface Move {
@@ -102,11 +105,24 @@ export function createGame(colors: Color[]): GameState {
     bonusQueue: [],
     winner: null,
     out: [],
-    seq: 0
+    seq: 0,
+    track: LAST_TRACK + 1
   };
 }
 
-/** Ordre de jeu : sens de la piste (rouge → jaune → vert → bleu), quel que soit l'ordre des sièges. */
+/**
+ * Partie créée avec l'ancien parcours (56 cases de piste, couloir 56‥62, arrivée 63) : on décale le couloir et
+ * l'arrivée pour qu'aucun pion déjà rentré ne retourne sur la piste.
+ */
+export function upgradeState(s: GameState): GameState {
+  if (s.track) return s;
+  const OLD_LAST = 55;
+  for (const c of Object.keys(s.pawns)) s.pawns[c] = s.pawns[c].map((p) => (p > OLD_LAST ? p + (LAST_TRACK - OLD_LAST) : p));
+  s.track = LAST_TRACK + 1;
+  return s;
+}
+
+/** Ordre de jeu : sens de la piste (jaune → bleu → rouge → vert), quel que soit l'ordre des sièges. */
 export function turnOrder(colors: Color[]): Color[] {
   return [...colors].sort((a, b) => START[a] - START[b]);
 }

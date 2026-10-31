@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   absSquare, activeColors, applyMove, applyRoll, autoMovePawn, botChooseMove, createGame, currentColor, eliminate, GameState, GOAL,
-  legalMoves, NEST, RuleError, START, turnOrder
+  legalMoves, NEST, RuleError, START, turnOrder, upgradeState
 } from './engine.js';
 
 const two = () => createGame(['blue', 'yellow']);
@@ -33,9 +33,11 @@ describe('création', () => {
   });
 
   it('les cases de sortie correspondent au plateau', () => {
-    expect(absSquare('blue', 0)).toBe(55);
-    expect(absSquare('yellow', 0)).toBe(21);
-    expect(absSquare('blue', 13)).toBe(0);
+    // Numéros affichés = case + 1 : jaune sort en 5, bleu en 22 ; la case 68 est la dernière du tour.
+    expect(absSquare('yellow', 0)).toBe(4);
+    expect(absSquare('blue', 0)).toBe(21);
+    expect(absSquare('blue', 47)).toBe(0);
+    expect(absSquare('yellow', 63)).toBe(67);
   });
 });
 
@@ -127,13 +129,13 @@ describe('déplacements', () => {
     expect(applyMove(s, 0).state.pawns.blue[0]).toBe(17);
   });
 
-  it('entre dans le couloir final après la case 55', () => {
-    const s = applyRoll(setup({ blue: [53, NEST, NEST, NEST] }), 4).state;
-    expect(applyMove(s, 0).state.pawns.blue[0]).toBe(57);
+  it('entre dans le couloir final après la case 63 (fin du tour)', () => {
+    const s = applyRoll(setup({ blue: [61, NEST, NEST, NEST] }), 4).state;
+    expect(applyMove(s, 0).state.pawns.blue[0]).toBe(65);
   });
 
   it('il faut le compte exact pour arriver au centre', () => {
-    const s = applyRoll(setup({ blue: [60, NEST, NEST, NEST] }), 4).state;
+    const s = applyRoll(setup({ blue: [68, NEST, NEST, NEST] }), 4).state;
     expect(legalMoves(s)).toEqual([]);
     expect(currentColor(s)).toBe('yellow');
   });
@@ -141,7 +143,7 @@ describe('déplacements', () => {
 
 describe('captures et cases sûres', () => {
   it('capturer un pion adverse sur une case normale le renvoie au nid et donne 20 cases', () => {
-    // Bleu en 10 (abs 65), jaune sur abs 68→ abs (65+3)%68 = 0.
+    // Bleu en 10 (abs 31) avance de 3 sur le jaune en abs 34, case normale.
     const yellowRel = relFor('yellow', absSquare('blue', 13));
     const s = applyRoll(setup({ blue: [10, 30, NEST, NEST], yellow: [yellowRel, NEST, NEST, NEST] }), 3).state;
     const m = applyMove(s, 0);
@@ -170,10 +172,10 @@ describe('captures et cases sûres', () => {
     s.pawns.blue[0] = 40;
     const yellow2 = relFor('yellow', absSquare('blue', 43));
     s.pawns.yellow[0] = yellow2;
-    const m = applyMove(s, 0); // 40 → 43 capture ; 43 + 20 = 63 → arrivée exacte, donc jouable
+    const m = applyMove(s, 0); // 40 → 43 capture ; 43 + 20 = 63 ≤ 71, donc jouable
     expect(m.state.phase).toBe('bonus');
-    const s2 = applyRoll(setup({ blue: [42, NEST, NEST, NEST], yellow: [relFor('yellow', absSquare('blue', 45)), NEST, NEST, NEST] }), 3).state;
-    // abs de 45 pour bleu = (55+45)%68 = 32 : pas sûre → capture puis 45+20 = 65 > 63 : bonus perdu.
+    const s2 = applyRoll(setup({ blue: [50, NEST, NEST, NEST], yellow: [relFor('yellow', absSquare('blue', 53)), NEST, NEST, NEST] }), 3).state;
+    // abs de 53 pour bleu = (21+53)%68 = 6 : pas sûre → capture puis 53+20 = 73 > 71 : bonus perdu.
     const m2 = applyMove(s2, 0);
     expect(m2.events.some((e) => e.type === 'bonus_lost')).toBe(true);
     expect(currentColor(m2.state)).toBe('yellow');
@@ -214,7 +216,7 @@ describe('trois 6 consécutifs', () => {
 
 describe('arrivée et victoire', () => {
   it('arriver au centre donne 10 cases de bonus', () => {
-    const s = applyRoll(setup({ blue: [60, 20, NEST, NEST] }), 3).state;
+    const s = applyRoll(setup({ blue: [68, 20, NEST, NEST] }), 3).state;
     const m = applyMove(s, 0);
     expect(m.state.pawns.blue[0]).toBe(GOAL);
     expect(m.state.phase).toBe('bonus');
@@ -222,7 +224,7 @@ describe('arrivée et victoire', () => {
   });
 
   it('le quatrième pion au centre termine la partie', () => {
-    const s = applyRoll(setup({ blue: [GOAL, GOAL, GOAL, 60] }), 3).state;
+    const s = applyRoll(setup({ blue: [GOAL, GOAL, GOAL, 68] }), 3).state;
     const m = applyMove(s, 3);
     expect(m.state.phase).toBe('finished');
     expect(m.state.winner).toBe('blue');
@@ -259,8 +261,8 @@ describe('3 et 4 joueurs', () => {
   const four = () => createGame(turnOrder(['blue', 'yellow', 'red', 'green']));
 
   it('l’ordre de jeu suit le sens de la piste', () => {
-    expect(turnOrder(['blue', 'yellow', 'red', 'green'])).toEqual(['red', 'yellow', 'green', 'blue']);
-    expect(turnOrder(['blue', 'yellow', 'red'])).toEqual(['red', 'yellow', 'blue']);
+    expect(turnOrder(['blue', 'yellow', 'red', 'green'])).toEqual(['yellow', 'blue', 'red', 'green']);
+    expect(turnOrder(['blue', 'green', 'red'])).toEqual(['blue', 'red', 'green']);
   });
 
   it('le tour passe à chaque joueur à tour de rôle', () => {
@@ -270,8 +272,8 @@ describe('3 et 4 joueurs', () => {
       seen.push(currentColor(s));
       s = applyRoll(s, 3).state; // aucun pion sorti : le tour passe
     }
-    expect(seen).toEqual(['red', 'yellow', 'green', 'blue']);
-    expect(currentColor(s)).toBe('red');
+    expect(seen).toEqual(['yellow', 'blue', 'red', 'green']);
+    expect(currentColor(s)).toBe('yellow');
   });
 
   it('un joueur éliminé est sauté et ses pions quittent le plateau', () => {
@@ -279,9 +281,10 @@ describe('3 et 4 joueurs', () => {
     s.pawns.yellow = [10, 20, NEST, NEST];
     const r = eliminate(s, 'yellow');
     expect(r.state.pawns.yellow).toEqual([NEST, NEST, NEST, NEST]);
-    expect(activeColors(r.state)).toEqual(['red', 'green', 'blue']);
-    s = applyRoll(r.state, 3).state; // rouge passe
-    expect(currentColor(s)).toBe('green');
+    expect(activeColors(r.state)).toEqual(['blue', 'red', 'green']);
+    expect(currentColor(r.state)).toBe('blue'); // le jaune avait la main : elle passe au bleu
+    s = applyRoll(r.state, 3).state; // bleu passe
+    expect(currentColor(s)).toBe('red');
   });
 
   it('éliminer le joueur dont c’est le tour passe la main', () => {
@@ -329,7 +332,7 @@ describe('robot', () => {
   const rel = (color: 'blue' | 'yellow', abs: number) => (abs - START[color] + 68) % 68;
 
   it('préfère arriver au centre', () => {
-    const s = applyRoll(setup({ blue: [60, 10, NEST, NEST] }), 3).state;
+    const s = applyRoll(setup({ blue: [68, 10, NEST, NEST] }), 3).state;
     expect(botChooseMove(s)).toBe(0);
   });
 
@@ -340,14 +343,14 @@ describe('robot', () => {
   });
 
   it('évite de s’arrêter juste devant un pion adverse', () => {
-    // Pion 0 : 40 → 42 (abs 29), avec un jaune 3 cases derrière (abs 26) ; pion 1 : 30 → 32 (abs 19), sans danger.
-    const chaser = rel('yellow', 26);
+    // Pion 0 : 40 → 42 (abs 63), avec un jaune 3 cases derrière (abs 60) ; pion 1 : 30 → 32 (abs 53), sans danger.
+    const chaser = rel('yellow', 60);
     const s = applyRoll(setup({ blue: [40, 30, NEST, NEST], yellow: [chaser, NEST, NEST, NEST] }), 2).state;
     expect(botChooseMove(s)).toBe(1);
   });
 
   it('niveau moyen : ne lit pas le danger, contrairement au niveau haut', () => {
-    const chaser = rel('yellow', 26);
+    const chaser = rel('yellow', 60);
     const s = applyRoll(setup({ blue: [40, 30, NEST, NEST], yellow: [chaser, NEST, NEST, NEST] }), 2).state;
     expect(botChooseMove(s, 'HIGH')).toBe(1);
     expect(botChooseMove(s, 'MEDIUM')).toBe(0);
@@ -356,11 +359,11 @@ describe('robot', () => {
   it('niveau moyen : capture et arrivée restent prioritaires', () => {
     const victim = rel('yellow', absSquare('blue', 13));
     expect(botChooseMove(applyRoll(setup({ blue: [10, 30, NEST, NEST], yellow: [victim, NEST, NEST, NEST] }), 3).state, 'MEDIUM')).toBe(0);
-    expect(botChooseMove(applyRoll(setup({ blue: [60, 10, NEST, NEST] }), 3).state, 'MEDIUM')).toBe(0);
+    expect(botChooseMove(applyRoll(setup({ blue: [68, 10, NEST, NEST] }), 3).state, 'MEDIUM')).toBe(0);
   });
 
   it('niveau bas : coup légal tiré au hasard', () => {
-    const s = applyRoll(setup({ blue: [60, 10, NEST, NEST] }), 3).state;
+    const s = applyRoll(setup({ blue: [68, 10, NEST, NEST] }), 3).state;
     const legal = legalMoves(s).map((m) => m.pawn);
     expect(botChooseMove(s, 'LOW', () => 0)).toBe(legal[0]);
     expect(botChooseMove(s, 'LOW', () => 0.999)).toBe(legal[legal.length - 1]);
@@ -380,5 +383,18 @@ describe('robot', () => {
       }
     }
     expect(s.phase).toBe('finished');
+  });
+});
+
+describe('ancien parcours', () => {
+  it('une partie à 56 cases est convertie : couloir et arrivée décalés, piste inchangée', () => {
+    const s = two();
+    delete s.track;
+    s.pawns.blue = [10, 55, 58, 63];
+    s.pawns.yellow = [NEST, 0, 56, 62];
+    const u = upgradeState(s);
+    expect(u.pawns.blue).toEqual([10, 55, 66, GOAL]);
+    expect(u.pawns.yellow).toEqual([NEST, 0, 64, 70]);
+    expect(upgradeState(u).pawns.blue).toEqual([10, 55, 66, GOAL]);
   });
 });

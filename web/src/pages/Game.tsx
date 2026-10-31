@@ -358,9 +358,9 @@ export function GamePage() {
           ) : (
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             {arr.map((v, i) => (
-              <span key={i} style={{ width: 14, height: 14, borderRadius: '50%', boxSizing: 'border-box', ...(v === 63 ? { background: hex } : v >= 0 ? { background: hex + '80', border: `2px solid ${hex}` } : { border: '2px solid rgba(255,222,170,0.4)' }) }} />
+              <span key={i} style={{ width: 14, height: 14, borderRadius: '50%', boxSizing: 'border-box', ...(v === 71 ? { background: hex } : v >= 0 ? { background: hex + '80', border: `2px solid ${hex}` } : { border: '2px solid rgba(255,222,170,0.4)' }) }} />
             ))}
-            <span style={{ fontSize: 12, color: '#B8B2C4', marginInlineStart: 4 }}>{arr.filter((v) => v === 63).length}/4 في البيت</span>
+            <span style={{ fontSize: 12, color: '#B8B2C4', marginInlineStart: 4 }}>{arr.filter((v) => v === 71).length}/4 في البيت</span>
           </div>
           )}
         </div>
