@@ -13,7 +13,7 @@ export function RoomCard({ room, onJoin, busy, mine }: { room: Room; onJoin: () 
   const joinable = room.status === 'WAITING' && free > 0;
   const host = room.players.find((p) => p.userId === room.hostId)?.username ?? '—';
   return (
-    <article className="pb-card" data-testid="room-card" style={{ borderRadius: 20, overflow: 'hidden', background: '#14153A', border: '1px solid rgba(140,130,255,0.16)', display: 'flex', flexDirection: 'column' }}>
+    <article className="pb-card" data-testid="room-card" style={{ borderRadius: 20, overflow: 'hidden', background: '#1B1824', border: '1px solid rgba(255,222,170,0.16)', display: 'flex', flexDirection: 'column' }}>
       <div style={{ height: 96, padding: 14, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', background: BANNERS[room.status] ?? BANNERS.FULL }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 30px)', gap: 6 }}>
           {Array.from({ length: room.maxPlayers }, (_, seat) => {
@@ -31,10 +31,10 @@ export function RoomCard({ room, onJoin, busy, mine }: { room: Room; onJoin: () 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           <span style={{ fontWeight: 800, fontSize: 16 }}>{room.name}</span>
           <span style={{ fontSize: 12, fontWeight: 700, color: room.gameType === 'CONNECT4' ? '#93B4FF' : '#FFC83D' }}>{GAME_LABEL[room.gameType]}</span>
-          <span style={{ fontSize: 12, color: '#A6A8D6' }}><span dir="ltr">{room.code ?? ''}</span> · المضيف {host}</span>
+          <span style={{ fontSize: 12, color: '#A9A3B5' }}><span dir="ltr">{room.code ?? ''}</span> · المضيف {host}</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-          <span style={{ fontSize: 13, color: '#C9CAF0', display: 'flex', gap: 10, alignItems: 'center' }}>
+          <span style={{ fontSize: 13, color: '#CFC9D9', display: 'flex', gap: 10, alignItems: 'center' }}>
             {room.players.length}/{room.maxPlayers} لاعبين
             {room.stake > 0 ? <Credits value={room.stake} size={13} /> : <span style={{ color: '#4ADE80' }}>مجانية</span>}
           </span>

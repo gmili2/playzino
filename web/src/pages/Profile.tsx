@@ -27,7 +27,7 @@ const AVATAR_COLORS = ['#2F6BFF', '#E5484D', '#1FB57A', '#F5C21B', '#8B5CF6', '#
 function StatCard({ label, value, color, border, bg }: { label: string; value: string; color: string; border: string; bg: string }) {
   return (
     <div style={{ flex: '1 1 160px', padding: '18px 20px', borderRadius: 20, background: bg, border: `1px solid ${border}` }}>
-      <div style={{ fontSize: 14, color: '#D4D2F2' }}>{label}</div>
+      <div style={{ fontSize: 14, color: '#DAD5E2' }}>{label}</div>
       <div dir="ltr" style={{ fontWeight: 900, fontSize: 34, color, textAlign: 'end' }}>{value}</div>
     </div>
   );
@@ -36,7 +36,7 @@ function StatCard({ label, value, color, border, bg }: { label: string; value: s
 function Toggle({ label, sub, checked, onChange }: { label: string; sub: string; checked: boolean; onChange: (v: boolean) => void }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-      <span style={{ display: 'flex', flexDirection: 'column' }}><span style={{ fontWeight: 800 }}>{label}</span><span style={{ fontSize: 13, color: '#A6A8D6' }}>{sub}</span></span>
+      <span style={{ display: 'flex', flexDirection: 'column' }}><span style={{ fontWeight: 800 }}>{label}</span><span style={{ fontSize: 13, color: '#A9A3B5' }}>{sub}</span></span>
       <button type="button" role="switch" className="switch" aria-checked={checked} aria-label={label} onClick={() => onChange(!checked)} />
     </div>
   );
@@ -61,27 +61,27 @@ export function ProfilePage() {
     <Page width={1280}>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 24, alignItems: 'flex-start' }}>
         <div style={{ flex: '1 1 320px', maxWidth: 360, display: 'flex', flexDirection: 'column', gap: 20 }}>
-          <section style={{ padding: 24, borderRadius: 24, background: 'linear-gradient(170deg, #2A1B7A, #14153A 60%)', border: '1px solid rgba(140,130,255,0.25)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, textAlign: 'center' }}>
+          <section style={{ padding: 24, borderRadius: 24, background: 'linear-gradient(170deg, #2A1B7A, #1B1824 60%)', border: '1px solid rgba(255,222,170,0.25)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, textAlign: 'center' }}>
             <div style={{ position: 'relative' }}>
               <IconCrown size={30} style={{ position: 'absolute', top: -16, left: '50%', transform: 'translateX(-50%)', color: '#FFC83D', zIndex: 1 }} />
-              <Avatar name={user.username} color={user.profile.avatarColor} size={112} style={{ boxShadow: '0 0 0 4px #14153A, 0 0 0 7px #FFC83D' }} />
+              <Avatar name={user.username} color={user.profile.avatarColor} size={112} style={{ boxShadow: '0 0 0 4px #1B1824, 0 0 0 7px #FFC83D' }} />
             </div>
             <h1 style={{ fontWeight: 900, fontSize: 26 }}>{user.username}</h1>
-            <span style={{ fontSize: 14, color: '#D4D2F2' }}>المستوى {user.profile.level} · عضو منذ {fmtMonth(user.createdAt)}</span>
+            <span style={{ fontSize: 14, color: '#DAD5E2' }}>المستوى {user.profile.level} · عضو منذ {fmtMonth(user.createdAt)}</span>
             {user.role === 'ADMIN' && <span className="badge" style={{ background: 'rgba(255,200,61,0.16)', color: '#FFC83D' }}>مسؤول</span>}
-            <div style={{ width: '100%', display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#B4B6E4', marginTop: 6 }}>
+            <div style={{ width: '100%', display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#B8B2C4', marginTop: 6 }}>
               <span>التقدم نحو المستوى {user.profile.level + 1}</span>
               <span dir="ltr">{fmt(user.profile.xpInLevel)} / {fmt(user.profile.xpForLevel)} XP</span>
             </div>
-            <div style={{ width: '100%', height: 10, borderRadius: 5, background: '#0F1030', overflow: 'hidden' }}>
-              <div style={{ width: pct + '%', height: '100%', marginInlineStart: 0, background: 'linear-gradient(90deg,#6C47FF,#B9A8FF)' }} />
+            <div style={{ width: '100%', height: 10, borderRadius: 5, background: '#110E17', overflow: 'hidden' }}>
+              <div style={{ width: pct + '%', height: '100%', marginInlineStart: 0, background: 'linear-gradient(90deg,#8B5CF6,#B9A8FF)' }} />
             </div>
-            <div style={{ width: '100%', marginTop: 8, padding: 16, borderRadius: 18, background: '#0F1030', border: '1px solid rgba(255,200,61,0.35)', display: 'flex', alignItems: 'center', gap: 14 }}>
+            <div style={{ width: '100%', marginTop: 8, padding: 16, borderRadius: 18, background: '#110E17', border: '1px solid rgba(255,200,61,0.35)', display: 'flex', alignItems: 'center', gap: 14 }}>
               <Coin size={40} />
               <span style={{ display: 'flex', flexDirection: 'column', textAlign: 'start' }}>
-                <span style={{ fontSize: 13, color: '#B4B6E4' }}>رصيدي</span>
+                <span style={{ fontSize: 13, color: '#B8B2C4' }}>رصيدي</span>
                 <span dir="ltr" data-testid="profile-balance" style={{ fontWeight: 900, fontSize: 26, color: '#FFC83D' }}>{fmt(user.balance)}</span>
-                <span style={{ fontSize: 12, color: '#8A8CC0' }}>عملات افتراضية · بلا قيمة مالية</span>
+                <span style={{ fontSize: 12, color: '#8C8698' }}>عملات افتراضية · بلا قيمة مالية</span>
               </span>
             </div>
           </section>
@@ -90,10 +90,10 @@ export function ProfilePage() {
 
         <div style={{ flex: '999 1 560px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 20 }}>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14 }}>
-            <StatCard label="المباريات" value={String(user.stats.played)} color="#F4F3FF" border="rgba(47,107,255,0.4)" bg="linear-gradient(160deg,#16205A,#14153A)" />
-            <StatCard label="الانتصارات" value={String(user.stats.wins)} color="#4ADE80" border="rgba(34,197,94,0.4)" bg="linear-gradient(160deg,#0F3A2A,#14153A)" />
-            <StatCard label="الخسائر" value={String(user.stats.losses)} color="#FB7185" border="rgba(244,63,94,0.4)" bg="linear-gradient(160deg,#3A1424,#14153A)" />
-            <StatCard label="نسبة الفوز" value={user.stats.winRate + '%'} color="#FFC83D" border="rgba(255,200,61,0.45)" bg="linear-gradient(160deg,#3A2A10,#14153A)" />
+            <StatCard label="المباريات" value={String(user.stats.played)} color="#F7F3EC" border="rgba(47,107,255,0.4)" bg="linear-gradient(160deg,#16205A,#1B1824)" />
+            <StatCard label="الانتصارات" value={String(user.stats.wins)} color="#4ADE80" border="rgba(34,197,94,0.4)" bg="linear-gradient(160deg,#0F3A2A,#1B1824)" />
+            <StatCard label="الخسائر" value={String(user.stats.losses)} color="#FB7185" border="rgba(244,63,94,0.4)" bg="linear-gradient(160deg,#3A1424,#1B1824)" />
+            <StatCard label="نسبة الفوز" value={user.stats.winRate + '%'} color="#FFC83D" border="rgba(255,200,61,0.45)" bg="linear-gradient(160deg,#3A2A10,#1B1824)" />
           </div>
 
           <section className="panel" style={{ padding: 0, overflow: 'hidden' }}>
@@ -116,12 +116,12 @@ export function ProfilePage() {
                           <td>{h.opponents.join('، ')}</td>
                           <td><span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><span style={{ width: 10, height: 10, borderRadius: '50%', background: COLOR_HEX[h.color] }} />{COLOR_NAME[h.color]}</span></td>
                           <td>
-                            {h.status === 'ABORTED' ? <span className="badge" style={{ background: 'rgba(140,130,255,0.14)', color: '#B4B6E4' }}>ملغاة</span>
+                            {h.status === 'ABORTED' ? <span className="badge" style={{ background: 'rgba(255,222,170,0.14)', color: '#B8B2C4' }}>ملغاة</span>
                               : h.result === 'WIN' ? <span className="badge" style={{ background: 'rgba(34,197,94,0.14)', color: '#4ADE80' }}>فوز</span>
                               : h.result === 'DRAW' ? <span className="badge" style={{ background: 'rgba(34,211,238,0.14)', color: '#22D3EE' }}>تعادل</span>
                               : <span className="badge" style={{ background: 'rgba(244,63,94,0.14)', color: '#FB7185' }}>خسارة</span>}
                           </td>
-                          <td dir="ltr" style={{ fontWeight: 800, color: h.payout ? '#FFC83D' : '#A6A8D6', textAlign: 'end' }}>{h.result === 'DRAW' ? '0' : h.payout ? '+' + fmt(h.payout) : h.room.stake ? '-' + fmt(h.room.stake) : '0'}</td>
+                          <td dir="ltr" style={{ fontWeight: 800, color: h.payout ? '#FFC83D' : '#A9A3B5', textAlign: 'end' }}>{h.result === 'DRAW' ? '0' : h.payout ? '+' + fmt(h.payout) : h.room.stake ? '-' + fmt(h.room.stake) : '0'}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -137,7 +137,7 @@ export function ProfilePage() {
                       <tr key={t.id} className="pb-row">
                         <td>{fmtDate(t.createdAt)}</td>
                         <td style={{ fontWeight: 800 }}>{TX_LABEL[t.type] ?? t.type}</td>
-                        <td style={{ color: '#B4B6E4', fontSize: 13 }}>{t.reason}</td>
+                        <td style={{ color: '#B8B2C4', fontSize: 13 }}>{t.reason}</td>
                         <td dir="ltr" style={{ fontWeight: 800, color: t.amount > 0 ? '#4ADE80' : '#FB7185', textAlign: 'end' }}>{signed(t.amount)}</td>
                         <td dir="ltr" style={{ textAlign: 'end' }}>{fmt(t.balanceAfter)}</td>
                       </tr>
@@ -209,26 +209,26 @@ function Settings({ user, onSaved, onLogout }: { user: Me; onSaved: (u: Me) => v
           <div style={{ display: 'flex', gap: 10 }}>
             {AVATAR_COLORS.map((c) => (
               <button key={c} type="button" aria-label={c} aria-pressed={form.avatarColor === c} onClick={() => setForm({ ...form, avatarColor: c })}
-                style={{ width: 32, height: 32, borderRadius: '50%', border: 0, cursor: 'pointer', background: c, boxShadow: form.avatarColor === c ? '0 0 0 3px #14153A, 0 0 0 5px #fff' : undefined }} />
+                style={{ width: 32, height: 32, borderRadius: '50%', border: 0, cursor: 'pointer', background: c, boxShadow: form.avatarColor === c ? '0 0 0 3px #1B1824, 0 0 0 5px #fff' : undefined }} />
             ))}
           </div>
         </div>
-        <div style={{ height: 1, background: 'rgba(140,130,255,0.14)' }} />
+        <div style={{ height: 1, background: 'rgba(255,222,170,0.14)' }} />
         <Toggle label="أصوات اللعبة" sub="النرد، التحركات والأسر" checked={form.soundEnabled} onChange={(v) => setForm({ ...form, soundEnabled: v })} />
         <Toggle label="دعوات المباريات" sub="استقبال دعوات أصدقائك" checked={form.invitesEnabled} onChange={(v) => setForm({ ...form, invitesEnabled: v })} />
         <Toggle label="إخفاء حالة الاتصال" sub="لن يراك أصدقاؤك متصلًا" checked={form.hideOnline} onChange={(v) => setForm({ ...form, hideOnline: v })} />
         <button type="submit" className="pb-btn pb-gold" disabled={busy} style={{ alignSelf: 'flex-start' }}>حفظ التغييرات</button>
       </form>
-      <div style={{ height: 1, background: 'rgba(140,130,255,0.14)' }} />
+      <div style={{ height: 1, background: 'rgba(255,222,170,0.14)' }} />
       <form onSubmit={changePw} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         <span style={{ fontWeight: 800 }}>تغيير كلمة المرور</span>
         <input className="pb-input" type="password" dir="ltr" autoComplete="current-password" placeholder="كلمة المرور الحالية" value={pw.currentPassword} onChange={(e) => setPw({ ...pw, currentPassword: e.target.value })} />
         <input className="pb-input" type="password" dir="ltr" autoComplete="new-password" placeholder="كلمة المرور الجديدة" value={pw.newPassword} onChange={(e) => setPw({ ...pw, newPassword: e.target.value })} />
         <button type="submit" className="pb-btn pb-ghost pb-sm" disabled={!pw.currentPassword || !pw.newPassword} style={{ alignSelf: 'flex-start' }}>تحديث</button>
       </form>
-      <div style={{ height: 1, background: 'rgba(140,130,255,0.14)' }} />
+      <div style={{ height: 1, background: 'rgba(255,222,170,0.14)' }} />
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <span style={{ fontSize: 13, color: '#A6A8D6' }}>متصل على هذا الجهاز</span>
+        <span style={{ fontSize: 13, color: '#A9A3B5' }}>متصل على هذا الجهاز</span>
         <button type="button" className="pb-btn pb-danger pb-sm" data-testid="logout" onClick={onLogout}>تسجيل الخروج</button>
       </div>
     </section>

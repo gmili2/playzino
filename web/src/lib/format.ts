@@ -13,7 +13,7 @@ export const fmtMonth = (d: string) => monthFmt.format(new Date(d));
 
 export const TX_LABEL: Record<string, string> = {
   SIGNUP_BONUS: 'مكافأة التسجيل',
-  DAILY_BONUS: 'مكافأة يومية',
+  DAILY_BONUS: 'عجلة الحظ',
   STAKE: 'رهان طاولة',
   WIN: 'فوز في مباراة',
   REFUND: 'استرداد',

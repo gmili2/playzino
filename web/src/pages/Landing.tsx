@@ -124,7 +124,7 @@ export function LandingPage() {
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5M11 6l-6 6 6 6" /></svg>
                 </span>
               </Link>
-              <span className="ld-cta-note">1,000 عملة هدية عند التسجيل</span>
+              <span className="ld-cta-note">دورة مجانية في عجلة الحظ كل يوم</span>
             </div>
 
             <div className="ld-live" role="status">

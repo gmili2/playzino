@@ -1,83 +1,140 @@
-import { useState, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link, NavLink, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
-import { IconGrid, IconHome, IconSearch, IconShield, IconUser, Logo } from './Icons';
-import { Avatar, Credits, Loading } from './ui';
+import { fmt } from '../lib/format';
+import { IconBook, IconChevron, IconCrown, IconGrid, IconHome, IconLogout, IconShield, IconUser, IconWheel } from './Icons';
+import { Avatar, Coin, Loading } from './ui';
 
-function Brand() {
+/** Logo façon Rolly : couronne dorée dans un rond, nom en or. */
+export function Brand() {
   return (
-    <Link to="/" aria-label="Parcheesi Online — الرئيسية" style={{ display: 'flex', alignItems: 'center', gap: 12, textDecoration: 'none', color: '#F4F3FF' }}>
-      <Logo />
-      <span style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.15 }}>
-        <span dir="ltr" style={{ fontWeight: 900, fontSize: 21, letterSpacing: '-0.01em' }}>
-          Parcheesi <span style={{ color: '#FFC83D' }}>Online</span>
-        </span>
-        <span style={{ fontSize: 12, fontWeight: 600, color: '#A6A8D6' }}>العب · تحدَّ · استمتع</span>
-      </span>
+    <Link to="/" aria-label="Playzino — الرئيسية" className="rl-brand">
+      <span className="rl-brand-mark"><IconCrown size={24} /></span>
+      <span dir="ltr" className="rl-brand-name">Playzino</span>
     </Link>
   );
 }
 
-const pill = ({ isActive }: { isActive: boolean }) => ({
-  display: 'inline-flex', alignItems: 'center', gap: 8, height: 46, padding: '0 16px', borderRadius: 14, textDecoration: 'none',
-  fontWeight: 700, fontSize: 15, color: isActive ? '#fff' : '#C9CAF0', background: isActive ? '#6C47FF' : 'transparent',
-  boxShadow: isActive ? '0 10px 24px rgba(108,71,255,0.35)' : undefined, whiteSpace: 'nowrap' as const
-});
+const LINKS = [
+  { to: '/', label: 'الرئيسية', icon: <IconHome size={18} />, end: true },
+  { to: '/tables', label: 'الطاولات', icon: <IconGrid size={18} /> },
+  { to: '/wheel', label: 'عجلة الحظ', icon: <IconWheel size={18} /> },
+  { to: '/rules', label: 'القواعد', icon: <IconBook size={18} /> }
+];
+
+/** Menu du compte (clic sur l'avatar), comme le panneau de Rolly. */
+function AccountMenu({ onClose }: { onClose: () => void }) {
+  const { user, logout } = useAuth();
+  const nav = useNavigate();
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const away = (e: MouseEvent) => { if (!ref.current?.parentElement?.contains(e.target as Node)) onClose(); };
+    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('mousedown', away);
+    document.addEventListener('keydown', esc);
+    return () => { document.removeEventListener('mousedown', away); document.removeEventListener('keydown', esc); };
+  }, [onClose]);
+  if (!user) return null;
+  const item = (to: string, icon: ReactNode, label: string, extra?: ReactNode) => (
+    <Link to={to} className="rl-menu-item" onClick={onClose}>{icon}<span>{label}</span>{extra ?? <IconChevron size={16} className="rl-menu-chev" />}</Link>
+  );
+  return (
+    <div ref={ref} className="rl-menu" role="menu" aria-label="حسابي">
+      <div className="rl-menu-head">
+        <Avatar name={user.username} color={user.profile.avatarColor} size={58} ring="#F2B232" />
+        <span className="rl-menu-who">
+          <b>{user.username}</b>
+          <span className="rl-tag rl-tag-gold">المستوى {user.profile.level}</span>
+        </span>
+      </div>
+      <Link to="/wheel" className="rl-menu-card" onClick={onClose}>
+        <span>الرصيد</span>
+        <b><Coin size={18} /><span dir="ltr">{fmt(user.balance)}</span></b>
+      </Link>
+      <div className="rl-menu-sec">اللعب</div>
+      {item('/tables', <IconGrid size={20} />, 'الطاولات')}
+      {item('/wheel', <IconWheel size={20} />, 'عجلة الحظ', <span className="rl-tag rl-tag-gold">مجانًا</span>)}
+      <div className="rl-menu-sec">الحساب</div>
+      {item('/profile', <IconUser size={20} />, 'الملف الشخصي')}
+      {user.role === 'ADMIN' && item('/admin', <IconShield size={20} />, 'لوحة الإدارة')}
+      <div className="rl-menu-sec">المساعدة</div>
+      {item('/rules', <IconBook size={20} />, 'قواعد اللعب')}
+      <button type="button" className="rl-menu-item rl-menu-out" onClick={async () => { onClose(); await logout(); nav('/'); }}>
+        <IconLogout size={20} /><span>تسجيل الخروج</span>
+      </button>
+    </div>
+  );
+}
+
+/** Barre d'onglets du bas (mobile), avec le bouton Accueil central. */
+function TabBar() {
+  const { pathname } = useLocation();
+  // Pas de barre pendant une partie : le bas de l'écran sert aux commandes du jeu.
+  if (pathname.startsWith('/room/')) return null;
+  const tab = (to: string, icon: ReactNode, label: string) => (
+    <NavLink to={to} className={({ isActive }) => 'rl-tab' + (isActive ? ' active' : '')}>{icon}<span>{label}</span></NavLink>
+  );
+  return (
+    <nav className="rl-tabbar pb-show-md" aria-label="التنقل">
+      {tab('/profile', <IconUser size={24} />, 'حسابي')}
+      {tab('/tables', <IconGrid size={24} />, 'الطاولات')}
+      <NavLink to="/" end className={({ isActive }) => 'rl-tab rl-tab-home' + (isActive ? ' active' : '')}>
+        <span className="rl-tab-home-btn"><IconHome size={28} /></span><span>الرئيسية</span>
+      </NavLink>
+      {tab('/wheel', <IconWheel size={24} />, 'العجلة')}
+      {tab('/rules', <IconBook size={24} />, 'القواعد')}
+    </nav>
+  );
+}
 
 export function Header() {
   const { user } = useAuth();
-  const nav = useNavigate();
-  const [q, setQ] = useState('');
-  const submit = (e: FormEvent) => {
-    e.preventDefault();
-    nav('/tables' + (q.trim() ? '?q=' + encodeURIComponent(q.trim()) : ''));
-  };
-  const links = (
-    <>
-      <NavLink to="/" end style={pill}><IconHome size={18} />الرئيسية</NavLink>
-      <NavLink to="/tables" style={pill}><IconGrid size={18} />الطاولات</NavLink>
-      {user && <NavLink to="/profile" style={pill}><IconUser size={18} />الملف الشخصي</NavLink>}
-      {user?.role === 'ADMIN' && <NavLink to="/admin" style={pill}><IconShield size={18} />الإدارة</NavLink>}
-    </>
-  );
+  const [open, setOpen] = useState(false);
   return (
-    <header style={{ borderBottom: '1px solid rgba(140,130,255,0.12)', background: 'rgba(10,11,30,0.92)', position: 'sticky', top: 0, zIndex: 40, backdropFilter: 'blur(8px)' }}>
-      <div style={{ maxWidth: 1500, margin: '0 auto', padding: '14px 24px', display: 'flex', alignItems: 'center', gap: 20, flexWrap: 'wrap' }}>
-        <Brand />
-        <nav aria-label="القائمة الرئيسية" className="pb-hide-md" style={{ display: 'flex', gap: 4 }}>{links}</nav>
-        <form onSubmit={submit} className="pb-hide-md" role="search" style={{ position: 'relative', flex: '1 1 240px', maxWidth: 420 }}>
-          <span style={{ position: 'absolute', insetInlineStart: 16, top: '50%', transform: 'translateY(-50%)', color: '#8A8CC0', display: 'flex' }}><IconSearch size={18} /></span>
-          <input className="pb-input" aria-label="بحث" placeholder="ابحث عن طاولة…" value={q} onChange={(e) => setQ(e.target.value)} style={{ paddingInlineStart: 44, background: '#14153A' }} />
-        </form>
-        <div style={{ marginInlineStart: 'auto', display: 'flex', alignItems: 'center', gap: 10 }}>
-          {user ? (
-            <Link to="/profile" data-testid="user-chip" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '5px 6px 5px 16px', borderRadius: 16, background: '#14153A', border: '1px solid rgba(140,130,255,0.18)', textDecoration: 'none', color: '#F4F3FF' }}>
-              <Avatar name={user.username} color={user.profile.avatarColor} ring="#FFC83D" />
-              <span style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.2 }}>
-                <span style={{ fontWeight: 700, fontSize: 14 }}>{user.username}</span>
-                <span data-testid="balance"><Credits value={user.balance} /></span>
-              </span>
-            </Link>
-          ) : (
-            <>
-              <Link className="pb-btn pb-plain pb-sm" to="/login">تسجيل الدخول</Link>
-              <Link className="pb-btn pb-gold pb-sm" to="/register">إنشاء حساب</Link>
-            </>
-          )}
+    <>
+      <header className="rl-top">
+        <div className="rl-top-in">
+          <Brand />
+          <nav aria-label="القائمة الرئيسية" className="rl-links pb-hide-md">
+            {LINKS.map((l) => (
+              <NavLink key={l.to} to={l.to} end={l.end} className={({ isActive }) => 'rl-link' + (isActive ? ' active' : '')}>{l.icon}{l.label}</NavLink>
+            ))}
+          </nav>
+          <div className="rl-top-right">
+            {user ? (
+              <>
+                <Link to="/wheel" className="rl-pill" title="عملات افتراضية · أدر العجلة لتربح المزيد" data-testid="balance">
+                  <Coin size={20} /><span dir="ltr">{fmt(user.balance)}</span><span className="rl-pill-plus" aria-hidden="true">+</span>
+                </Link>
+                <span className="rl-avatar-wrap">
+                  <button type="button" className="rl-avatar" data-testid="user-chip" aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen(!open)}>
+                    <Avatar name={user.username} color={user.profile.avatarColor} size={42} />
+                    <span className="sr-only">{user.username}</span>
+                  </button>
+                  {open && <AccountMenu onClose={() => setOpen(false)} />}
+                </span>
+              </>
+            ) : (
+              <>
+                <Link className="pb-btn pb-plain pb-sm" to="/login">دخول</Link>
+                <Link className="pb-btn pb-gold pb-sm" to="/register">إنشاء حساب</Link>
+              </>
+            )}
+          </div>
         </div>
-        <nav aria-label="القائمة" className="pb-show-md" style={{ display: 'flex', gap: 4, width: '100%', overflowX: 'auto' }}>{links}</nav>
-      </div>
-    </header>
+      </header>
+      <TabBar />
+    </>
   );
 }
 
 export function Footer() {
   return (
-    <footer style={{ borderTop: '1px solid rgba(140,130,255,0.12)', marginTop: 32 }}>
-      <div style={{ maxWidth: 1500, margin: '0 auto', padding: 24, display: 'flex', flexWrap: 'wrap', gap: '14px 28px', alignItems: 'center', fontSize: 13, color: '#8A8CC0' }}>
+    <footer style={{ borderTop: '1px solid rgba(255,222,170,0.12)', marginTop: 32 }}>
+      <div style={{ maxWidth: 1500, margin: '0 auto', padding: 24, display: 'flex', flexWrap: 'wrap', gap: '14px 28px', alignItems: 'center', fontSize: 13, color: '#8C8698' }}>
         <span style={{ fontWeight: 800, color: '#FFC83D' }}>أكثر من مجرد لعبة… مجتمع!</span>
         <span style={{ flex: '1 1 320px' }}>العملات افتراضية: تُكسب باللعب فقط، لا قيمة مالية لها، ولا يمكن شراؤها أو سحبها.</span>
-        <Link to="/rules" style={{ color: '#A6A8D6' }}>القواعد</Link>
+        <Link to="/rules" style={{ color: '#A9A3B5' }}>القواعد</Link>
       </div>
     </footer>
   );

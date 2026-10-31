@@ -8,7 +8,8 @@ avec le thème bleu nuit d'origine.
 - **Backend** : Node.js 22, Express 5, TypeScript (`server/`).
 - **Base** : MariaDB 11 (InnoDB, clés étrangères, index, contraintes uniques et CHECK) via Prisma.
 - **Temps réel** : Socket.IO (authentifié par le cookie de session).
-- **Monnaie virtuelle uniquement** : aucune transaction en argent réel.
+- **Monnaie virtuelle uniquement** : aucune transaction en argent réel. Solde à 0 à l'inscription : les pièces
+  viennent de la roue de la fortune (un tour gratuit par jour) et des crédits de l'administration.
 
 ## Démarrage rapide (développement)
 
@@ -70,7 +71,7 @@ web/src
 
 - **Soldes** : mise à jour conditionnelle atomique (`balance + montant >= 0`) dans une transaction, contrainte
   `CHECK (balance >= 0)` en base, clé d'idempotence unique par opération (inscription, mise, gain, remboursement,
-  bonus quotidien, ajustement admin) : impossible de doubler une opération ou de passer en négatif.
+  roue quotidienne, ajustement admin) : impossible de doubler une opération ou de passer en négatif.
 - **Parties** : chaque action est validée par le moteur, sérialisée par partie, persistée avec verrou optimiste
   (`stateVersion`) et journalisée dans `GameMove`. L'état est rechargé depuis MariaDB après un redémarrage.
 - **Tables** : verrou de ligne (`SELECT … FOR UPDATE`) à l'arrivée d'un joueur ; un utilisateur ne peut occuper
@@ -85,12 +86,13 @@ web/src
 |---|---|---|
 | POST | `/api/auth/register`, `/api/auth/login`, `/api/auth/logout` | public |
 | GET/PATCH | `/api/me` · POST `/api/me/password` · GET `/api/me/games` | utilisateur |
-| GET | `/api/wallet` · POST `/api/wallet/daily-bonus` | utilisateur |
+| GET | `/api/wallet` | utilisateur |
+| GET/POST | `/api/wheel` · `/api/wheel/spin` (roue de la fortune : un tour par jour, heure du Maroc) | utilisateur |
 | GET | `/api/rooms`, `/api/rooms/:id`, `/api/rooms/current` | public / utilisateur |
 | POST | `/api/rooms`, `/api/rooms/quick`, `/api/rooms/practice` (contre 1 à 3 robots), `/api/rooms/join-code`, `/api/rooms/:id/join`, `/api/rooms/:id/leave` | utilisateur |
 | GET/POST | `/api/games/:id`, `/roll`, `/move`, `/forfeit` (équivalents REST des événements Socket.IO) | joueur |
 | GET | `/api/stats` (classement, dernières victoires, joueurs en ligne) | public |
-| GET/POST | `/api/admin/overview`, `/users`, `/users/:id/suspend`, `/reactivate`, `/credits`, `/games`, `/games/:id/abort`, `/transactions`, `/audit` | ADMIN |
+| GET/POST | `/api/admin/overview`, `/users`, `/users/:id/suspend`, `/reactivate`, `/credits`, `/games`, `/games/:id/abort`, `/transactions`, `/audit`, `/settings/bot-level`, `/settings/wheel` (GET/PUT : gains et poids des cases) | ADMIN |
 
 Toute requête qui modifie l'état doit porter l'en-tête `X-Requested-With: parcheesi` (protection CSRF).
 

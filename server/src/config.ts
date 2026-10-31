@@ -22,8 +22,8 @@ if (!parsed.success) {
 }
 
 export const config = parsed.data;
-export const SIGNUP_CREDITS = 1000;
-export const DAILY_BONUS = 200;
+// Solde de départ nul : les pièces viennent de la roue quotidienne (modules/wheel) et de l'administration.
+export const SIGNUP_CREDITS = 0;
 export const ALLOWED_STAKES = [0, 50, 100, 250, 500, 1000] as const;
 export const TURN_SECONDS = [15, 30, 60] as const;
 export const MAX_ADMIN_ADJUST = 100_000;

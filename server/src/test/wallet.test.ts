@@ -57,16 +57,6 @@ describe('portefeuille', () => {
     expect(txs.reduce((s, t) => s + t.amount, 0)).toBe(100);
   });
 
-  it('bonus quotidien : une seule fois par jour', async () => {
-    const a = await registered();
-    const r1 = await a.post('/api/wallet/daily-bonus');
-    expect(r1.status).toBe(201);
-    expect(r1.body.balance).toBe(1200);
-    const r2 = await a.post('/api/wallet/daily-bonus');
-    expect(r2.status).toBe(409);
-    expect(await balanceOf(a.user.id)).toBe(1200);
-  });
-
   it('ajustement admin : justification obligatoire, journalisé, idempotent', async () => {
     const admin = await registered();
     await makeAdmin(admin.user.id);

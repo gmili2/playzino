@@ -1,12 +1,13 @@
 import { useEffect, useState, type FormEvent } from 'react';
-import { Link, NavLink } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { Board, SHOWCASE_PAWNS } from '../components/Board';
 import { Connect4Board, SHOWCASE_C4 } from '../components/Connect4Board';
 import { Footer, Header } from '../components/AppShell';
-import { Gift, IconBolt, IconRobot, IconBook, IconCrown, IconGrid, IconHome, IconLock, IconShield, IconTrophy, IconUser, IconUsers } from '../components/Icons';
+import { Gift, IconBolt, IconCrown, IconLock, IconTrophy, IconUsers, IconWheel } from '../components/Icons';
+import { SHOWCASE_WHEEL, Wheel } from '../components/Wheel';
 import { RoomCard } from '../components/RoomCard';
 import { Avatar, Empty } from '../components/ui';
-import { api, errorText } from '../lib/api';
+import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { fmt } from '../lib/format';
 import { useLobby, useRoomActions } from '../lib/hooks';
@@ -28,52 +29,56 @@ const PERIODS = [
   { key: 'all', label: 'كل الأوقات' }
 ];
 
-function Sidebar({ online }: { online: number | null }) {
-  const { user, refresh } = useAuth();
-  const [msg, setMsg] = useState('');
-  const [claimed, setClaimed] = useState(false);
-  const claim = async () => {
-    try {
-      await api.post('/api/wallet/daily-bonus');
-      setMsg('تمت إضافة 200 عملة إلى رصيدك!');
-      setClaimed(true);
-      await refresh();
-    } catch (e) {
-      setMsg(errorText(e));
-      setClaimed(true);
-    }
-  };
-  const nav = (to: string, icon: JSX.Element, label: string, end = false) => (
-    <NavLink className={({ isActive }) => 'pb-nav' + (isActive ? ' active' : '')} to={to} end={end}>{icon}{label}</NavLink>
-  );
+const SLIDE_MS = 6000;
+
+/** Bannières défilantes façon Rolly : roue du jour, partie rapide, Puissance 4. */
+function HeroCarousel({ busy, onQuick, onC4 }: { busy: boolean; onQuick: () => void; onC4: () => void }) {
+  const [i, setI] = useState(0);
+  const [paused, setPaused] = useState(false);
+  const slides = [
+    <div key="wheel" className="rl-slide rl-slide-purple">
+      <div>
+        <h2>عجلة <em>الحظ</em></h2>
+        <p>دورة مجانية كل يوم. اربح حتى {fmt(Math.max(...SHOWCASE_WHEEL))} عملة لتلعب بها!</p>
+        <Link to="/wheel" className="pb-btn pb-gold pb-lg" data-testid="hero-wheel">أدر العجلة <IconWheel size={20} /></Link>
+      </div>
+      <div className="rl-slide-art" style={{ maxWidth: 230, marginInline: 'auto', width: '100%' }}><Wheel segments={SHOWCASE_WHEEL} rotation={-22} /></div>
+    </div>,
+    <div key="quick" className="rl-slide rl-slide-gold">
+      <div>
+        <h2>تحدَّ <em>الجميع</em></h2>
+        <p>بارتشيزي مباشرة من المتصفح: ارمِ النرد وأوصل بيادقك الأربعة إلى البيت قبل الخصوم.</p>
+        <button type="button" className="pb-btn pb-gold pb-lg" onClick={onQuick} disabled={busy} data-testid="play-now">العب الآن</button>
+      </div>
+      <div className="rl-slide-art" style={{ maxWidth: 240, marginInline: 'auto', width: '100%', transform: 'rotate(4deg)' }}><Board pawns={SHOWCASE_PAWNS} label="لوحة توضيحية" /></div>
+    </div>,
+    <div key="c4" className="rl-slide rl-slide-blue">
+      <div>
+        <h2>أربعة على <em>التوالي</em></h2>
+        <p>أسقط قطعك وصُفّ أربعًا أفقيًا أو عموديًا أو قطريًا قبل خصمك.</p>
+        <button type="button" className="pb-btn pb-gold pb-lg" onClick={onC4} disabled={busy}>العب الآن</button>
+      </div>
+      <div className="rl-slide-art" style={{ maxWidth: 240, marginInline: 'auto', width: '100%' }}><Connect4Board board={SHOWCASE_C4} label="لوحة توضيحية" /></div>
+    </div>
+  ];
+  useEffect(() => {
+    if (paused) return;
+    const t = setInterval(() => setI((x) => (x + 1) % slides.length), SLIDE_MS);
+    return () => clearInterval(t);
+  }, [paused, slides.length]);
   return (
-    <nav aria-label="القائمة الجانبية" className="pb-hide-md" style={{ flex: '0 0 236px', display: 'flex', flexDirection: 'column', gap: 6 }}>
-      {nav('/', <IconHome size={22} />, 'الرئيسية', true)}
-      {nav('/tables', <IconGrid size={22} />, 'الطاولات')}
-      <a className="pb-nav" href="#leaderboard"><IconTrophy size={22} />الترتيب</a>
-      {user && nav('/profile', <IconUser size={22} />, 'الملف الشخصي')}
-      {nav('/rules', <IconBook size={22} />, 'قواعد اللعب')}
-
-      <div style={{ marginTop: 18, padding: '20px 18px', borderRadius: 20, background: '#1A1430', border: '1px solid rgba(255,200,61,0.35)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, textAlign: 'center' }}>
-        <Gift />
-        <span style={{ fontWeight: 800, fontSize: 17, color: '#FFC83D' }}>المكافأة اليومية</span>
-        <span role="status" style={{ fontSize: 13, lineHeight: 1.6, color: '#D4D2F2' }}>{msg || 'احصل على 200 عملة افتراضية مجانًا كل يوم.'}</span>
-        {user ? (
-          <button type="button" className="pb-btn pb-gold" style={{ width: '100%' }} disabled={claimed} onClick={claim}>{claimed ? 'تم الاستلام' : 'استلم الآن'}</button>
-        ) : (
-          <Link className="pb-btn pb-gold" style={{ width: '100%' }} to="/register">سجّل للاستلام</Link>
-        )}
+    <section aria-roledescription="carrousel" aria-label="العروض" onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)}>
+      <div className="rl-hero">{slides[i]}</div>
+      <div className="rl-dots">
+        {slides.map((_, k) => <button key={k} type="button" aria-label={`العرض ${k + 1}`} aria-current={i === k} onClick={() => { setI(k); setPaused(true); }} />)}
       </div>
-
-      <div style={{ marginTop: 14, padding: '16px 6px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-        <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 700, fontSize: 14 }}>
-          <span style={{ width: 9, height: 9, borderRadius: '50%', background: '#22C55E', boxShadow: '0 0 0 4px rgba(34,197,94,0.2)' }} />متصلون الآن
-        </span>
-        <span style={{ fontSize: 13, color: '#A6A8D6' }}><span dir="ltr">{online === null ? '—' : fmt(online)}</span> لاعبًا</span>
-      </div>
-    </nav>
+    </section>
   );
 }
+
+const ROBOT_ART = (
+  <svg width="96" height="96" viewBox="0 0 24 24" fill="none" stroke="#9AD7FF" strokeWidth="1.4" aria-hidden="true"><rect width="16" height="12" x="4" y="8" rx="3" fill="rgba(80,160,255,.18)" /><path d="M12 8V4" /><circle cx="12" cy="3.5" r="1" fill="#9AD7FF" /><circle cx="9" cy="14" r="1.6" fill="#9AD7FF" /><circle cx="15" cy="14" r="1.6" fill="#9AD7FF" /></svg>
+);
 
 export function HomePage() {
   const { user } = useAuth();
@@ -111,81 +116,46 @@ export function HomePage() {
     <>
       <Header />
       <div style={{ maxWidth: 1500, margin: '0 auto', padding: 24, display: 'flex', flexWrap: 'wrap', gap: 24, alignItems: 'flex-start' }}>
-        <Sidebar online={online ?? stats?.online ?? null} />
 
         <main style={{ flex: '999 1 560px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 24 }}>
-          <section aria-labelledby="hero-title" style={{ position: 'relative', overflow: 'hidden', borderRadius: 26, background: 'linear-gradient(120deg, #2A1B7A 0%, #1A1550 45%, #121338 100%)', border: '1px solid rgba(140,130,255,0.25)', boxShadow: '0 24px 60px rgba(0,0,0,0.4)' }}>
-            <div aria-hidden="true" style={{ position: 'absolute', insetInlineEnd: -60, top: -80, width: 420, height: 420, background: 'radial-gradient(closest-side, rgba(255,200,61,0.22), rgba(255,200,61,0))' }} />
-            <div style={{ position: 'relative', padding: 36, display: 'flex', flexWrap: 'wrap', gap: 32, alignItems: 'center' }}>
-              <div style={{ flex: '1 1 340px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 18 }}>
-                <IconCrown size={40} style={{ color: '#FFC83D' }} />
-                <h1 id="hero-title" style={{ fontWeight: 900, fontSize: 'clamp(32px, 4vw, 50px)', lineHeight: 1.25 }}>العب مع أصدقائك<br /><span style={{ color: '#FFC83D' }}>وتحدَّ الجميع!</span></h1>
-                <p style={{ margin: 0, maxWidth: 480, fontSize: 17, lineHeight: 1.8, color: '#D4D2F2' }}>لعبة البارتشيزي الكلاسيكية مباشرة من المتصفح، بدون تحميل. ارمِ النرد، أخرج بيادقك، وأوصلها إلى البيت قبل الجميع.</p>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
-                  <button type="button" className="pb-btn pb-gold pb-lg" onClick={() => actions.quick(0)} disabled={actions.busy} data-testid="play-now">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" style={{ transform: 'scaleX(-1)' }}><path d="m6 3 14 9-14 9V3z" /></svg>
-                    العب الآن
-                  </button>
-                  <Link className="pb-btn pb-ghost pb-lg" to="/tables#create"><IconLock size={20} />أنشئ طاولة خاصة</Link>
-                  <button type="button" className="pb-btn pb-ghost pb-lg" onClick={() => actions.practice(1)} disabled={actions.busy} data-testid="practice-home"><IconRobot size={20} />ضد الروبوت</button>
-                </div>
-                <form onSubmit={submitCode} style={{ display: 'flex', flexDirection: 'column', gap: 8, maxWidth: 440 }}>
-                  <label htmlFor="lobby-code" style={{ fontSize: 13, fontWeight: 700, color: '#B4B6E4' }}>لديك رمز دعوة؟</label>
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    <input id="lobby-code" dir="ltr" className="pb-input" placeholder="PRC-XXXX" value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} maxLength={8} style={{ flex: '1 1 auto', textAlign: 'center', letterSpacing: '0.1em', fontWeight: 800 }} />
-                    <button type="submit" className="pb-btn pb-violet" disabled={actions.busy}>انضم</button>
-                  </div>
-                  <span role="status" style={{ fontSize: 12, color: codeMsg || actions.error ? '#FB7185' : '#8A8CC0' }}>{codeMsg || actions.error || 'الصيغة: PRC-XXXX'}</span>
-                </form>
-              </div>
-              <div style={{ flex: '1 1 300px', minWidth: 0, display: 'flex', justifyContent: 'center' }} aria-hidden="true">
-                <div style={{ width: '100%', maxWidth: 400, transform: 'rotate(3deg)', pointerEvents: 'none' }}>
-                  <Board pawns={SHOWCASE_PAWNS} label="لوحة توضيحية" />
-                </div>
-              </div>
-            </div>
+          <HeroCarousel busy={actions.busy} onQuick={() => actions.quick(0)} onC4={() => actions.quick(0, 2, 'CONNECT4')} />
+          {actions.error && <div role="alert" className="alert alert-error">{actions.error}</div>}
+
+          <section aria-label="أنماط اللعب" className="rl-modes">
+            <button type="button" className="rl-mode" style={{ background: 'radial-gradient(160px 120px at 50% 30%, rgba(80,120,255,.35), transparent), linear-gradient(180deg,#2A1E4A,#14101E)' }} onClick={() => actions.quick(0)} disabled={actions.busy}>
+              <span className="rl-mode-art" style={{ inset: '10px 22% 46% 22%' }}><Board pawns={SHOWCASE_PAWNS} label="" /></span>
+              <b>مباراة سريعة</b><small>بارتشيزي · من 2 إلى 4</small>
+            </button>
+            <button type="button" className="rl-mode" style={{ background: 'radial-gradient(160px 120px at 50% 30%, rgba(80,170,255,.3), transparent), linear-gradient(180deg,#132B4A,#0E1220)' }} onClick={() => actions.quick(0, 2, 'CONNECT4')} disabled={actions.busy}>
+              <span className="rl-mode-art" style={{ inset: '12px 24% 48% 24%' }}><Connect4Board board={SHOWCASE_C4} label="" /></span>
+              <b>أربعة على التوالي</b><small>1 ضد 1</small>
+            </button>
+            <button type="button" className="rl-mode" style={{ background: 'radial-gradient(160px 120px at 50% 30%, rgba(60,200,255,.25), transparent), linear-gradient(180deg,#123040,#0D141C)' }} onClick={() => actions.practice(1)} disabled={actions.busy} data-testid="practice-home">
+              <span className="rl-mode-art">{ROBOT_ART}</span>
+              <b>ضد الروبوت</b><small>تدريب مجاني</small>
+            </button>
+            <Link to="/tables#create" className="rl-mode" style={{ background: 'radial-gradient(160px 120px at 50% 30%, rgba(74,222,128,.25), transparent), linear-gradient(180deg,#123A2A,#0D1712)' }}>
+              <span className="rl-mode-art" style={{ color: '#7EF0AA' }}><IconUsers size={84} /></span>
+              <b>مع الأصدقاء</b><small>طاولة خاصة برمز</small>
+            </Link>
+            <Link to="/wheel" className="rl-mode" style={{ background: 'radial-gradient(160px 120px at 50% 30%, rgba(242,178,50,.35), transparent), linear-gradient(180deg,#3A2410,#1A120A)' }}>
+              <span className="rl-mode-tag">مجانًا</span>
+              <span className="rl-mode-art" style={{ inset: '12px 26% 48% 26%' }}><Wheel segments={SHOWCASE_WHEEL} /></span>
+              <b>عجلة الحظ</b><small>دورة كل يوم</small>
+            </Link>
           </section>
 
-          <section aria-labelledby="games-title" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-            <h2 id="games-title" style={{ fontWeight: 800, fontSize: 22 }}>الألعاب</h2>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16 }}>
-              {([
-                ['PARCHEESI', 'بارتشيزي', 'من 2 إلى 4 لاعبين. ارمِ النرد وأوصل بيادقك الأربعة إلى البيت.', <Board pawns={SHOWCASE_PAWNS} label="لوحة توضيحية" />],
-                ['CONNECT4', 'أربعة على التوالي', 'لاعبان. أسقط قطعك في الأعمدة وصُفّ أربعًا أفقيًا أو عموديًا أو قطريًا.', <Connect4Board board={SHOWCASE_C4} label="لوحة توضيحية" />]
-              ] as const).map(([g, title, sub, art]) => (
-                <article key={g} data-testid={`home-game-${g}`} style={{ display: 'flex', gap: 16, alignItems: 'center', padding: 18, borderRadius: 22, background: 'linear-gradient(160deg, #1E1A52, #14153A 65%)', border: '1px solid rgba(140,130,255,0.22)' }}>
-                  <div aria-hidden="true" style={{ flex: '0 0 120px', pointerEvents: 'none' }}>{art}</div>
-                  <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 10 }}>
-                    <span style={{ fontWeight: 900, fontSize: 20 }}>{title}</span>
-                    <span style={{ fontSize: 13, lineHeight: 1.7, color: '#B4B6E4' }}>{sub}</span>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                      <button type="button" className="pb-btn pb-gold pb-sm" disabled={actions.busy} onClick={() => actions.quick(0, 2, g)}>العب الآن</button>
-                      <button type="button" className="pb-btn pb-ghost pb-sm" disabled={actions.busy} onClick={() => actions.practice(1, g)}><IconRobot size={16} />ضد الروبوت</button>
-                      <Link className="pb-btn pb-plain pb-sm" to={`/tables?game=${g}#create`}>طاولة خاصة</Link>
-                    </div>
-                  </div>
-                </article>
-              ))}
-            </div>
-          </section>
-
-          <section aria-label="المميزات" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14 }}>
-            {[
-              [<IconBolt size={22} />, 'rgba(108,71,255,0.2)', '#B9A8FF', 'مباراة سريعة', 'طاولة عامة بنقرة واحدة'],
-              [<IconUsers size={22} />, 'rgba(34,197,94,0.18)', '#4ADE80', 'وضع الأصدقاء', 'أنشئ طاولتك الخاصة'],
-              [<IconCrown size={22} />, 'rgba(255,200,61,0.18)', '#FFC83D', 'مكافآت', 'عملات افتراضية وخبرة'],
-              [<IconShield size={22} />, 'rgba(34,211,238,0.16)', '#22D3EE', 'لعب نزيه', 'نرد عادل يتحكم فيه الخادم']
-            ].map(([icon, bg, fg, title, sub]) => (
-              <div key={title as string} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 16, borderRadius: 18, background: '#14153A', border: '1px solid rgba(140,130,255,0.14)' }}>
-                <span style={{ flex: 'none', width: 46, height: 46, borderRadius: '50%', background: bg as string, color: fg as string, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{icon}</span>
-                <span style={{ display: 'flex', flexDirection: 'column' }}><span style={{ fontWeight: 800 }}>{title}</span><span style={{ fontSize: 12, color: '#A6A8D6' }}>{sub}</span></span>
-              </div>
-            ))}
-          </section>
+          <form onSubmit={submitCode} className="panel" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 12, padding: 16 }}>
+            <label htmlFor="lobby-code" style={{ fontWeight: 800, display: 'flex', alignItems: 'center', gap: 8 }}><IconLock size={18} style={{ color: '#F2B232' }} />لديك رمز دعوة؟</label>
+            <input id="lobby-code" dir="ltr" className="pb-input" placeholder="PRC-XXXX" value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} maxLength={8} style={{ flex: '1 1 160px', maxWidth: 260, textAlign: 'center', letterSpacing: '0.1em', fontWeight: 800 }} />
+            <button type="submit" className="pb-btn pb-gold" disabled={actions.busy}>انضم</button>
+            {codeMsg && <span role="status" style={{ fontSize: 12, color: '#FB7185' }}>{codeMsg}</span>}
+          </form>
 
           <section aria-labelledby="tables-title" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 12 }}>
-              <h2 id="tables-title" style={{ marginInlineEnd: 'auto', fontWeight: 800, fontSize: 22 }}>الطاولات المتاحة</h2>
+              <h2 id="tables-title" style={{ fontWeight: 800, fontSize: 22 }}>الطاولات المتاحة</h2>
+              <span style={{ marginInlineEnd: 'auto', display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#A9A3B5' }}><span style={{ width: 8, height: 8, borderRadius: '50%', background: '#22C55E', boxShadow: '0 0 0 4px rgba(34,197,94,0.2)' }} /><span dir="ltr">{fmt(online ?? stats?.online ?? 0)}</span> متصل الآن</span>
               <button type="button" className="pb-btn pb-violet pb-sm" onClick={() => actions.quick(0)} disabled={actions.busy}><IconBolt size={16} />انضم لطاولة عامة</button>
             </div>
             <div role="tablist" aria-label="تصفية الطاولات" style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
@@ -210,29 +180,29 @@ export function HomePage() {
               ['6', 'رمية إضافية', 'الرقم 6 يمنحك رمية أخرى بعد التحرك.'],
               ['×', 'الأسر', 'قف على بيدق الخصم خارج خانات الأمان لتعيده إلى بيته، واربح 20 خانة.']
             ].map(([n, t, d]) => (
-              <div key={n} style={{ padding: 18, borderRadius: 18, background: '#14153A', border: '1px solid rgba(140,130,255,0.14)', display: 'flex', gap: 14, alignItems: 'flex-start' }}>
+              <div key={n} style={{ padding: 18, borderRadius: 18, background: '#1B1824', border: '1px solid rgba(255,222,170,0.14)', display: 'flex', gap: 14, alignItems: 'flex-start' }}>
                 <span style={{ flex: 'none', fontWeight: 900, fontSize: 30, color: '#FFC83D', lineHeight: 1 }}>{n}</span>
-                <span style={{ display: 'flex', flexDirection: 'column', gap: 4 }}><span style={{ fontWeight: 800 }}>{t}</span><span style={{ fontSize: 13, lineHeight: 1.7, color: '#A6A8D6' }}>{d}</span></span>
+                <span style={{ display: 'flex', flexDirection: 'column', gap: 4 }}><span style={{ fontWeight: 800 }}>{t}</span><span style={{ fontSize: 13, lineHeight: 1.7, color: '#A9A3B5' }}>{d}</span></span>
               </div>
             ))}
           </section>
         </main>
 
         <aside style={{ flex: '1 1 300px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 20 }}>
-          <div style={{ position: 'relative', overflow: 'hidden', padding: 22, borderRadius: 22, background: 'linear-gradient(160deg, #3A2410, #1A1430 70%)', border: '1px solid rgba(255,200,61,0.45)', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+          <div style={{ position: 'relative', overflow: 'hidden', padding: 22, borderRadius: 22, background: 'linear-gradient(160deg, #3A2410, #221A2E 70%)', border: '1px solid rgba(255,200,61,0.45)', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
             <span style={{ fontSize: 13, fontWeight: 700, color: '#FFDA5C' }}>إحصائياتي</span>
             {user ? (
               <>
                 <div style={{ display: 'flex', gap: 18, justifyContent: 'center' }}>
-                  <span style={{ display: 'flex', flexDirection: 'column' }}><span style={{ fontWeight: 900, fontSize: 30 }}>{user.stats.played}</span><span style={{ fontSize: 12, color: '#D4D2F2' }}>مباراة</span></span>
-                  <span style={{ display: 'flex', flexDirection: 'column' }}><span style={{ fontWeight: 900, fontSize: 30, color: '#4ADE80' }}>{user.stats.wins}</span><span style={{ fontSize: 12, color: '#D4D2F2' }}>فوز</span></span>
-                  <span style={{ display: 'flex', flexDirection: 'column' }}><span dir="ltr" style={{ fontWeight: 900, fontSize: 30, color: '#FFC83D' }}>{Math.round(user.stats.winRate)}%</span><span style={{ fontSize: 12, color: '#D4D2F2' }}>نسبة الفوز</span></span>
+                  <span style={{ display: 'flex', flexDirection: 'column' }}><span style={{ fontWeight: 900, fontSize: 30 }}>{user.stats.played}</span><span style={{ fontSize: 12, color: '#DAD5E2' }}>مباراة</span></span>
+                  <span style={{ display: 'flex', flexDirection: 'column' }}><span style={{ fontWeight: 900, fontSize: 30, color: '#4ADE80' }}>{user.stats.wins}</span><span style={{ fontSize: 12, color: '#DAD5E2' }}>فوز</span></span>
+                  <span style={{ display: 'flex', flexDirection: 'column' }}><span dir="ltr" style={{ fontWeight: 900, fontSize: 30, color: '#FFC83D' }}>{Math.round(user.stats.winRate)}%</span><span style={{ fontSize: 12, color: '#DAD5E2' }}>نسبة الفوز</span></span>
                 </div>
                 <Link className="pb-btn pb-gold" to="/profile" style={{ width: '100%', marginTop: 6 }}>عرض ملفي</Link>
               </>
             ) : (
               <>
-                <span style={{ fontSize: 14, color: '#D4D2F2', lineHeight: 1.7 }}>أنشئ حسابًا لتتبع مبارياتك وانتصاراتك.</span>
+                <span style={{ fontSize: 14, color: '#DAD5E2', lineHeight: 1.7 }}>أنشئ حسابًا لتتبع مبارياتك وانتصاراتك.</span>
                 <Link className="pb-btn pb-gold" to="/register" style={{ width: '100%', marginTop: 6 }}>إنشاء حساب</Link>
               </>
             )}
@@ -244,39 +214,39 @@ export function HomePage() {
               {stats?.recentWins.length ? stats.recentWins.map((w) => (
                 <div key={w.gameId} className="pb-row" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 8, margin: '0 -8px', borderRadius: 12 }}>
                   <Avatar name={w.username} color={w.avatarColor} size={36} />
-                  <span style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}><span style={{ fontWeight: 700, fontSize: 14 }}>{w.username}</span><span style={{ fontSize: 12, color: '#A6A8D6' }}>{w.room}</span></span>
+                  <span style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}><span style={{ fontWeight: 700, fontSize: 14 }}>{w.username}</span><span style={{ fontSize: 12, color: '#A9A3B5' }}>{w.room}</span></span>
                   <span dir="ltr" style={{ fontWeight: 800, color: '#FFC83D' }}>+{fmt(w.payout)}</span>
                 </div>
-              )) : <span style={{ fontSize: 13, color: '#A6A8D6' }}>لا توجد انتصارات بعد. كن الأول!</span>}
+              )) : <span style={{ fontSize: 13, color: '#A9A3B5' }}>لا توجد انتصارات بعد. كن الأول!</span>}
             </div>
           </div>
 
           <div id="leaderboard" className="panel">
             <h2 className="panel-title"><IconCrown size={22} style={{ color: '#FFC83D' }} />ترتيب اللاعبين</h2>
-            <div role="tablist" aria-label="فترة الترتيب" style={{ display: 'flex', gap: 4, padding: 4, borderRadius: 999, background: '#0F1030', marginBottom: 10 }}>
+            <div role="tablist" aria-label="فترة الترتيب" style={{ display: 'flex', gap: 4, padding: 4, borderRadius: 999, background: '#110E17', marginBottom: 10 }}>
               {PERIODS.map((p) => (
                 <button key={p.key} type="button" role="tab" aria-selected={period === p.key} onClick={() => setPeriod(p.key)}
-                  style={{ flex: 1, height: 34, border: 0, borderRadius: 999, cursor: 'pointer', font: '700 13px Cairo, system-ui, sans-serif', background: period === p.key ? '#6C47FF' : 'transparent', color: period === p.key ? '#fff' : '#B4B6E4' }}>{p.label}</button>
+                  style={{ flex: 1, height: 34, border: 0, borderRadius: 999, cursor: 'pointer', font: '700 13px Cairo, system-ui, sans-serif', background: period === p.key ? 'linear-gradient(180deg,#FFDA6B,#F2B232)' : 'transparent', color: period === p.key ? '#2B1A00' : '#B8B2C4' }}>{p.label}</button>
               ))}
             </div>
             <ol style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
               {stats?.leaderboard.length ? stats.leaderboard.map((r) => {
                 const me = r.userId === user?.id;
                 return (
-                  <li key={r.userId} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 10px', borderRadius: 12, background: me ? 'rgba(108,71,255,0.16)' : undefined, border: me ? '1px solid rgba(140,130,255,0.35)' : '1px solid transparent' }}>
-                    <span style={{ width: 20, fontWeight: 900, color: r.rank === 1 ? '#FFC83D' : r.rank <= 3 ? '#F5A524' : '#A6A8D6' }}>{r.rank}</span>
+                  <li key={r.userId} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 10px', borderRadius: 12, background: me ? 'rgba(139,92,246,0.16)' : undefined, border: me ? '1px solid rgba(255,222,170,0.35)' : '1px solid transparent' }}>
+                    <span style={{ width: 20, fontWeight: 900, color: r.rank === 1 ? '#FFC83D' : r.rank <= 3 ? '#F5A524' : '#A9A3B5' }}>{r.rank}</span>
                     <Avatar name={r.username} color={r.avatarColor} size={30} />
                     <span style={{ flex: 1, fontWeight: 700, fontSize: 14 }}>{r.username}</span>
                     <span style={{ fontWeight: 800, fontSize: 14, color: '#FFC83D' }}>{r.wins} فوز</span>
                   </li>
                 );
-              }) : <li style={{ fontSize: 13, color: '#A6A8D6' }}>لا توجد نتائج لهذه الفترة.</li>}
+              }) : <li style={{ fontSize: 13, color: '#A9A3B5' }}>لا توجد نتائج لهذه الفترة.</li>}
             </ol>
           </div>
 
-          <div style={{ padding: 18, borderRadius: 22, background: 'linear-gradient(120deg, #4B2BD6, #2A1B7A)', border: '1px solid rgba(185,168,255,0.4)', display: 'flex', alignItems: 'center', gap: 14 }}>
+          <div style={{ padding: 18, borderRadius: 22, background: 'linear-gradient(120deg, #3B1F6E, #24124A)', border: '1px solid rgba(242,178,50,0.35)', display: 'flex', alignItems: 'center', gap: 14 }}>
             <Gift size={44} />
-            <span style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2 }}><span style={{ fontWeight: 800 }}>ادعُ أصدقاءك</span><span style={{ fontSize: 12, lineHeight: 1.6, color: '#DCD6FF' }}>كل صديق جديد يحصل على 1,000 عملة افتراضية</span></span>
+            <span style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2 }}><span style={{ fontWeight: 800 }}>ادعُ أصدقاءك</span><span style={{ fontSize: 12, lineHeight: 1.6, color: '#DCD6FF' }}>العب معهم، وكل واحد يدير عجلة الحظ مجانًا كل يوم</span></span>
             <button type="button" className="pb-btn pb-gold pb-sm" onClick={copyInvite}>{copied ? 'تم النسخ ✓' : 'نسخ الرابط'}</button>
           </div>
         </aside>

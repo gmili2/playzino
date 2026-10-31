@@ -24,9 +24,9 @@ function RuleGrid({ rules }: { rules: [string, string, string][] }) {
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 14, marginTop: 20 }}>
       {rules.map(([n, t, d]) => (
-        <div key={t} style={{ padding: 18, borderRadius: 18, background: '#14153A', border: '1px solid rgba(140,130,255,0.14)', display: 'flex', gap: 14, alignItems: 'flex-start' }}>
+        <div key={t} style={{ padding: 18, borderRadius: 18, background: '#1B1824', border: '1px solid rgba(255,222,170,0.14)', display: 'flex', gap: 14, alignItems: 'flex-start' }}>
           <span style={{ flex: 'none', minWidth: 34, fontWeight: 900, fontSize: 26, color: '#FFC83D', lineHeight: 1 }}>{n}</span>
-          <span style={{ display: 'flex', flexDirection: 'column', gap: 4 }}><span style={{ fontWeight: 800 }}>{t}</span><span style={{ fontSize: 14, lineHeight: 1.8, color: '#A6A8D6' }}>{d}</span></span>
+          <span style={{ display: 'flex', flexDirection: 'column', gap: 4 }}><span style={{ fontWeight: 800 }}>{t}</span><span style={{ fontSize: 14, lineHeight: 1.8, color: '#A9A3B5' }}>{d}</span></span>
         </div>
       ))}
     </div>
@@ -37,10 +37,10 @@ export function RulesPage() {
   return (
     <Page width={1100}>
       <h1 style={{ fontWeight: 900, fontSize: 36 }}>قواعد اللعب</h1>
-      <p style={{ color: '#B4B6E4', lineHeight: 1.8, maxWidth: 760 }}>نسخة البارتشيزي الإسبانية (Parchís) بنرد واحد، من لاعبَين إلى أربعة لاعبين. كل الرميات والحركات يتحقق منها الخادم.</p>
+      <p style={{ color: '#B8B2C4', lineHeight: 1.8, maxWidth: 760 }}>نسخة البارتشيزي الإسبانية (Parchís) بنرد واحد، من لاعبَين إلى أربعة لاعبين. كل الرميات والحركات يتحقق منها الخادم.</p>
       <RuleGrid rules={RULES} />
       <h2 id="connect4" style={{ fontWeight: 900, fontSize: 28, marginTop: 40 }}>أربعة على التوالي</h2>
-      <p style={{ color: '#B4B6E4', lineHeight: 1.8, maxWidth: 760 }}>اللعبة الكلاسيكية على شبكة من 7 أعمدة و6 صفوف. كل الحركات يتحقق منها الخادم.</p>
+      <p style={{ color: '#B8B2C4', lineHeight: 1.8, maxWidth: 760 }}>اللعبة الكلاسيكية على شبكة من 7 أعمدة و6 صفوف. كل الحركات يتحقق منها الخادم.</p>
       <RuleGrid rules={C4_RULES} />
     </Page>
   );

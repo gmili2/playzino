@@ -116,7 +116,7 @@ export function Board({
       aria-label={label}
       style={{
         width: '100%', aspectRatio: '1 / 1', boxSizing: 'border-box', padding: '1.8%', borderRadius: 22, background: 'linear-gradient(160deg, #2A2350, #15122E)',
-        boxShadow: 'inset 0 0 0 1px rgba(255,200,61,0.35), 0 0 0 4px rgba(108,71,255,0.18), 0 30px 60px rgba(0,0,0,0.5)'
+        boxShadow: 'inset 0 0 0 1px rgba(255,200,61,0.35), 0 0 0 4px rgba(139,92,246,0.18), 0 30px 60px rgba(0,0,0,0.5)'
       }}
     >
       <div style={{ position: 'relative', width: '100%', height: '100%', containerType: 'inline-size', background: '#FFFFFF', borderRadius: 10, overflow: 'hidden', boxShadow: `0 0 0 1px ${LINE}`, color: '#3B4252' }}>

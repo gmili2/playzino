@@ -8,10 +8,10 @@ import { useAuth } from '../lib/auth';
 function Card({ title, sub, children }: { title: string; sub: string; children: React.ReactNode }) {
   return (
     <div style={{ display: 'flex', justifyContent: 'center', padding: '24px 0' }}>
-      <section style={{ width: '100%', maxWidth: 460, padding: 32, borderRadius: 26, background: 'linear-gradient(170deg, #241C5E, #14153A 55%)', border: '1px solid rgba(140,130,255,0.25)', boxShadow: '0 30px 80px rgba(0,0,0,0.5)', display: 'flex', flexDirection: 'column', gap: 18 }}>
+      <section style={{ width: '100%', maxWidth: 460, padding: 32, borderRadius: 26, background: 'linear-gradient(170deg, #241C5E, #1B1824 55%)', border: '1px solid rgba(255,222,170,0.25)', boxShadow: '0 30px 80px rgba(0,0,0,0.5)', display: 'flex', flexDirection: 'column', gap: 18 }}>
         <div>
           <h1 style={{ fontWeight: 900, fontSize: 30 }}>{title}</h1>
-          <p style={{ margin: '6px 0 0', color: '#B4B6E4', lineHeight: 1.7 }}>{sub}</p>
+          <p style={{ margin: '6px 0 0', color: '#B8B2C4', lineHeight: 1.7 }}>{sub}</p>
         </div>
         {children}
       </section>
@@ -61,7 +61,7 @@ export function LoginPage() {
           </label>
           <button className="pb-btn pb-gold" type="submit" disabled={busy || !form.login || !form.password}>{busy ? 'جارٍ الدخول…' : 'دخول'}</button>
         </form>
-        <p style={{ margin: 0, fontSize: 14, color: '#B4B6E4' }}>ليس لديك حساب؟ <Link to={'/register' + (next !== '/' ? '?next=' + encodeURIComponent(next) : '')}>أنشئ حسابًا مجانًا</Link></p>
+        <p style={{ margin: 0, fontSize: 14, color: '#B8B2C4' }}>ليس لديك حساب؟ <Link to={'/register' + (next !== '/' ? '?next=' + encodeURIComponent(next) : '')}>أنشئ حسابًا مجانًا</Link></p>
       </Card>
     </Page>
   );
@@ -104,9 +104,9 @@ export function RegisterPage() {
   return (
     <Page>
       <Card title="إنشاء حساب" sub="انضم إلى المجتمع وابدأ اللعب فورًا.">
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderRadius: 16, background: '#1A1430', border: '1px solid rgba(255,200,61,0.35)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderRadius: 16, background: '#221A2E', border: '1px solid rgba(255,200,61,0.35)' }}>
           <Gift size={36} />
-          <span style={{ fontSize: 14, color: '#D4D2F2' }}>تحصل على <b style={{ color: '#FFC83D' }}>1,000</b> عملة افتراضية عند التسجيل (بلا قيمة مالية).</span>
+          <span style={{ fontSize: 14, color: '#DAD5E2' }}>أدر <b style={{ color: '#FFC83D' }}>عجلة الحظ</b> مجانًا كل يوم لتربح عملات افتراضية (بلا قيمة مالية).</span>
         </div>
         <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }} noValidate>
           {error && <div role="alert" className="alert alert-error">{error}</div>}
@@ -116,7 +116,7 @@ export function RegisterPage() {
           {field('confirm', 'تأكيد كلمة المرور', 'password', 'new-password')}
           <button className="pb-btn pb-gold" type="submit" disabled={busy}>{busy ? 'جارٍ الإنشاء…' : 'إنشاء الحساب'}</button>
         </form>
-        <p style={{ margin: 0, fontSize: 14, color: '#B4B6E4' }}>لديك حساب؟ <Link to="/login">سجّل الدخول</Link></p>
+        <p style={{ margin: 0, fontSize: 14, color: '#B8B2C4' }}>لديك حساب؟ <Link to="/login">سجّل الدخول</Link></p>
       </Card>
     </Page>
   );

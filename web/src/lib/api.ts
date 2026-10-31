@@ -27,7 +27,8 @@ async function request<T>(method: string, url: string, body?: unknown): Promise<
 export const api = {
   get: <T>(url: string) => request<T>('GET', url),
   post: <T>(url: string, body: unknown = {}) => request<T>('POST', url, body),
-  patch: <T>(url: string, body: unknown) => request<T>('PATCH', url, body)
+  patch: <T>(url: string, body: unknown) => request<T>('PATCH', url, body),
+  put: <T>(url: string, body: unknown) => request<T>('PUT', url, body)
 };
 
 /** Messages d'erreur affichés à l'utilisateur (interface en arabe). */
@@ -47,6 +48,8 @@ const MESSAGES: Record<string, string> = {
   GAME_PAUSED: 'المباراة متوقفة مؤقتًا',
   GAME_OVER: 'انتهت المباراة',
   ALREADY_CLAIMED: 'استلمت مكافأة اليوم بالفعل',
+  ALREADY_SPUN: 'لقد أدرت العجلة اليوم، عد غدًا',
+  BAD_WHEEL: 'إعدادات العجلة غير صالحة',
   TOO_MANY_REQUESTS: 'محاولات كثيرة، أعد المحاولة لاحقًا',
   WRONG_PASSWORD: 'كلمة المرور الحالية غير صحيحة',
   UNAUTHORIZED: 'يجب تسجيل الدخول',

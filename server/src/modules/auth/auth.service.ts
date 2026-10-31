@@ -25,7 +25,7 @@ export async function registerUser(input: { email: string; username: string; pas
       : conflict('USERNAME_TAKEN', 'Ce nom d’utilisateur est déjà pris');
   }
   const passwordHash = await hashPassword(input.password);
-  // Compte, profil, portefeuille et crédit de bienvenue : tout ou rien.
+  // Compte, profil, portefeuille (et crédit de bienvenue s'il y en a un) : tout ou rien.
   return prisma.$transaction(async (tx) => {
     const user = await tx.user.create({
       data: {
@@ -36,13 +36,15 @@ export async function registerUser(input: { email: string; username: string; pas
         wallet: { create: { balance: 0 } }
       }
     });
-    await applyWalletOp(tx, {
-      userId: user.id,
-      amount: SIGNUP_CREDITS,
-      type: 'SIGNUP_BONUS',
-      reason: 'Crédits de bienvenue',
-      idempotencyKey: `signup:${user.id}`
-    });
+    if (SIGNUP_CREDITS > 0) {
+      await applyWalletOp(tx, {
+        userId: user.id,
+        amount: SIGNUP_CREDITS,
+        type: 'SIGNUP_BONUS',
+        reason: 'Crédits de bienvenue',
+        idempotencyKey: `signup:${user.id}`
+      });
+    }
     await audit({ actorId: user.id, action: 'auth.register', targetType: 'user', targetId: user.id, ip }, tx);
     return user;
   });

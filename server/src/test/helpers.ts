@@ -5,6 +5,7 @@ import request from 'supertest';
 import { io as ioClient, type Socket } from 'socket.io-client';
 import { createApp } from '../app.js';
 import { prisma } from '../lib/prisma.js';
+import { walletOp } from '../modules/wallet/wallet.service.js';
 import { createSocketServer } from '../realtime/socket.js';
 
 export const app = createApp();
@@ -23,12 +24,20 @@ export function client(target: Parameters<typeof request.agent>[0] = app) {
 
 export const uniq = () => randomUUID().replace(/-/g, '').slice(0, 10);
 
-export async function registered(target?: Parameters<typeof request.agent>[0]) {
+/** Solde de départ des comptes de test (l'inscription donne 0 pièce). */
+export const TEST_CREDITS = 1000;
+
+export async function registered(target?: Parameters<typeof request.agent>[0], credits = TEST_CREDITS) {
   const c = client(target);
   const name = 'u' + uniq();
   const res = await c.post('/api/auth/register', { email: `${name}@test.local`, username: name, password: 'motdepasse-123' });
   if (res.status !== 201) throw new Error(`register ${res.status} ${JSON.stringify(res.body)}`);
-  return { ...c, user: res.body.user as { id: string; username: string; balance: number }, cookie: res.headers['set-cookie'] as unknown as string[] };
+  const user = res.body.user as { id: string; username: string; balance: number };
+  if (credits > 0) {
+    const r = await walletOp({ userId: user.id, amount: credits, type: 'SIGNUP_BONUS', reason: 'test', idempotencyKey: `test-seed:${user.id}` });
+    user.balance = r.balance;
+  }
+  return { ...c, user, cookie: res.headers['set-cookie'] as unknown as string[] };
 }
 
 export async function makeAdmin(userId: string) {

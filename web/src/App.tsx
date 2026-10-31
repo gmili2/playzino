@@ -10,6 +10,7 @@ import { Loading } from './components/ui';
 import { ProfilePage } from './pages/Profile';
 import { RulesPage } from './pages/Rules';
 import { TablesPage } from './pages/Tables';
+import { WheelPage } from './pages/WheelPage';
 
 /** Visiteurs : page d'accueil vitrine ; joueurs connectés : tableau de bord avec les tables. */
 function Root() {
@@ -24,6 +25,7 @@ export function App() {
       <Route path="/" element={<Root />} />
       <Route path="/tables" element={<TablesPage />} />
       <Route path="/rules" element={<RulesPage />} />
+      <Route path="/wheel" element={<WheelPage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
       <Route path="/profile" element={<RequireAuth><ProfilePage /></RequireAuth>} />

@@ -11,6 +11,7 @@ import { requireAdmin } from '../../middleware/auth.js';
 import { gameManager } from '../../realtime/gameManager.js';
 import { hub } from '../../realtime/hub.js';
 import { leaveWaitingRoom } from '../rooms/rooms.service.js';
+import { getWheel, setWheel, wheelStats, WHEEL_MAX_AMOUNT, WHEEL_MAX_SEGMENTS, WHEEL_MIN_SEGMENTS } from '../wheel/wheel.service.js';
 import { walletOp } from '../wallet/wallet.service.js';
 
 // Toutes les routes ci-dessous sont vérifiées côté serveur (rôle ADMIN relu en base à chaque requête).
@@ -185,6 +186,25 @@ adminRouter.patch('/settings/bot-level', async (req, res) => {
   const { level } = parse(z.object({ level: z.enum(BOT_LEVELS) }), req.body);
   await setBotLevel(level, req.user!.id, req.ip);
   res.json({ level });
+});
+
+adminRouter.get('/settings/wheel', async (_req, res) => {
+  res.json({ segments: await getWheel(), ...(await wheelStats()) });
+});
+
+adminRouter.put('/settings/wheel', async (req, res) => {
+  const { segments } = parse(
+    z.object({
+      segments: z
+        .array(z.object({ amount: z.number().int().min(1).max(WHEEL_MAX_AMOUNT), weight: z.number().int().min(0).max(1000) }))
+        .min(WHEEL_MIN_SEGMENTS)
+        .max(WHEEL_MAX_SEGMENTS)
+        .refine((s) => s.some((x) => x.weight > 0), 'Au moins une case doit pouvoir sortir')
+    }),
+    req.body
+  );
+  await setWheel(segments, req.user!.id, req.ip);
+  res.json({ segments });
 });
 
 adminRouter.get('/transactions', async (_req, res) => {

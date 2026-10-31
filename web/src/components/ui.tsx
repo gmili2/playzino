@@ -66,12 +66,12 @@ export function StatusChip({ status }: { status: string }) {
     WAITING: ['في الانتظار', '#22D3EE', 'rgba(34,211,238,0.14)'],
     PLAYING: ['جارية', '#4ADE80', 'rgba(34,197,94,0.14)'],
     ACTIVE: ['جارية', '#4ADE80', 'rgba(34,197,94,0.14)'],
-    FINISHED: ['منتهية', '#B4B6E4', 'rgba(140,130,255,0.14)'],
+    FINISHED: ['منتهية', '#B8B2C4', 'rgba(255,222,170,0.14)'],
     ABORTED: ['ملغاة', '#FB7185', 'rgba(244,63,94,0.14)'],
     CANCELLED: ['ملغاة', '#FB7185', 'rgba(244,63,94,0.14)'],
     FULL: ['مكتملة', '#FFC83D', 'rgba(255,200,61,0.14)']
   };
-  const [label, fg, bg] = map[status] ?? [status, '#B4B6E4', 'rgba(140,130,255,0.14)'];
+  const [label, fg, bg] = map[status] ?? [status, '#B8B2C4', 'rgba(255,222,170,0.14)'];
   return (
     <span className="badge" style={{ color: fg, background: bg }}>
       <span style={{ width: 7, height: 7, borderRadius: '50%', background: fg }} />
@@ -98,5 +98,5 @@ export function Loading({ label = 'جارٍ التحميل…' }: { label?: stri
 }
 
 export function Empty({ children }: { children: ReactNode }) {
-  return <div style={{ padding: 32, borderRadius: 20, background: '#14153A', textAlign: 'center', color: '#A6A8D6' }}>{children}</div>;
+  return <div style={{ padding: 32, borderRadius: 20, background: '#1B1824', textAlign: 'center', color: '#A9A3B5' }}>{children}</div>;
 }

@@ -175,7 +175,7 @@ export function GamePage() {
         const data = await emitAck<GameSnapshot>('game:join', gameId);
         if (lastSeq.current < 0) {
           lastSeq.current = data.state.seq;
-          setLog([{ text: 'بدأت المباراة. حظًا موفقًا!', color: '#A6A8D6' }]);
+          setLog([{ text: 'بدأت المباراة. حظًا موفقًا!', color: '#A9A3B5' }]);
         }
         applySnap(data);
         setError('');
@@ -342,25 +342,25 @@ export function GamePage() {
     const vacant = waiting && !isMe && fallbackName === 'مكان شاغر';
     const tag = out ? 'خرج' : vacant ? 'مكان شاغر' : waiting ? 'جاهز' : offline ? 'غير متصل' : activeTurn ? (isMe ? 'دورك' : 'دوره') : 'في الانتظار';
     return (
-      <div key={isMe ? 'me' : color} data-testid={isMe ? 'panel-me' : 'panel-opp'} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 16px', borderRadius: 20, background: '#14153A', transition: 'box-shadow .2s,border-color .2s', border: activeTurn ? `2px solid ${hex}` : '1px solid rgba(140,130,255,0.14)', boxShadow: activeTurn ? `0 0 0 4px ${hex}26, 0 12px 30px rgba(0,0,0,0.3)` : undefined, opacity: out ? 0.45 : offline ? 0.7 : 1 }}>
-        <Avatar name={p?.username ?? fallbackName} color={hex} size={54} style={{ boxShadow: `0 0 0 3px #14153A, 0 0 0 5px ${activeTurn ? '#FFC83D' : 'rgba(140,130,255,0.3)'}` }} />
+      <div key={isMe ? 'me' : color} data-testid={isMe ? 'panel-me' : 'panel-opp'} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 16px', borderRadius: 20, background: '#1B1824', transition: 'box-shadow .2s,border-color .2s', border: activeTurn ? `2px solid ${hex}` : '1px solid rgba(255,222,170,0.14)', boxShadow: activeTurn ? `0 0 0 4px ${hex}26, 0 12px 30px rgba(0,0,0,0.3)` : undefined, opacity: out ? 0.45 : offline ? 0.7 : 1 }}>
+        <Avatar name={p?.username ?? fallbackName} color={hex} size={54} style={{ boxShadow: `0 0 0 3px #1B1824, 0 0 0 5px ${activeTurn ? '#FFC83D' : 'rgba(255,222,170,0.3)'}` }} />
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flex: 1, minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
             <span style={{ fontWeight: 800 }}>{p?.username ?? fallbackName}</span>
             {(p?.isBot || room.players.find((x) => x.username === fallbackName)?.isBot) && <span className="badge" style={{ padding: '2px 9px', fontSize: 11, background: 'rgba(34,197,94,0.16)', color: '#4ADE80' }}>روبوت</span>}
-            <span style={{ fontSize: 12, color: '#A6A8D6' }}>{isMe ? 'أنت · ' : p ? `المستوى ${p.level} · ` : ''}{COLOR_NAME[color]}</span>
-            <span style={{ fontSize: 11, fontWeight: 800, padding: '2px 9px', borderRadius: 999, ...(offline ? { background: 'rgba(245,158,11,0.18)', color: '#FCD34D' } : activeTurn ? { background: hex, color: color === 'yellow' ? '#2A1E00' : '#fff' } : { background: 'rgba(140,130,255,0.14)', color: '#B4B6E4' }) }}>{tag}</span>
+            <span style={{ fontSize: 12, color: '#A9A3B5' }}>{isMe ? 'أنت · ' : p ? `المستوى ${p.level} · ` : ''}{COLOR_NAME[color]}</span>
+            <span style={{ fontSize: 11, fontWeight: 800, padding: '2px 9px', borderRadius: 999, ...(offline ? { background: 'rgba(245,158,11,0.18)', color: '#FCD34D' } : activeTurn ? { background: hex, color: color === 'yellow' ? '#2A1E00' : '#fff' } : { background: 'rgba(255,222,170,0.14)', color: '#B8B2C4' }) }}>{tag}</span>
           </div>
           {c4 ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#B4B6E4' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#B8B2C4' }}>
               <span style={{ width: 16, height: 16, borderRadius: '50%', background: hex, boxShadow: 'inset 0 0 0 2px rgba(0,0,0,0.25)' }} />{tokens} / 21 قطعة
             </div>
           ) : (
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             {arr.map((v, i) => (
-              <span key={i} style={{ width: 14, height: 14, borderRadius: '50%', boxSizing: 'border-box', ...(v === 63 ? { background: hex } : v >= 0 ? { background: hex + '80', border: `2px solid ${hex}` } : { border: '2px solid rgba(140,130,255,0.4)' }) }} />
+              <span key={i} style={{ width: 14, height: 14, borderRadius: '50%', boxSizing: 'border-box', ...(v === 63 ? { background: hex } : v >= 0 ? { background: hex + '80', border: `2px solid ${hex}` } : { border: '2px solid rgba(255,222,170,0.4)' }) }} />
             ))}
-            <span style={{ fontSize: 12, color: '#B4B6E4', marginInlineStart: 4 }}>{arr.filter((v) => v === 63).length}/4 في البيت</span>
+            <span style={{ fontSize: 12, color: '#B8B2C4', marginInlineStart: 4 }}>{arr.filter((v) => v === 63).length}/4 في البيت</span>
           </div>
           )}
         </div>
@@ -373,20 +373,20 @@ export function GamePage() {
   const myPayout = snap && user ? snap.payouts[user.id] ?? 0 : 0;
 
   return (
-    <div dir="rtl" style={{ position: 'relative', minHeight: '100vh', background: '#0A0B1E', color: '#F4F3FF' }}>
-      <header style={{ borderBottom: '1px solid rgba(140,130,255,0.12)', background: '#0D0E28' }}>
+    <div dir="rtl" style={{ position: 'relative', minHeight: '100vh', background: '#0E0C14', color: '#F7F3EC' }}>
+      <header style={{ borderBottom: '1px solid rgba(255,222,170,0.12)', background: '#13101B' }}>
         <div style={{ maxWidth: 1360, margin: '0 auto', padding: '12px 20px', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
           <Link className="pb-btn pb-plain pb-sm" to="/"><IconArrowBack size={18} />الرئيسية</Link>
           <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.3, minWidth: 0 }}>
             <span style={{ fontWeight: 800, fontSize: 16 }}>{room.name}</span>
-            <span style={{ fontSize: 12, color: '#A6A8D6' }}><span dir="ltr">{room.code ?? ''}</span> · {room.visibility === 'PUBLIC' ? 'عامة' : 'خاصة'} · {practice ? 'تدريب ضد الروبوت' : playersLabel(room.maxPlayers)}{room.stake ? ` · رهان ${fmt(room.stake)}` : ''}</span>
+            <span style={{ fontSize: 12, color: '#A9A3B5' }}><span dir="ltr">{room.code ?? ''}</span> · {room.visibility === 'PUBLIC' ? 'عامة' : 'خاصة'} · {practice ? 'تدريب ضد الروبوت' : playersLabel(room.maxPlayers)}{room.stake ? ` · رهان ${fmt(room.stake)}` : ''}</span>
           </div>
           <span className="pb-hide-sm" data-testid="net-status" style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 12, fontWeight: 700, padding: '5px 12px', borderRadius: 999, ...(connected ? { color: '#4ADE80', background: 'rgba(34,197,94,0.14)' } : { color: '#FCD34D', background: 'rgba(245,158,11,0.14)' }) }}>
             <span style={{ width: 7, height: 7, borderRadius: '50%', background: connected ? '#22C55E' : '#F59E0B' }} />{connected ? 'متصل' : 'جارٍ إعادة الاتصال…'}
           </span>
           <div style={{ marginInlineStart: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
             {deadlineLeft !== null && view?.active && (
-              <span data-testid="turn-timer" style={{ fontSize: 13, fontWeight: 800, color: deadlineLeft <= 5 ? '#FB7185' : '#A6A8D6', border: '1px dashed rgba(140,130,255,0.4)', padding: '5px 12px', borderRadius: 999 }}>
+              <span data-testid="turn-timer" style={{ fontSize: 13, fontWeight: 800, color: deadlineLeft <= 5 ? '#FB7185' : '#A9A3B5', border: '1px dashed rgba(255,222,170,0.4)', padding: '5px 12px', borderRadius: 999 }}>
                 {deadlineLeft} ث
               </span>
             )}
@@ -404,7 +404,7 @@ export function GamePage() {
             <span className="pc-pulse" style={{ flex: 'none', width: 14, height: 14, borderRadius: '50%', background: tone, boxShadow: `0 0 0 5px ${tone}33` }} />
             <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0, lineHeight: 1.4 }}>
               <span style={{ fontWeight: 900, fontSize: 19 }}>{bannerTitle}</span>
-              <span style={{ fontSize: 13, color: '#D4D2F2' }}>{bannerSub}</span>
+              <span style={{ fontSize: 13, color: '#DAD5E2' }}>{bannerSub}</span>
             </span>
           </div>
           {error && <div role="alert" className="alert alert-error" style={{ width: 'min(100%,720px)' }}>{error}</div>}
@@ -433,7 +433,7 @@ export function GamePage() {
             )}
             {(waiting || ended) && (
               <div style={{ position: 'absolute', inset: 0, zIndex: 30, borderRadius: 22, background: 'rgba(10,11,30,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-                <div data-testid="waiting-overlay" style={{ width: '100%', maxWidth: 380, padding: 28, borderRadius: 22, background: '#14153A', border: '1px solid rgba(140,130,255,0.3)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, textAlign: 'center' }}>
+                <div data-testid="waiting-overlay" style={{ width: '100%', maxWidth: 380, padding: 28, borderRadius: 22, background: '#1B1824', border: '1px solid rgba(255,222,170,0.3)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, textAlign: 'center' }}>
                   {ended ? (
                     <>
                       <span style={{ fontWeight: 900, fontSize: 21 }}>هذه الطاولة مغلقة</span>
@@ -443,10 +443,10 @@ export function GamePage() {
                     <>
                       <Spinner size={38} />
                       <span style={{ fontWeight: 900, fontSize: 21 }}>في انتظار لاعب ثانٍ</span>
-                      <span style={{ fontSize: 14, color: '#B4B6E4', lineHeight: 1.7 }}>{room.players.length} من {room.maxPlayers} لاعبين. ستبدأ المباراة تلقائيًا عند اكتمال الطاولة.</span>
+                      <span style={{ fontSize: 14, color: '#B8B2C4', lineHeight: 1.7 }}>{room.players.length} من {room.maxPlayers} لاعبين. ستبدأ المباراة تلقائيًا عند اكتمال الطاولة.</span>
                       {room.code && (
                         <div style={{ display: 'flex', gap: 8, width: '100%' }}>
-                          <span dir="ltr" data-testid="room-code" style={{ flex: 1, height: 46, borderRadius: 12, background: '#0F1030', border: '1px dashed rgba(255,200,61,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, letterSpacing: '0.12em', color: '#FFC83D' }}>{room.code}</span>
+                          <span dir="ltr" data-testid="room-code" style={{ flex: 1, height: 46, borderRadius: 12, background: '#110E17', border: '1px dashed rgba(255,200,61,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, letterSpacing: '0.12em', color: '#FFC83D' }}>{room.code}</span>
                           <button type="button" className="pb-btn pb-violet pb-sm" onClick={copyCode} style={{ height: 46 }}>{copied ? 'تم النسخ ✓' : 'نسخ'}</button>
                         </div>
                       )}
@@ -481,9 +481,9 @@ export function GamePage() {
                   : panel(null, false, x.username, x.color)))}
 
           {c4 ? (
-            <div style={{ padding: 20, borderRadius: 22, background: 'linear-gradient(160deg, #1E1A52, #14153A 60%)', border: '1px solid rgba(140,130,255,0.22)', display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={{ padding: 20, borderRadius: 22, background: 'linear-gradient(160deg, #2A2235, #1B1824 60%)', border: '1px solid rgba(255,222,170,0.22)', display: 'flex', flexDirection: 'column', gap: 8 }}>
               <span style={{ fontWeight: 800, fontSize: 16 }}>أربعة على التوالي</span>
-              <span style={{ fontSize: 14, lineHeight: 1.8, color: '#B4B6E4' }}>
+              <span style={{ fontSize: 14, lineHeight: 1.8, color: '#B8B2C4' }}>
                 {waiting ? 'ستبدأ المباراة عند اكتمال الطاولة.'
                   : result ? 'انتهت المباراة.'
                   : snap?.paused ? 'متوقف أثناء إعادة الاتصال.'
@@ -492,13 +492,13 @@ export function GamePage() {
               </span>
             </div>
           ) : (
-          <div style={{ padding: 20, borderRadius: 22, background: 'linear-gradient(160deg, #1E1A52, #14153A 60%)', border: '1px solid rgba(140,130,255,0.22)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
+          <div style={{ padding: 20, borderRadius: 22, background: 'linear-gradient(160deg, #2A2235, #1B1824 60%)', border: '1px solid rgba(255,222,170,0.22)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 20, width: '100%' }}>
               <Die face={face} rolling={rolling} />
               <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 0 }}>
-                <span style={{ fontSize: 12, fontWeight: 700, color: '#8A8CC0' }}>آخر رمية</span>
+                <span style={{ fontSize: 12, fontWeight: 700, color: '#8C8698' }}>آخر رمية</span>
                 <span data-testid="die-value" style={{ fontWeight: 900, fontSize: 32, lineHeight: 1.2, color: '#FFC83D' }}>{snap?.state.die ?? '—'}</span>
-                <span style={{ fontSize: 13, lineHeight: 1.6, color: '#B4B6E4' }}>
+                <span style={{ fontSize: 13, lineHeight: 1.6, color: '#B8B2C4' }}>
                   {waiting ? 'سيتفعّل النرد عند اكتمال الطاولة.'
                     : result ? 'انتهت المباراة.'
                     : snap?.paused ? 'متوقف أثناء إعادة الاتصال.'
@@ -517,11 +517,11 @@ export function GamePage() {
 
           {panel(me, true, user?.username ?? '')}
 
-          <div style={{ padding: '18px 20px', borderRadius: 22, background: '#14153A', border: '1px solid rgba(140,130,255,0.14)' }}>
-            <h2 style={{ margin: '0 0 10px', fontSize: 14, fontWeight: 800, color: '#A6A8D6' }}>سجل المباراة</h2>
+          <div style={{ padding: '18px 20px', borderRadius: 22, background: '#1B1824', border: '1px solid rgba(255,222,170,0.14)' }}>
+            <h2 style={{ margin: '0 0 10px', fontSize: 14, fontWeight: 800, color: '#A9A3B5' }}>سجل المباراة</h2>
             <ol data-testid="game-log" style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {(log.length ? log : [{ text: waiting ? 'في انتظار الخصم…' : 'بدأت المباراة.', color: '#A6A8D6' }]).map((l, i) => (
-                <li key={i} style={{ display: 'flex', gap: 10, alignItems: 'baseline', fontSize: 14, color: '#D4D2F2' }}>
+              {(log.length ? log : [{ text: waiting ? 'في انتظار الخصم…' : 'بدأت المباراة.', color: '#A9A3B5' }]).map((l, i) => (
+                <li key={i} style={{ display: 'flex', gap: 10, alignItems: 'baseline', fontSize: 14, color: '#DAD5E2' }}>
                   <span style={{ flex: 'none', width: 8, height: 8, borderRadius: '50%', transform: 'translateY(-1px)', background: l.color }} />{l.text}
                 </li>
               ))}
@@ -532,13 +532,13 @@ export function GamePage() {
 
       {result && !(iAmOut && dismissed) && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 50, background: 'rgba(6,6,20,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-          <div role="dialog" aria-modal="true" aria-labelledby="result-title" data-testid="result" style={{ width: '100%', maxWidth: 420, padding: '32px 28px 28px', borderRadius: 26, background: 'linear-gradient(170deg, #241C5E, #14153A 55%)', border: '1px solid rgba(255,200,61,0.4)', boxShadow: '0 30px 80px rgba(0,0,0,0.6)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, textAlign: 'center' }}>
-            <span style={{ width: 88, height: 88, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', ...(result === 'victory' ? { background: 'rgba(255,200,61,0.18)', color: '#FFC83D', boxShadow: '0 0 0 8px rgba(255,200,61,0.08), 0 0 40px rgba(255,200,61,0.35)' } : { background: 'rgba(140,130,255,0.14)', color: '#B4B6E4' }) }}>
+          <div role="dialog" aria-modal="true" aria-labelledby="result-title" data-testid="result" style={{ width: '100%', maxWidth: 420, padding: '32px 28px 28px', borderRadius: 26, background: 'linear-gradient(170deg, #241C5E, #1B1824 55%)', border: '1px solid rgba(255,200,61,0.4)', boxShadow: '0 30px 80px rgba(0,0,0,0.6)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, textAlign: 'center' }}>
+            <span style={{ width: 88, height: 88, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', ...(result === 'victory' ? { background: 'rgba(255,200,61,0.18)', color: '#FFC83D', boxShadow: '0 0 0 8px rgba(255,200,61,0.08), 0 0 40px rgba(255,200,61,0.35)' } : { background: 'rgba(255,222,170,0.14)', color: '#B8B2C4' }) }}>
               <svg width="44" height="44" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="m2 4 3 12h14l3-12-6 7-4-7-4 7-6-7zm3 16h14v2H5z" /></svg>
             </span>
             <span id="result-title" style={{ fontWeight: 900, fontSize: 34 }}>{result === 'victory' ? 'فوز!' : result === 'aborted' ? (practice ? 'انتهى التدريب' : 'أُلغيت') : result === 'draw' ? 'تعادل' : 'خسارة'}</span>
             {practice && <span className="badge" style={{ background: 'rgba(34,197,94,0.14)', color: '#4ADE80' }}>تدريب: بدون عملات ولا خبرة ولا ترتيب</span>}
-            <span style={{ fontSize: 15, lineHeight: 1.7, color: '#D4D2F2' }}>
+            <span style={{ fontSize: 15, lineHeight: 1.7, color: '#DAD5E2' }}>
               {result === 'victory'
                 ? snap!.endReason === 'COMPLETED' ? (c4 ? 'صففت أربع قطع على التوالي قبل خصمك.' : 'أوصلت بيادقك الأربعة إلى البيت قبل الجميع.') : 'انسحب منافسوك، الفوز لك.'
                 : result === 'draw' ? `امتلأت الشبكة دون فائز${room.stake && !practice ? '، وأُعيد رهان كل لاعب' : ''}.`
@@ -549,13 +549,13 @@ export function GamePage() {
             </span>
             {result !== 'aborted' && !practice && (
               <div style={{ display: 'flex', gap: 10, width: '100%', margin: '6px 0' }}>
-                <div style={{ flex: 1, padding: 12, borderRadius: 16, background: '#0F1030', display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <div style={{ flex: 1, padding: 12, borderRadius: 16, background: '#110E17', display: 'flex', flexDirection: 'column', gap: 2 }}>
                   <span dir="ltr" style={{ fontWeight: 900, fontSize: 22, color: '#FFC83D' }}>+{fmt(myPayout)}</span>
-                  <span style={{ fontSize: 12, color: '#A6A8D6' }}>عملة افتراضية</span>
+                  <span style={{ fontSize: 12, color: '#A9A3B5' }}>عملة افتراضية</span>
                 </div>
-                <div style={{ flex: 1, padding: 12, borderRadius: 16, background: '#0F1030', display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <div style={{ flex: 1, padding: 12, borderRadius: 16, background: '#110E17', display: 'flex', flexDirection: 'column', gap: 2 }}>
                   <span dir="ltr" style={{ fontWeight: 900, fontSize: 22, color: '#B9A8FF' }}>+{result === 'victory' ? WIN_XP : LOSS_XP}</span>
-                  <span style={{ fontSize: 12, color: '#A6A8D6' }}>نقطة خبرة</span>
+                  <span style={{ fontSize: 12, color: '#A9A3B5' }}>نقطة خبرة</span>
                 </div>
               </div>
             )}
@@ -571,9 +571,9 @@ export function GamePage() {
 
       {quit && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 60, background: 'rgba(6,6,20,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-          <div role="dialog" aria-modal="true" aria-labelledby="quit-title" style={{ width: '100%', maxWidth: 400, padding: 26, borderRadius: 24, background: '#14153A', border: '1px solid rgba(140,130,255,0.25)', boxShadow: '0 30px 80px rgba(0,0,0,0.6)', display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div role="dialog" aria-modal="true" aria-labelledby="quit-title" style={{ width: '100%', maxWidth: 400, padding: 26, borderRadius: 24, background: '#1B1824', border: '1px solid rgba(255,222,170,0.25)', boxShadow: '0 30px 80px rgba(0,0,0,0.6)', display: 'flex', flexDirection: 'column', gap: 12 }}>
             <span id="quit-title" style={{ fontWeight: 900, fontSize: 23 }}>{waiting ? 'مغادرة الطاولة؟' : 'مغادرة المباراة؟'}</span>
-            <span style={{ fontSize: 15, lineHeight: 1.8, color: '#B4B6E4' }}>{practice ? 'ستنتهي جلسة التدريب. لا رهان ولا خسارة في الترتيب.' : waiting ? (room.players.length > 1 ? 'سيُتاح مكانك لِلاعب آخر ويُعاد رهانك.' : 'ستُلغى الطاولة ويُعاد رهانك.') : room.maxPlayers > 2 ? 'ستخرج من المباراة وتخسر رهانك، ويواصل الآخرون اللعب.' : 'ستُحتسب المباراة الجارية خسارةً ويفوز خصمك بالرهان.'}</span>
+            <span style={{ fontSize: 15, lineHeight: 1.8, color: '#B8B2C4' }}>{practice ? 'ستنتهي جلسة التدريب. لا رهان ولا خسارة في الترتيب.' : waiting ? (room.players.length > 1 ? 'سيُتاح مكانك لِلاعب آخر ويُعاد رهانك.' : 'ستُلغى الطاولة ويُعاد رهانك.') : room.maxPlayers > 2 ? 'ستخرج من المباراة وتخسر رهانك، ويواصل الآخرون اللعب.' : 'ستُحتسب المباراة الجارية خسارةً ويفوز خصمك بالرهان.'}</span>
             <div style={{ display: 'flex', gap: 10, marginTop: 8, flexWrap: 'wrap' }}>
               <button type="button" className="pb-btn pb-ghost" onClick={() => setQuit(false)} style={{ flex: '1 1 140px' }}>متابعة اللعب</button>
               <button type="button" className="pb-btn pb-solid-danger" data-testid="confirm-quit" onClick={leave} style={{ flex: '1 1 140px' }}>مغادرة</button>

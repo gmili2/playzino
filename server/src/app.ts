@@ -13,6 +13,7 @@ import { roomsRouter } from './modules/rooms/rooms.routes.js';
 import { statsRouter } from './modules/stats/stats.routes.js';
 import { meRouter } from './modules/users/users.routes.js';
 import { walletRouter } from './modules/wallet/wallet.routes.js';
+import { wheelRouter } from './modules/wheel/wheel.routes.js';
 import { prisma } from './lib/prisma.js';
 
 export function createApp() {
@@ -59,6 +60,7 @@ export function createApp() {
   app.use('/api/auth', authRouter);
   app.use('/api/me', meRouter);
   app.use('/api/wallet', walletRouter);
+  app.use('/api/wheel', wheelRouter);
   app.use('/api/rooms', roomsRouter);
   app.use('/api/games', gamesRouter);
   app.use('/api/stats', statsRouter);

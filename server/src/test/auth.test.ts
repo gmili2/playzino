@@ -5,12 +5,12 @@ import { client, registered, uniq } from './helpers.js';
 afterAll(() => prisma.$disconnect());
 
 describe('authentification', () => {
-  it('inscription : 201, cookie httpOnly, 1 000 crédits et mot de passe haché', async () => {
+  it('inscription : 201, cookie httpOnly, solde à 0 et mot de passe haché', async () => {
     const c = client();
     const name = 'u' + uniq();
     const res = await c.post('/api/auth/register', { email: `${name}@Test.local`, username: name, password: 'motdepasse-123' });
     expect(res.status).toBe(201);
-    expect(res.body.user.balance).toBe(1000);
+    expect(res.body.user.balance).toBe(0);
     expect(res.body.user.role).toBe('USER');
     expect(res.body.user.passwordHash).toBeUndefined();
     const cookie = String(res.headers['set-cookie']);
@@ -21,8 +21,7 @@ describe('authentification', () => {
     expect(db.passwordHash).toMatch(/^\$2[aby]\$12\$/);
     expect(db.passwordHash).not.toContain('motdepasse');
     const txs = await prisma.walletTransaction.findMany({ where: { wallet: { userId: db.id } } });
-    expect(txs).toHaveLength(1);
-    expect(txs[0]).toMatchObject({ type: 'SIGNUP_BONUS', amount: 1000, balanceAfter: 1000 });
+    expect(txs).toHaveLength(0);
   });
 
   it('refuse les doublons d’e-mail et de nom', async () => {

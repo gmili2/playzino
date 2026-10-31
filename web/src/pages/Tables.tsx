@@ -29,11 +29,11 @@ function Seg<T extends string | number>({ value, options, onChange, label, rende
 
 function ActionCard({ icon, iconBg, title, sub, children, highlight }: { icon: ReactNode; iconBg: string; title: string; sub: string; children: ReactNode; highlight?: boolean }) {
   return (
-    <section style={{ flex: '1 1 300px', padding: 24, borderRadius: 24, background: highlight ? 'linear-gradient(160deg, #2A1B7A, #14153A 70%)' : '#14153A', border: '1px solid rgba(140,130,255,0.22)', display: 'flex', flexDirection: 'column', gap: 16 }}>
+    <section style={{ flex: '1 1 300px', padding: 24, borderRadius: 24, background: highlight ? 'linear-gradient(160deg, #2A1B7A, #1B1824 70%)' : '#1B1824', border: '1px solid rgba(255,222,170,0.22)', display: 'flex', flexDirection: 'column', gap: 16 }}>
       <span style={{ width: 50, height: 50, borderRadius: 14, background: iconBg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{icon}</span>
       <div>
         <h2 style={{ fontWeight: 900, fontSize: 22 }}>{title}</h2>
-        <p style={{ margin: '6px 0 0', fontSize: 14, color: '#B4B6E4' }}>{sub}</p>
+        <p style={{ margin: '6px 0 0', fontSize: 14, color: '#B8B2C4' }}>{sub}</p>
       </div>
       {children}
     </section>
@@ -58,7 +58,7 @@ export function GameIcon({ game, size = 46 }: { game: GameType; size?: number })
       <rect x="2" y="2" width="44" height="44" rx="8" fill="#FFFFFF" />
       <rect x="2" y="2" width="17" height="17" rx="6" fill="#E5484D" /><rect x="29" y="2" width="17" height="17" rx="6" fill="#F5C21B" />
       <rect x="2" y="29" width="17" height="17" rx="6" fill="#2F6BFF" /><rect x="29" y="29" width="17" height="17" rx="6" fill="#1FB57A" />
-      <path d="M19 19h10v10H19z" fill="#0F1030" />
+      <path d="M19 19h10v10H19z" fill="#110E17" />
     </svg>
   );
 }
@@ -100,7 +100,7 @@ export function TablesPage() {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
         <div>
           <h1 style={{ fontWeight: 900, fontSize: 'clamp(30px, 4vw, 44px)' }}>ابحث عن طاولة أو أنشئ واحدة</h1>
-          <p style={{ margin: '8px 0 0', fontSize: 16, color: '#B4B6E4' }}>العب فورًا مع لاعبين من كل مكان، أو اجمع أصدقاءك حول طاولة خاصة، من لاعبَين إلى أربعة لاعبين.</p>
+          <p style={{ margin: '8px 0 0', fontSize: 16, color: '#B8B2C4' }}>العب فورًا مع لاعبين من كل مكان، أو اجمع أصدقاءك حول طاولة خاصة، من لاعبَين إلى أربعة لاعبين.</p>
         </div>
         {error && <div role="alert" className="alert alert-error">{error}</div>}
 
@@ -109,14 +109,14 @@ export function TablesPage() {
             <button
               key={g} type="button" role="radio" aria-checked={game === g} data-testid={`game-${g}`} onClick={() => setGame(g)}
               style={{
-                flex: '1 1 240px', display: 'flex', alignItems: 'center', gap: 14, padding: '14px 18px', borderRadius: 18, cursor: 'pointer', textAlign: 'start', color: '#F4F3FF', font: 'inherit',
-                background: game === g ? 'linear-gradient(160deg, #2A1B7A, #1A1550)' : '#14153A', border: game === g ? '2px solid #FFC83D' : '1px solid rgba(140,130,255,0.22)'
+                flex: '1 1 240px', display: 'flex', alignItems: 'center', gap: 14, padding: '14px 18px', borderRadius: 18, cursor: 'pointer', textAlign: 'start', color: '#F7F3EC', font: 'inherit',
+                background: game === g ? 'linear-gradient(160deg, #2A1B7A, #1A1550)' : '#1B1824', border: game === g ? '2px solid #FFC83D' : '1px solid rgba(255,222,170,0.22)'
               }}
             >
               <GameIcon game={g} />
               <span style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                 <span style={{ fontWeight: 900, fontSize: 18 }}>{GAME_LABEL[g]}</span>
-                <span style={{ fontSize: 13, color: '#B4B6E4' }}>{g === 'CONNECT4' ? 'لاعبان · صفّ أربع قطع لتفوز' : 'من 2 إلى 4 لاعبين · نرد وبيادق'}</span>
+                <span style={{ fontSize: 13, color: '#B8B2C4' }}>{g === 'CONNECT4' ? 'لاعبان · صفّ أربع قطع لتفوز' : 'من 2 إلى 4 لاعبين · نرد وبيادق'}</span>
               </span>
             </button>
           ))}
@@ -162,7 +162,7 @@ export function TablesPage() {
           <div style={{ padding: '18px 22px', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 12 }}>
             <h2 style={{ marginInlineEnd: 'auto', fontWeight: 900, fontSize: 20 }}>جميع الطاولات العامة</h2>
             <label style={{ position: 'relative', width: 260 }}>
-              <span style={{ position: 'absolute', insetInlineStart: 14, top: '50%', transform: 'translateY(-50%)', color: '#8A8CC0', display: 'flex' }}><IconSearch size={16} /></span>
+              <span style={{ position: 'absolute', insetInlineStart: 14, top: '50%', transform: 'translateY(-50%)', color: '#8C8698', display: 'flex' }}><IconSearch size={16} /></span>
               <input className="pb-input" aria-label="ابحث عن طاولة" placeholder="ابحث عن طاولة" value={q} onChange={(e) => setQ(e.target.value)} style={{ height: 42, paddingInlineStart: 40 }} />
             </label>
             <div role="tablist" style={{ display: 'flex', gap: 6 }}>
@@ -183,7 +183,7 @@ export function TablesPage() {
                       <tr key={r.id} className="pb-row">
                         <td>
                           <div style={{ fontWeight: 800, fontSize: 16 }}>{r.name} <span className="badge" style={{ marginInlineStart: 6, padding: '2px 9px', fontSize: 11, background: r.gameType === 'CONNECT4' ? 'rgba(47,107,255,0.2)' : 'rgba(255,200,61,0.16)', color: r.gameType === 'CONNECT4' ? '#93B4FF' : '#FFC83D' }}>{GAME_LABEL[r.gameType]}</span></div>
-                          <div style={{ fontSize: 12, color: '#A6A8D6' }}><span dir="ltr">{r.code}</span> · {r.players.find((p) => p.userId === r.hostId)?.username} · {r.turnSeconds} ث لكل دور</div>
+                          <div style={{ fontSize: 12, color: '#A9A3B5' }}><span dir="ltr">{r.code}</span> · {r.players.find((p) => p.userId === r.hostId)?.username} · {r.turnSeconds} ث لكل دور</div>
                         </td>
                         <td>
                           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
@@ -191,7 +191,7 @@ export function TablesPage() {
                               const p = r.players.find((x) => x.seat === s);
                               return <span key={s} style={{ width: 22, height: 6, borderRadius: 3, background: p ? COLOR_HEX[p.color] : '#2A2B5E' }} />;
                             })}
-                            <span style={{ fontSize: 13, color: '#C9CAF0' }}>{r.players.length}/{r.maxPlayers}</span>
+                            <span style={{ fontSize: 13, color: '#CFC9D9' }}>{r.players.length}/{r.maxPlayers}</span>
                           </span>
                         </td>
                         <td>{r.stake ? <Credits value={r.stake} /> : <span style={{ color: '#4ADE80', fontWeight: 700 }}>مجانية</span>}</td>
