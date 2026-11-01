@@ -60,7 +60,9 @@ const MESSAGES: Record<string, string> = {
   RECEIPT_TOO_LARGE: 'حجم الوصل كبير جدًا (5 ميغابايت كحد أقصى)',
   BANK_UNAVAILABLE: 'هذا البنك غير متاح حاليًا',
   TOO_MANY_PENDING: 'لديك طلبات إيداع قيد المراجعة، انتظر معالجتها',
-  ALREADY_REVIEWED: 'تمت معالجة هذا الطلب بالفعل'
+  ALREADY_REVIEWED: 'تمت معالجة هذا الطلب بالفعل',
+  PAID_LIMIT: 'وصلت إلى الحد الأقصى للدورات المدفوعة اليوم',
+  PAID_WHEEL_OFF: 'الدورات المدفوعة غير متاحة حاليًا'
 };
 
 export function errorText(e: unknown): string {

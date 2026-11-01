@@ -133,8 +133,8 @@ export function Header() {
 
 export function Footer() {
   return (
-    <footer style={{ borderTop: '1px solid rgba(255,222,170,0.12)', marginTop: 32 }}>
-      <div style={{ maxWidth: 1500, margin: '0 auto', padding: 24, display: 'flex', flexWrap: 'wrap', gap: '14px 28px', alignItems: 'center', fontSize: 13, color: '#8C8698' }}>
+    <footer style={{ borderTop: '1px solid rgba(255,222,170,0.12)', marginTop: 16 }}>
+      <div style={{ maxWidth: 1500, margin: '0 auto', padding: '16px 20px', display: 'flex', flexWrap: 'wrap', gap: '10px 24px', alignItems: 'center', fontSize: 13, color: '#8C8698' }}>
         <span style={{ fontWeight: 800, color: '#FFC83D' }}>أكثر من مجرد لعبة… مجتمع!</span>
         <span style={{ flex: '1 1 320px' }}>1 عملة = 1 درهم. الإيداع والسحب بالتحويل البنكي فقط، وكل عملية تراجعها الإدارة.</span>
         <Link to="/cashier" style={{ color: '#A9A3B5' }}>الإيداع والسحب</Link>
@@ -148,7 +148,7 @@ export function Page({ children, width = 1500 }: { children: ReactNode; width?: 
   return (
     <>
       <Header />
-      <main style={{ maxWidth: width, margin: '0 auto', padding: 24 }}>{children}</main>
+      <main style={{ maxWidth: width, margin: '0 auto', padding: '16px clamp(12px, 3vw, 20px)' }}>{children}</main>
       <Footer />
     </>
   );

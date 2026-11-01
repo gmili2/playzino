@@ -91,6 +91,8 @@ enum TxType {
   DEPOSIT
   WITHDRAWAL
   WITHDRAWAL_REFUND
+  WHEEL_SPIN
+  WHEEL_PRIZE
 }
 
 model WalletTransaction {

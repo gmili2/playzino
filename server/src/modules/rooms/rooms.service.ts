@@ -225,12 +225,14 @@ export async function quickJoin(userId: string, stake: number, maxPlayers: numbe
 }
 
 /** Quitter une table en attente : place libérée et mise remboursée ; table vide = annulée. */
-export async function leaveWaitingRoom(userId: string, roomId: string, ip?: string) {
-  await prisma.$transaction(async (tx) => {
+export async function leaveWaitingRoom(userId: string, roomId: string, ip?: string, onlyIfAlone = false) {
+  return prisma.$transaction(async (tx) => {
     const room = await lockRoom(tx, roomId);
     if (!room) throw notFound('Table introuvable');
     if (!room.players.some((p) => p.userId === userId)) throw forbidden('Vous n’êtes pas à cette table');
     if (room.status !== 'WAITING') throw conflict('ROOM_NOT_WAITING', 'La partie a déjà commencé');
+    // Bascule vers le robot : annulée si un adversaire est arrivé entre-temps (vérifié sous verrou).
+    if (onlyIfAlone && room.players.length > 1) throw conflict('OPPONENT_FOUND', 'Un adversaire a rejoint la table');
     await tx.roomPlayer.delete({ where: { roomId_userId: { roomId, userId } } });
     if (room.stake > 0) {
       await applyWalletOp(tx, {
@@ -248,6 +250,7 @@ export async function leaveWaitingRoom(userId: string, roomId: string, ip?: stri
       await tx.room.update({ where: { id: roomId }, data: { hostId: other.userId } });
     }
     await audit({ actorId: userId, action: 'room.leave', targetType: 'room', targetId: roomId, ip }, tx);
+    return room;
   });
 }
 

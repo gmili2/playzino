@@ -92,3 +92,14 @@ roomsRouter.post('/:id/leave', requireAuth, async (req, res) => {
   hub.lobbyChanged();
   res.status(204).end();
 });
+
+/**
+ * Aucun adversaire après l'attente : la mise est remboursée et une partie d'entraînement contre le robot
+ * (même jeu, même nombre de joueurs, sans mise) démarre à la place.
+ */
+roomsRouter.post('/:id/play-bot', requireAuth, async (req, res) => {
+  const id = String(req.params.id);
+  const room = await leaveWaitingRoom(req.user!.id, id, req.ip, true);
+  hub.roomChanged(id, null);
+  res.status(201).json(await afterJoin(await createPracticeRoom(req.user!.id, room.maxPlayers - 1, room.turnSeconds, room.gameType, req.ip)));
+});

@@ -15,7 +15,7 @@ interface AdminTx { id: string; type: string; amount: number; reason: string; us
 interface Audit { id: string; action: string; actor: string | null; targetType: string; targetId: string | null; details: Record<string, unknown> | null; createdAt: string }
 
 const ACTION_LABEL: Record<string, string> = {
-  'admin.user_suspend': 'إيقاف حساب', 'admin.user_reactivate': 'إعادة تفعيل', 'admin.credit_adjust': 'تعديل رصيد', 'admin.game_abort_request': 'إلغاء مباراة', 'admin.bot_level': 'مستوى الروبوت', 'admin.wheel': 'تعديل عجلة الحظ',
+  'admin.user_suspend': 'إيقاف حساب', 'admin.user_reactivate': 'إعادة تفعيل', 'admin.credit_adjust': 'تعديل رصيد', 'admin.game_abort_request': 'إلغاء مباراة', 'admin.bot_level': 'مستوى الروبوت', 'admin.wheel': 'تعديل عجلة الحظ', 'admin.wheel_paid': 'إعدادات الدورات المدفوعة',
   'admin.deposit_approve': 'قبول إيداع', 'admin.deposit_reject': 'رفض إيداع', 'admin.withdrawal_paid': 'تنفيذ سحب', 'admin.withdrawal_reject': 'رفض سحب', 'admin.bank_create': 'إضافة حساب بنكي', 'admin.bank_update': 'تعديل حساب بنكي',
   'payment.deposit_request': 'طلب إيداع', 'payment.withdrawal_request': 'طلب سحب',
   'game.finish': 'نهاية مباراة', 'game.abort': 'إلغاء مباراة', 'auth.register': 'تسجيل', 'auth.login': 'دخول', 'auth.login_failed': 'دخول فاشل', 'auth.logout': 'خروج',
@@ -104,7 +104,8 @@ function QuickStats({ games, txs }: { games: AdminGame[]; txs: AdminTx[] }) {
   );
 }
 
-interface WheelAdmin { segments: { amount: number; weight: number }[]; spinsToday: number; coinsToday: number; recent: { id: string; username: string; amount: number; createdAt: string }[] }
+interface PaidWheel { basePrice: number; step: number; maxSpins: number }
+interface WheelAdmin { segments: { amount: number; weight: number }[]; paid: PaidWheel; spinsToday: number; coinsToday: number; paidSpinsToday: number; paidCollectedToday: number; paidPrizesToday: number; recent: { id: string; username: string; amount: number; createdAt: string }[] }
 
 /** Réglages de la roue : gain et chance de chaque case, aperçu, tours du jour. */
 function WheelControl() {
@@ -165,6 +166,7 @@ function WheelControl() {
         {msg && <div role="status" className={'alert ' + (msg.ok ? 'alert-ok' : 'alert-error')}>{msg.text}</div>}
       </section>
       <div className="ad-col ad-col-side">
+        <PaidWheelControl initial={data.paid} expected={expected} stats={data} onSaved={load} />
         <section className="panel" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
           <h2 className="panel-title" style={{ alignSelf: 'stretch' }}>معاينة</h2>
           <div style={{ width: '100%', maxWidth: 300 }}><Wheel segments={segs.map((s) => s.amount)} /></div>
@@ -187,6 +189,56 @@ function WheelControl() {
         </section>
       </div>
     </div>
+  );
+}
+
+/** Tours payants : prix du 1er tour, hausse après chaque tour, nombre maximal par joueur et par jour. */
+function PaidWheelControl({ initial, expected, stats, onSaved }: { initial: PaidWheel; expected: number; stats: WheelAdmin; onSaved: () => void }) {
+  const [form, setForm] = useState(initial);
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const prices = Array.from({ length: form.maxSpins }, (_, i) => form.basePrice + form.step * i);
+  const num = (k: keyof PaidWheel, v: string, min: number) => setForm({ ...form, [k]: Math.max(min, Math.min(100000, Math.round(Number(v) || 0))) });
+  const save = async () => {
+    setBusy(true);
+    setMsg(null);
+    try {
+      await api.put('/api/admin/settings/wheel-paid', form);
+      setMsg({ ok: true, text: form.maxSpins ? 'تم الحفظ: يُطبَّق على الدورات القادمة.' : 'تم: الدورات المدفوعة معطّلة.' });
+      onSaved();
+    } catch (e) {
+      setMsg({ ok: false, text: errorText(e) });
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <section className="panel" style={{ display: 'flex', flexDirection: 'column', gap: 12 }} data-testid="wheel-paid-admin">
+      <h2 className="panel-title"><IconCoins size={22} style={{ color: '#F2B232' }} />الدورات المدفوعة</h2>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 10 }}>
+        <label className="field"><span>سعر الدورة الأولى</span><input className="pb-input" type="number" dir="ltr" min={1} value={form.basePrice} onChange={(e) => num('basePrice', e.target.value, 1)} /></label>
+        <label className="field"><span>الزيادة بعد كل دورة</span><input className="pb-input" type="number" dir="ltr" min={0} value={form.step} onChange={(e) => num('step', e.target.value, 0)} /></label>
+        <label className="field"><span>الحد اليومي للاعب</span><input className="pb-input" type="number" dir="ltr" min={0} max={100} value={form.maxSpins} onChange={(e) => setForm({ ...form, maxSpins: Math.max(0, Math.min(100, Math.round(Number(e.target.value) || 0))) })} /></label>
+      </div>
+      <span className="hint">
+        {form.maxSpins
+          ? <>الأسعار اليوم: <b dir="ltr">{prices.slice(0, 6).map(fmt).join(' → ')}{prices.length > 6 ? ` → … → ${fmt(prices[prices.length - 1])}` : ''}</b>. يعود السعر إلى البداية كل يوم. 0 = تعطيل.</>
+          : 'الدورات المدفوعة معطّلة (الحد اليومي = 0).'}
+      </span>
+      {form.maxSpins > 0 && (
+        <div className={'alert ' + (expected < form.basePrice ? 'alert-ok' : 'alert-error')} style={{ fontSize: 13 }}>
+          متوسط الربح لكل دورة: <b dir="ltr">{expected.toFixed(1)}</b> عملة مقابل سعر أول دورة <b dir="ltr">{fmt(form.basePrice)}</b>.
+          {expected < form.basePrice ? ` هامش المنصة في الدورة الأولى: ${(form.basePrice - expected).toFixed(1)} عملة.` : ' تحذير: اللاعب يربح في المتوسط أكثر مما يدفع.'}
+        </div>
+      )}
+      <div className="ad-quick" style={{ gridTemplateColumns: '1fr 1fr 1fr' }}>
+        <div style={{ background: 'linear-gradient(160deg,#7C3AED40,#7C3AED12)', borderColor: '#7C3AED66' }}><span>دورات مدفوعة اليوم</span><b>{fmt(stats.paidSpinsToday)}</b></div>
+        <div style={{ background: 'linear-gradient(160deg,#16A34A40,#16A34A12)', borderColor: '#16A34A66' }}><span>المحصَّل</span><b>{fmt(stats.paidCollectedToday)}</b></div>
+        <div style={{ background: 'linear-gradient(160deg,#DC262640,#DC262612)', borderColor: '#DC262666' }}><span>الأرباح الموزعة</span><b>{fmt(stats.paidPrizesToday)}</b></div>
+      </div>
+      {msg && <div role="status" className={'alert ' + (msg.ok ? 'alert-ok' : 'alert-error')}>{msg.text}</div>}
+      <button type="button" className="pb-btn pb-gold" onClick={save} disabled={busy}>حفظ</button>
+    </section>
   );
 }
 

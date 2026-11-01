@@ -11,7 +11,7 @@ import { requireAdmin } from '../../middleware/auth.js';
 import { gameManager } from '../../realtime/gameManager.js';
 import { hub } from '../../realtime/hub.js';
 import { leaveWaitingRoom } from '../rooms/rooms.service.js';
-import { getWheel, setWheel, wheelStats, WHEEL_MAX_AMOUNT, WHEEL_MAX_SEGMENTS, WHEEL_MIN_SEGMENTS } from '../wheel/wheel.service.js';
+import { getPaidWheel, getWheel, PAID_MAX_PRICE, PAID_MAX_SPINS, setPaidWheel, setWheel, wheelStats, WHEEL_MAX_AMOUNT, WHEEL_MAX_SEGMENTS, WHEEL_MIN_SEGMENTS } from '../wheel/wheel.service.js';
 import { walletOp } from '../wallet/wallet.service.js';
 
 // Toutes les routes ci-dessous sont vérifiées côté serveur (rôle ADMIN relu en base à chaque requête).
@@ -193,7 +193,7 @@ adminRouter.patch('/settings/bot-level', async (req, res) => {
 });
 
 adminRouter.get('/settings/wheel', async (_req, res) => {
-  res.json({ segments: await getWheel(), ...(await wheelStats()) });
+  res.json({ segments: await getWheel(), paid: await getPaidWheel(), ...(await wheelStats()) });
 });
 
 adminRouter.put('/settings/wheel', async (req, res) => {
@@ -209,6 +209,19 @@ adminRouter.put('/settings/wheel', async (req, res) => {
   );
   await setWheel(segments, req.user!.id, req.ip);
   res.json({ segments });
+});
+
+adminRouter.put('/settings/wheel-paid', async (req, res) => {
+  const paid = parse(
+    z.object({
+      basePrice: z.number().int().min(1).max(PAID_MAX_PRICE),
+      step: z.number().int().min(0).max(PAID_MAX_PRICE),
+      maxSpins: z.number().int().min(0).max(PAID_MAX_SPINS)
+    }),
+    req.body
+  );
+  await setPaidWheel(paid, req.user!.id, req.ip);
+  res.json({ paid });
 });
 
 adminRouter.get('/transactions', async (_req, res) => {

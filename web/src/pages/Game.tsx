@@ -1,41 +1,38 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Board, type BoardPawn, type BoardTarget } from '../components/Board';
-import { Connect4Board } from '../components/Connect4Board';
-import { IconArrowBack, IconDice, IconLogout, IconMute, IconVolume, IconWifiOff } from '../components/Icons';
-import { Avatar, Die, Loading, Spinner } from '../components/ui';
-import { api, errorText } from '../lib/api';
+import { C4_COLS, C4_ROWS, Connect4Board } from '../components/Connect4Board';
+import { IconArrowBack, IconCrown, IconLogout, IconMute, IconVolume, IconWifiOff } from '../components/Icons';
+import { Avatar, Coin, Die, Loading, Spinner } from '../components/ui';
+import { api, ApiError, errorText } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { COLOR_HEX, COLOR_NAME, fmt } from '../lib/format';
 import { useRoomActions } from '../lib/hooks';
+import { sfx, type Sfx } from '../lib/sounds';
 import { emitAck, getSocket } from '../lib/socket';
 import type { Color, GameEvent, GameSnapshot, Move, Room } from '../lib/types';
 
 const WIN_XP = 250;
+/** Attente maximale d'un adversaire sur une table publique avant de jouer contre le robot. */
+const BOT_WAIT_SECONDS = 20;
 const LOSS_XP = 60;
 
-/** Petits sons synthétisés (aucun fichier externe). */
+/** Effets sonores du jeu, coupés par le bouton haut-parleur. */
 function useSound(enabled: boolean) {
-  const ctx = useRef<AudioContext | null>(null);
-  return useCallback(
-    (freq: number, ms = 90) => {
-      if (!enabled) return;
-      try {
-        ctx.current ??= new AudioContext();
-        const o = ctx.current.createOscillator();
-        const g = ctx.current.createGain();
-        o.frequency.value = freq;
-        g.gain.setValueAtTime(0.08, ctx.current.currentTime);
-        g.gain.exponentialRampToValueAtTime(0.0001, ctx.current.currentTime + ms / 1000);
-        o.connect(g).connect(ctx.current.destination);
-        o.start();
-        o.stop(ctx.current.currentTime + ms / 1000);
-      } catch {
-        /* audio indisponible */
-      }
-    },
-    [enabled]
-  );
+  return useCallback((name: Sfx) => { if (enabled) sfx[name](); }, [enabled]);
+}
+
+/** Puissance 4 : décrit l'alignement gagnant (grille 6 × 7, ligne 0 en haut, colonnes numérotées de gauche à droite). */
+function describeLine(line: number[] | null | undefined): string {
+  if (!line || line.length < 2) return '';
+  const first = line[0], lastCell = line[line.length - 1];
+  const col = (i: number) => (i % C4_COLS) + 1;
+  const rowFromBottom = (i: number) => C4_ROWS - Math.floor(i / C4_COLS);
+  switch (line[1] - first) {
+    case 1: return `أفقيًا في الصف ${rowFromBottom(first)} من الأسفل (من العمود ${col(first)} إلى ${col(lastCell)})`;
+    case C4_COLS: return `عموديًا في العمود ${col(first)}`;
+    default: return `قطريًا من العمود ${Math.min(col(first), col(lastCell))} إلى العمود ${Math.max(col(first), col(lastCell))}`;
+  }
 }
 
 function eventText(ev: GameEvent, name: (c: Color) => string): string | null {
@@ -80,6 +77,9 @@ export function GamePage() {
   const [rolling, setRolling] = useState(false);
   const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [gain, setGain] = useState<number | null>(null);
+  const [botIn, setBotIn] = useState<number | null>(null);
+  const [botBusy, setBotBusy] = useState(false);
   const [log, setLog] = useState<{ text: string; color: string }[]>([]);
   const [quit, setQuit] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -95,6 +95,17 @@ export function GamePage() {
   const turnP = snap?.players.find((p) => p.color === snap.turnColor) ?? null;
   const offP = opps.find((p) => !p.online && p.offlineUntil && !p.eliminated) ?? null;
   const [dismissed, setDismissed] = useState(false);
+  const [revealed, setRevealed] = useState(false);
+  // Puissance 4 gagné sur la grille : on laisse voir l'alignement gagnant avant d'ouvrir la fenêtre de résultat.
+  const finished = !!snap && snap.status !== 'ACTIVE';
+  const over = finished || (!!me?.eliminated && snap?.status === 'ACTIVE');
+  const showLineFirst = finished && snap!.gameType === 'CONNECT4' && snap!.endReason === 'COMPLETED' && !!snap!.winnerId;
+  useEffect(() => {
+    if (!over) return setRevealed(false);
+    setDismissed(false);
+    const t = setTimeout(() => setRevealed(true), showLineFirst ? 2500 : 0);
+    return () => clearTimeout(t);
+  }, [over, finished, showLineFirst]);
   const nameOf = useCallback(
     (c: Color) => (c === me?.color ? 'أنت' : snap?.players.find((p) => p.color === c)?.username ?? COLOR_NAME[c]),
     [me?.color, snap?.players]
@@ -147,10 +158,20 @@ export function GamePage() {
           : home ? 'بيدق وصل إلى البيت!'
           : extra ? (extra.color === myColorRef.current ? 'رميت 6: العب مرة أخرى!' : 'الخصم يلعب مجددًا (6)') : null;
         if (t) setToast(t);
-        if (s.events.some((e) => e.type === 'roll')) play(cap ? 220 : 520);
-        if (s.events.some((e) => e.type === 'drop')) play(300, 70);
-        if (cap) play(180, 220);
+        // Mon propre lancer sonne dès le clic ; ceux des adversaires à la réception.
+        if (s.events.some((e) => e.type === 'roll' && e.color !== myColorRef.current)) play('dice');
+        const at = s.events.some((e) => e.type === 'roll') ? 450 : 0;
+        const pieceSound: Sfx | null = cap ? 'capture' : home ? 'home' : s.events.some((e) => e.type === 'exit') ? 'exit'
+          : s.events.some((e) => e.type === 'move') ? 'move' : s.events.some((e) => e.type === 'drop') ? 'drop' : null;
+        if (pieceSound) setTimeout(() => play(pieceSound), at);
       }
+      // Fin de partie vécue en direct (pas au rechargement d'une partie déjà finie).
+      if (statusRef.current === 'ACTIVE' && s.status === 'FINISHED' && s.winnerId) {
+        setTimeout(() => play(s.winnerId === userIdRef.current ? 'win' : 'lose'), 500);
+        const won = userIdRef.current ? s.payouts[userIdRef.current] ?? 0 : 0;
+        if (s.winnerId === userIdRef.current && won > 0) setGain(won);
+      }
+      statusRef.current = s.status;
       lastSeq.current = Math.max(lastSeq.current, s.state.seq);
       if (s.status !== 'ACTIVE') refresh();
     },
@@ -158,8 +179,46 @@ export function GamePage() {
   );
   const nameOfRef = useRef(nameOf);
   nameOfRef.current = nameOf;
+  const statusRef = useRef<GameSnapshot['status'] | null>(null);
+  const userIdRef = useRef(user?.id);
+  userIdRef.current = user?.id;
   const myColorRef = useRef<Color | undefined>(me?.color);
   myColorRef.current = me?.color;
+
+  useEffect(() => {
+    if (gain === null) return;
+    const t = setTimeout(() => setGain(null), 2600);
+    return () => clearTimeout(t);
+  }, [gain]);
+
+  // Seul sur une table publique : sans adversaire au bout de BOT_WAIT_SECONDS, partie contre le robot.
+  const soloWaiting = room?.status === 'WAITING' && room.visibility === 'PUBLIC' && room.players.length === 1 && room.players[0].userId === user?.id;
+  const playBot = useCallback(async () => {
+    setBotBusy(true);
+    try {
+      const r = await api.post<{ room: Room }>(`/api/rooms/${roomId}/play-bot`);
+      await refresh();
+      nav('/room/' + r.room.id, { replace: true });
+    } catch (e) {
+      // Un adversaire est arrivé entre-temps : la partie normale démarre, rien à faire.
+      if (!(e instanceof ApiError && ['OPPONENT_FOUND', 'ROOM_NOT_WAITING'].includes(e.code))) setError(errorText(e));
+      setBotBusy(false);
+    }
+  }, [roomId, refresh, nav]);
+  useEffect(() => {
+    if (!soloWaiting) return setBotIn(null);
+    const until = Date.now() + BOT_WAIT_SECONDS * 1000;
+    setBotIn(BOT_WAIT_SECONDS);
+    const t = setInterval(() => {
+      const left = Math.max(0, Math.ceil((until - Date.now()) / 1000));
+      setBotIn(left);
+      if (left === 0) {
+        clearInterval(t);
+        playBot();
+      }
+    }, 500);
+    return () => clearInterval(t);
+  }, [soloWaiting, playBot]);
 
   useEffect(() => {
     if (!toast) return;
@@ -206,6 +265,7 @@ export function GamePage() {
     if (!gameId || busy) return;
     setBusy(true);
     setRolling(true);
+    play('dice');
     const started = Date.now();
     try {
       const data = await emitAck<GameSnapshot>('game:roll', gameId);
@@ -236,7 +296,6 @@ export function GamePage() {
     setBusy(true);
     try {
       applySnap(await emitAck<GameSnapshot>('game:move', { gameId, pawn }));
-      play(660, 60);
     } catch (e) {
       setToast(errorText(e));
     } finally {
@@ -310,7 +369,9 @@ export function GamePage() {
     : iAmOut ? 'defeat' : null;
   const practice = !!room.isPractice;
   const c4 = room.gameType === 'CONNECT4';
-  const seatColors: Color[] = c4 ? ['red', 'yellow'] : ['blue', 'yellow', 'red', 'green'];
+  const winLineText = c4 && snap?.endReason === 'COMPLETED' ? describeLine(snap.state.winLine) : '';
+  // Même ordre que GAME_RULES.seatColors côté serveur.
+  const seatColors: Color[] = c4 ? ['red', 'yellow'] : ['blue', 'green', 'yellow', 'red'];
   const playersLabel = (n: number) => (n === 2 ? 'لاعبان' : `${n} لاعبين`);
 
   // Bandeau d'état (couleurs du design).
@@ -319,7 +380,8 @@ export function GamePage() {
   else if (!snap || !view) { bannerTitle = 'جارٍ الاتصال…'; bannerSub = 'تحميل حالة المباراة'; tone = '#B9A8FF'; }
   else if (result) {
     bannerTitle = result === 'victory' ? 'فوز!' : result === 'aborted' ? 'أُلغيت المباراة' : result === 'draw' ? 'تعادل' : 'انتهت المباراة';
-    bannerSub = result === 'victory' ? (c4 ? 'صففت أربع قطع على التوالي' : 'بيادقك الأربعة في البيت') : result === 'draw' ? 'امتلأت الشبكة دون أربع قطع متتالية' : result === 'aborted' ? (practice ? 'انتهت جلسة التدريب' : 'تمت إعادة الرهانات') : iAmOut ? 'خرجت من المباراة، والآخرون يواصلون اللعب' : `فاز ${winnerP?.username ?? 'الخصم'} بهذه الجولة`;
+    bannerSub = winLineText && result !== 'draw' ? `${result === 'victory' ? 'صففت' : `صفّ ${winnerP?.username ?? 'الخصم'}`} أربع قطع ${winnerP?.color === 'red' ? 'حمراء' : 'صفراء'} ${winLineText} — الخط مضاء على اللوحة`
+      : result === 'victory' ? (c4 ? 'صففت أربع قطع على التوالي' : 'بيادقك الأربعة في البيت') : result === 'draw' ? 'امتلأت الشبكة دون أربع قطع متتالية' : result === 'aborted' ? (practice ? 'انتهت جلسة التدريب' : 'تمت إعادة الرهانات') : iAmOut ? 'خرجت من المباراة، والآخرون يواصلون اللعب' : `فاز ${winnerP?.username ?? 'الخصم'} بهذه الجولة`;
     tone = result === 'victory' ? '#22C55E' : result === 'draw' ? '#22D3EE' : '#F43F5E';
   } else if (snap.paused) { bannerTitle = 'المباراة متوقفة'; bannerSub = `${offP ? offP.username : 'أنت'} يحاول إعادة الاتصال`; tone = '#F59E0B'; }
   else if (view.myTurn) {
@@ -331,39 +393,47 @@ export function GamePage() {
       : rolling ? 'النرد يتدحرج…' : 'ارمِ النرد';
   } else { tone = '#B9A8FF'; bannerTitle = `دور ${turnP?.username ?? 'الخصم'}`; bannerSub = 'يلعب الآن… انتظر قليلًا'; }
 
-  const panel = (p: GameSnapshot['players'][number] | null, isMe: boolean, fallbackName: string, fallbackColor: Color = isMe ? seatColors[0] : seatColors[1]) => {
-    const color = p?.color ?? fallbackColor;
-    const hex = COLOR_HEX[color];
-    const arr = snap?.state.pawns?.[color] ?? [-1, -1, -1, -1];
-    const tokens = snap?.state.board?.filter((c) => c === color).length ?? 0;
-    const activeTurn = !!snap && snap.status === 'ACTIVE' && !snap.paused && snap.turnColor === color;
-    const out = !!p?.eliminated;
-    const offline = !!p && !p.online && !out && snap?.status === 'ACTIVE';
-    const vacant = waiting && !isMe && fallbackName === 'مكان شاغر';
-    const tag = out ? 'خرج' : vacant ? 'مكان شاغر' : waiting ? 'جاهز' : offline ? 'غير متصل' : activeTurn ? (isMe ? 'دورك' : 'دوره') : 'في الانتظار';
+  type Seat = { key: string; color: Color; name: string; isMe: boolean; vacant: boolean; isBot: boolean; level: number | null; avatarColor: string; p: GameSnapshot['players'][number] | null };
+  const seats: Seat[] = snap
+    ? snap.players.map((p) => ({ key: p.color, color: p.color, name: p.username, isMe: p.userId === user?.id, vacant: false, isBot: !!p.isBot, level: p.level, avatarColor: p.avatarColor, p }))
+    : Array.from({ length: room.maxPlayers }, (_, seat) => {
+        const rp = room.players.find((x) => x.seat === seat);
+        const color = rp?.color ?? seatColors[seat];
+        return { key: color, color, name: rp ? rp.username : 'مكان شاغر', isMe: rp?.userId === user?.id, vacant: !rp, isBot: !!rp?.isBot, level: rp?.level ?? null, avatarColor: rp?.avatarColor ?? '#3B4A8C', p: null };
+      });
+  // Chaque joueur est affiché près de son camp sur le plateau ; Puissance 4 : moi en bas, l'adversaire en haut.
+  const PARCHIS_CORNER: Record<Color, 'tl' | 'tr' | 'bl' | 'br'> = { yellow: 'tl', green: 'tr', blue: 'bl', red: 'br' };
+  const cornerOf = (st: Seat) => (c4 ? (st.isMe ? 'bl' : 'tr') : PARCHIS_CORNER[st.color]);
+
+  const seatCard = (corner: 'tl' | 'tr' | 'bl' | 'br') => {
+    const st = seats.find((x) => cornerOf(x) === corner);
+    const right = corner === 'tr' || corner === 'br';
+    if (!st) return <div className="lg-seat" />;
+    const hex = COLOR_HEX[st.color];
+    const activeTurn = !!snap && snap.status === 'ACTIVE' && !snap.paused && snap.turnColor === st.color;
+    const out = !!st.p?.eliminated;
+    const offline = !!st.p && !st.p.online && !out && snap?.status === 'ACTIVE';
+    const won = !!snap && snap.winnerId !== null && snap.players.find((x) => x.userId === snap.winnerId)?.color === st.color;
+    const arr = snap?.state.pawns?.[st.color] ?? [-1, -1, -1, -1];
+    const tokens = snap?.state.board?.filter((c) => c === st.color).length ?? 0;
+    const tag = out ? 'خرج' : st.vacant ? 'في الانتظار…' : waiting ? 'جاهز' : offline ? 'غير متصل' : activeTurn ? (st.isMe ? 'دورك' : 'دوره') : null;
     return (
-      <div key={isMe ? 'me' : color} data-testid={isMe ? 'panel-me' : 'panel-opp'} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 16px', borderRadius: 20, background: '#1B1824', transition: 'box-shadow .2s,border-color .2s', border: activeTurn ? `2px solid ${hex}` : '1px solid rgba(255,222,170,0.14)', boxShadow: activeTurn ? `0 0 0 4px ${hex}26, 0 12px 30px rgba(0,0,0,0.3)` : undefined, opacity: out ? 0.45 : offline ? 0.7 : 1 }}>
-        <Avatar name={p?.username ?? fallbackName} color={hex} size={54} style={{ boxShadow: `0 0 0 3px #1B1824, 0 0 0 5px ${activeTurn ? '#FFC83D' : 'rgba(255,222,170,0.3)'}` }} />
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flex: 1, minWidth: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-            <span style={{ fontWeight: 800 }}>{p?.username ?? fallbackName}</span>
-            {(p?.isBot || room.players.find((x) => x.username === fallbackName)?.isBot) && <span className="badge" style={{ padding: '2px 9px', fontSize: 11, background: 'rgba(34,197,94,0.16)', color: '#4ADE80' }}>روبوت</span>}
-            <span style={{ fontSize: 12, color: '#A9A3B5' }}>{isMe ? 'أنت · ' : p ? `المستوى ${p.level} · ` : ''}{COLOR_NAME[color]}</span>
-            <span style={{ fontSize: 11, fontWeight: 800, padding: '2px 9px', borderRadius: 999, ...(offline ? { background: 'rgba(245,158,11,0.18)', color: '#FCD34D' } : activeTurn ? { background: hex, color: color === 'yellow' ? '#2A1E00' : '#fff' } : { background: 'rgba(255,222,170,0.14)', color: '#B8B2C4' }) }}>{tag}</span>
-          </div>
-          {c4 ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#B8B2C4' }}>
-              <span style={{ width: 16, height: 16, borderRadius: '50%', background: hex, boxShadow: 'inset 0 0 0 2px rgba(0,0,0,0.25)' }} />{tokens} / 21 قطعة
-            </div>
-          ) : (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            {arr.map((v, i) => (
-              <span key={i} style={{ width: 14, height: 14, borderRadius: '50%', boxSizing: 'border-box', ...(v === 71 ? { background: hex } : v >= 0 ? { background: hex + '80', border: `2px solid ${hex}` } : { border: '2px solid rgba(255,222,170,0.4)' }) }} />
-            ))}
-            <span style={{ fontSize: 12, color: '#B8B2C4', marginInlineStart: 4 }}>{arr.filter((v) => v === 71).length}/4 في البيت</span>
-          </div>
-          )}
-        </div>
+      <div className={'lg-seat' + (right ? ' right' : '')} data-testid={st.isMe ? 'panel-me' : 'panel-opp'} style={{ opacity: out || st.vacant ? 0.5 : offline ? 0.75 : 1 }}>
+        <span className={'lg-av' + (activeTurn ? ' turn' : '')}>
+          {(won || activeTurn) && <IconCrown size={24} className="lg-crown" />}
+          <Avatar name={st.name} color={st.vacant ? '#3B4A8C' : st.isMe ? hex : st.avatarColor} size={54} style={{ boxShadow: `inset 0 0 0 3px ${hex}` }} />
+        </span>
+        <span className="lg-seat-info">
+          <span className="lg-seat-name">{st.isMe ? 'أنت' : st.name}</span>
+          <span className="lg-seat-sub">
+            <span style={{ width: 10, height: 10, borderRadius: '50%', background: hex, boxShadow: '0 0 0 2px rgba(255,255,255,.6)' }} />
+            <span dir="ltr" title={c4 ? 'القطع الملعوبة' : 'بيادق في البيت'}>{c4 ? `${tokens}/21` : `${arr.filter((v) => v === 71).length}/4`}</span>
+            {st.isBot && <span className="lg-pill" style={{ background: 'rgba(34,197,94,.3)' }}>روبوت</span>}
+            {!st.isBot && st.level !== null && !st.vacant && <span className="lg-pill pb-hide-sm">المستوى {st.level}</span>}
+            {tag && <span className="lg-pill" style={activeTurn ? { background: hex, color: st.color === 'yellow' ? '#2A1E00' : '#fff' } : offline ? { background: 'rgba(245,158,11,.4)' } : undefined}>{tag}</span>}
+            {activeTurn && deadlineLeft !== null && view?.active && <span className="lg-pill" data-testid={st.isMe ? 'turn-timer' : undefined} style={{ background: deadlineLeft <= 5 ? '#E5484D' : 'rgba(0,0,0,.35)' }}>{deadlineLeft} ث</span>}
+          </span>
+        </span>
       </div>
     );
   };
@@ -371,55 +441,50 @@ export function GamePage() {
   const canRoll = !!view?.myTurn && view.phase === 'roll' && !busy;
   const face = snap?.state.die ?? 5;
   const myPayout = snap && user ? snap.payouts[user.id] ?? 0 : 0;
+  const soloWait = waiting && room.visibility === 'PUBLIC' && room.players.length === 1;
 
   return (
-    <div dir="rtl" style={{ position: 'relative', minHeight: '100vh', background: '#0E0C14', color: '#F7F3EC' }}>
-      <header style={{ borderBottom: '1px solid rgba(255,222,170,0.12)', background: '#13101B' }}>
-        <div style={{ maxWidth: 1360, margin: '0 auto', padding: '12px 20px', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-          <Link className="pb-btn pb-plain pb-sm" to="/"><IconArrowBack size={18} />الرئيسية</Link>
-          <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.3, minWidth: 0 }}>
-            <span style={{ fontWeight: 800, fontSize: 16 }}>{room.name}</span>
-            <span style={{ fontSize: 12, color: '#A9A3B5' }}><span dir="ltr">{room.code ?? ''}</span> · {room.visibility === 'PUBLIC' ? 'عامة' : 'خاصة'} · {practice ? 'تدريب ضد الروبوت' : playersLabel(room.maxPlayers)}{room.stake ? ` · رهان ${fmt(room.stake)}` : ''}</span>
+    <div dir="rtl" className="lg-root">
+      <div className="lg-frame">
+        <header className="lg-top" dir="ltr">
+          <div className="lg-top-side">
+            <Link className="lg-round" to="/" aria-label="الرئيسية"><IconArrowBack size={26} style={{ transform: 'scaleX(-1)' }} /></Link>
+            {!result && <button type="button" className="lg-round" aria-label="مغادرة" title="مغادرة" onClick={() => setQuit(true)}><IconLogout size={24} /></button>}
           </div>
-          <span className="pb-hide-sm" data-testid="net-status" style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 12, fontWeight: 700, padding: '5px 12px', borderRadius: 999, ...(connected ? { color: '#4ADE80', background: 'rgba(34,197,94,0.14)' } : { color: '#FCD34D', background: 'rgba(245,158,11,0.14)' }) }}>
-            <span style={{ width: 7, height: 7, borderRadius: '50%', background: connected ? '#22C55E' : '#F59E0B' }} />{connected ? 'متصل' : 'جارٍ إعادة الاتصال…'}
-          </span>
-          <div style={{ marginInlineStart: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
-            {deadlineLeft !== null && view?.active && (
-              <span data-testid="turn-timer" style={{ fontSize: 13, fontWeight: 800, color: deadlineLeft <= 5 ? '#FB7185' : '#A9A3B5', border: '1px dashed rgba(255,222,170,0.4)', padding: '5px 12px', borderRadius: 999 }}>
-                {deadlineLeft} ث
-              </span>
-            )}
-            <button type="button" className="pb-btn pb-plain pb-sm" aria-pressed={sound} aria-label={sound ? 'كتم الصوت' : 'تشغيل الصوت'} onClick={() => setSound(!sound)} style={{ width: 42, padding: 0 }}>
-              {sound ? <IconVolume size={18} /> : <IconMute size={18} />}
+          <Link to="/cashier" className="lg-balance" title="رصيدي · إيداع" data-testid="balance">
+            <Coin size={28} /><span dir="ltr">{fmt(user?.balance ?? 0)}</span><span className="lg-plus" aria-hidden="true">+</span>
+          </Link>
+          <div className="lg-top-side">
+            <button type="button" className="lg-round" aria-pressed={sound} aria-label={sound ? 'كتم الصوت' : 'تشغيل الصوت'} onClick={() => setSound(!sound)}>
+              {sound ? <IconVolume size={26} /> : <IconMute size={26} />}
             </button>
-            {!result && <button type="button" className="pb-btn pb-danger pb-sm" onClick={() => setQuit(true)}><IconLogout size={16} style={{ transform: 'scaleX(-1)' }} />مغادرة</button>}
-          </div>
-        </div>
-      </header>
-
-      <main style={{ maxWidth: 1360, margin: '0 auto', padding: 20, display: 'flex', flexWrap: 'wrap', gap: 24, alignItems: 'flex-start', justifyContent: 'center' }}>
-        <section aria-label="اللوحة" style={{ flex: '999 1 560px', minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14 }}>
-          <div role="status" aria-live="polite" data-testid="banner" style={{ width: 'min(100%,720px)', display: 'flex', alignItems: 'center', gap: 14, padding: '14px 18px', borderRadius: 18, background: tone + '1F', border: `1px solid ${tone}66` }}>
-            <span className="pc-pulse" style={{ flex: 'none', width: 14, height: 14, borderRadius: '50%', background: tone, boxShadow: `0 0 0 5px ${tone}33` }} />
-            <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0, lineHeight: 1.4 }}>
-              <span style={{ fontWeight: 900, fontSize: 19 }}>{bannerTitle}</span>
-              <span style={{ fontSize: 13, color: '#DAD5E2' }}>{bannerSub}</span>
+            <span className="lg-round" data-testid="net-status" title={connected ? 'متصل' : 'جارٍ إعادة الاتصال…'} style={{ cursor: 'default' }}>
+              {connected ? <span style={{ width: 16, height: 16, borderRadius: '50%', background: '#4ADE80', boxShadow: '0 0 10px #4ADE80' }} /> : <IconWifiOff size={24} />}
             </span>
           </div>
-          {error && <div role="alert" className="alert alert-error" style={{ width: 'min(100%,720px)' }}>{error}</div>}
+        </header>
 
-          <div style={{ position: 'relative', width: 'min(100%, 720px, calc(100vh - 190px))', minWidth: 'min(100%, 320px)' }}>
-            {c4 ? (
-              <Connect4Board
-                board={snap?.state.board}
-                last={snap?.state.last}
-                winLine={snap?.state.winLine}
-                playable={busy ? [] : view?.columns}
-                myColor={me?.color}
-                onDrop={drop}
-              />
-            ) : (
+        <div role="status" aria-live="polite" data-testid="banner" className="lg-banner" style={{ borderColor: tone + '99' }}>
+          <span className="pc-pulse" style={{ width: 10, height: 10, borderRadius: '50%', background: tone }} />
+          <b>{bannerTitle}</b><span style={{ color: '#DCE6FF' }}>{bannerSub}</span>
+          <span style={{ color: '#9FB6F0', fontSize: 12 }}>· {room.name}{room.stake ? ` · رهان ${fmt(room.stake)}` : ''}{practice ? ' · تدريب' : ''}</span>
+          {result && dismissed && !iAmOut && <button type="button" className="pb-btn pb-gold pb-sm" onClick={() => setDismissed(false)}>النتيجة</button>}
+        </div>
+        {error && <div role="alert" className="alert alert-error">{error}</div>}
+
+        <div className="lg-row" dir="ltr">{seatCard('tl')}{seatCard('tr')}</div>
+
+        <div className="lg-board" style={c4 ? { background: 'none', boxShadow: 'none', padding: 0 } : undefined}>
+          {c4 ? (
+            <Connect4Board
+              board={snap?.state.board}
+              last={snap?.state.last}
+              winLine={snap?.state.winLine}
+              playable={busy ? [] : view?.columns}
+              myColor={me?.color}
+              onDrop={drop}
+            />
+          ) : (
             <Board
               pawns={view?.pawns ?? (['blue', 'yellow', 'red', 'green'] as Color[]).slice(0, room.maxPlayers).flatMap((c) => [0, 1, 2, 3].map((slot) => ({ color: c, p: -1, slot })))}
               targets={view?.targets}
@@ -427,110 +492,93 @@ export function GamePage() {
               turn={view?.active ? snap?.turnColor : null}
               die={snap?.state.die}
             />
-            )}
-            {toast && (
-              <div className="pc-toast" role="status" style={{ position: 'absolute', left: '50%', top: 16, transform: 'translateX(-50%)', zIndex: 20, padding: '10px 20px', borderRadius: 999, background: 'linear-gradient(180deg,#FFDA5C,#FFB21E)', color: '#2B1A00', fontWeight: 800, fontSize: 15, boxShadow: '0 12px 30px rgba(0,0,0,0.45)', whiteSpace: 'nowrap' }}>{toast}</div>
-            )}
-            {(waiting || ended) && (
-              <div style={{ position: 'absolute', inset: 0, zIndex: 30, borderRadius: 22, background: 'rgba(10,11,30,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-                <div data-testid="waiting-overlay" style={{ width: '100%', maxWidth: 380, padding: 28, borderRadius: 22, background: '#1B1824', border: '1px solid rgba(255,222,170,0.3)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, textAlign: 'center' }}>
-                  {ended ? (
-                    <>
-                      <span style={{ fontWeight: 900, fontSize: 21 }}>هذه الطاولة مغلقة</span>
-                      <Link className="pb-btn pb-gold" to="/">العودة للرئيسية</Link>
-                    </>
-                  ) : (
-                    <>
-                      <Spinner size={38} />
-                      <span style={{ fontWeight: 900, fontSize: 21 }}>في انتظار لاعب ثانٍ</span>
-                      <span style={{ fontSize: 14, color: '#B8B2C4', lineHeight: 1.7 }}>{room.players.length} من {room.maxPlayers} لاعبين. ستبدأ المباراة تلقائيًا عند اكتمال الطاولة.</span>
-                      {room.code && (
-                        <div style={{ display: 'flex', gap: 8, width: '100%' }}>
-                          <span dir="ltr" data-testid="room-code" style={{ flex: 1, height: 46, borderRadius: 12, background: '#110E17', border: '1px dashed rgba(255,200,61,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, letterSpacing: '0.12em', color: '#FFC83D' }}>{room.code}</span>
-                          <button type="button" className="pb-btn pb-violet pb-sm" onClick={copyCode} style={{ height: 46 }}>{copied ? 'تم النسخ ✓' : 'نسخ'}</button>
-                        </div>
-                      )}
-                      <button type="button" className="pb-btn pb-plain pb-sm" onClick={leave}>إلغاء والعودة للرئيسية{room.stake ? ' (استرداد الرهان)' : ''}</button>
-                    </>
-                  )}
-                </div>
-              </div>
-            )}
-            {snap?.paused && offlineOpp !== null && !result && (
-              <div style={{ position: 'absolute', inset: 0, zIndex: 30, borderRadius: 22, background: 'rgba(10,11,30,0.55)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: 24 }}>
-                <div role="alert" style={{ width: '100%', maxWidth: 440, padding: '18px 20px', borderRadius: 18, background: '#241A0E', border: '1px solid rgba(245,158,11,0.5)', display: 'flex', gap: 14, alignItems: 'flex-start' }}>
-                  <IconWifiOff size={24} style={{ color: '#FCD34D', flex: 'none', marginTop: 4 }} />
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flex: 1 }}>
-                    <span style={{ fontWeight: 800, color: '#FCD34D' }}>انقطع اتصال {offP?.username}</span>
-                    <span style={{ fontSize: 14, color: '#E7DCC4', lineHeight: 1.7 }}>المباراة متوقفة مؤقتًا. أمامه {offlineOpp} ثانية للعودة، وإلا يخرج من المباراة.</span>
-                    <div style={{ height: 6, borderRadius: 3, background: 'rgba(245,158,11,0.2)', overflow: 'hidden' }}><div style={{ width: `${Math.min(100, (offlineOpp / 60) * 100)}%`, height: '100%', marginInlineStart: 'auto', background: '#F59E0B' }} /></div>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        </section>
-
-        <aside style={{ flex: '1 1 320px', maxWidth: 440, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 14 }}>
-          {snap
-            ? opps.map((p) => panel(p, false, p.username))
-            : Array.from({ length: room.maxPlayers }, (_, seat) => room.players.find((p) => p.seat === seat) ?? seat)
-                .filter((x) => typeof x === 'number' || x.userId !== user?.id)
-                .map((x) => (typeof x === 'number'
-                  ? panel(null, false, 'مكان شاغر', seatColors[x])
-                  : panel(null, false, x.username, x.color)))}
-
-          {c4 ? (
-            <div style={{ padding: 20, borderRadius: 22, background: 'linear-gradient(160deg, #2A2235, #1B1824 60%)', border: '1px solid rgba(255,222,170,0.22)', display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <span style={{ fontWeight: 800, fontSize: 16 }}>أربعة على التوالي</span>
-              <span style={{ fontSize: 14, lineHeight: 1.8, color: '#B8B2C4' }}>
-                {waiting ? 'ستبدأ المباراة عند اكتمال الطاولة.'
-                  : result ? 'انتهت المباراة.'
-                  : snap?.paused ? 'متوقف أثناء إعادة الاتصال.'
-                  : !view?.myTurn ? 'انتظر حتى يلعب الخصم.'
-                  : 'انقر على عمود لإسقاط قطعتك. أول من يصفّ أربع قطع أفقيًا أو عموديًا أو قطريًا يفوز.'}
+          )}
+          {(toast || gain !== null) && (
+            <div className="lg-toast" role="status">
+              <span className="lg-check"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5" /></svg></span>
+              <span className="lg-toast-text">
+                {gain !== null ? <>تم جمع الرصيد بنجاح<b dir="ltr">+{fmt(gain)}</b></> : toast}
               </span>
             </div>
-          ) : (
-          <div style={{ padding: 20, borderRadius: 22, background: 'linear-gradient(160deg, #2A2235, #1B1824 60%)', border: '1px solid rgba(255,222,170,0.22)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 20, width: '100%' }}>
-              <Die face={face} rolling={rolling} />
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 0 }}>
-                <span style={{ fontSize: 12, fontWeight: 700, color: '#8C8698' }}>آخر رمية</span>
-                <span data-testid="die-value" style={{ fontWeight: 900, fontSize: 32, lineHeight: 1.2, color: '#FFC83D' }}>{snap?.state.die ?? '—'}</span>
-                <span style={{ fontSize: 13, lineHeight: 1.6, color: '#B8B2C4' }}>
-                  {waiting ? 'سيتفعّل النرد عند اكتمال الطاولة.'
-                    : result ? 'انتهت المباراة.'
-                    : snap?.paused ? 'متوقف أثناء إعادة الاتصال.'
-                    : !view?.myTurn ? 'انتظر حتى ينتهي دور الخصم.'
-                    : view.phase !== 'roll' ? 'اختر بيدقًا: الدوائر المنقّطة تُظهر خانة الوصول.'
-                    : 'الرقم 5 يُخرج بيدقًا · الرقم 6 يمنحك رمية إضافية.'}
-                </span>
+          )}
+          {(waiting || ended) && (
+            <div style={{ position: 'absolute', inset: 0, zIndex: 30, borderRadius: 24, background: 'rgba(4,10,50,0.78)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+              <div data-testid="waiting-overlay" style={{ width: '100%', maxWidth: 380, padding: 26, borderRadius: 24, background: 'linear-gradient(180deg,#14307F,#0A1A55)', boxShadow: '0 0 0 3px #4F8BFF, 0 20px 50px rgba(0,0,0,.5)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, textAlign: 'center' }}>
+                {ended ? (
+                  <>
+                    <span style={{ fontWeight: 900, fontSize: 21 }}>هذه الطاولة مغلقة</span>
+                    <Link className="pb-btn pb-gold" to="/">العودة للرئيسية</Link>
+                  </>
+                ) : (
+                  <>
+                    <Spinner size={38} />
+                    <span style={{ fontWeight: 900, fontSize: 21 }}>البحث عن لاعب…</span>
+                    <span style={{ fontSize: 14, color: '#C9D8FF', lineHeight: 1.7 }}>{room.players.length} من {room.maxPlayers} لاعبين. ستبدأ المباراة تلقائيًا عند اكتمال الطاولة.</span>
+                    {soloWait && botIn !== null && (
+                      <span data-testid="bot-countdown" style={{ fontSize: 14, color: '#FFD866', lineHeight: 1.7 }}>
+                        إن لم ينضم أحد، تبدأ مباراة ضد الروبوت بعد <b dir="ltr">{botIn}</b> ث{room.stake ? ' (بدون رهان، ويُعاد رهانك)' : ''}.
+                      </span>
+                    )}
+                    {soloWait && <button type="button" className="pb-btn pb-gold pb-sm" style={{ width: '100%' }} onClick={playBot} disabled={botBusy}>العب ضد الروبوت الآن</button>}
+                    {room.code && (
+                      <div style={{ display: 'flex', gap: 8, width: '100%' }}>
+                        <span dir="ltr" data-testid="room-code" style={{ flex: 1, height: 46, borderRadius: 12, background: '#06103A', border: '1px dashed rgba(255,200,61,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, letterSpacing: '0.12em', color: '#FFC83D' }}>{room.code}</span>
+                        <button type="button" className="pb-btn pb-violet pb-sm" onClick={copyCode} style={{ height: 46 }}>{copied ? 'تم النسخ ✓' : 'نسخ'}</button>
+                      </div>
+                    )}
+                    <button type="button" className="pb-btn pb-plain pb-sm" onClick={leave}>إلغاء والعودة للرئيسية{room.stake ? ' (استرداد الرهان)' : ''}</button>
+                  </>
+                )}
               </div>
             </div>
-            <button type="button" data-testid="roll" className="pb-btn pb-gold pc-roll" disabled={!canRoll} onClick={roll}>
-              <IconDice size={22} />
-              {rolling ? 'جارٍ الرمي…' : view?.myTurn ? 'ارمِ النرد' : 'دور الخصم'}
-            </button>
-          </div>
           )}
+          {snap?.paused && offlineOpp !== null && !result && (
+            <div style={{ position: 'absolute', inset: 0, zIndex: 30, borderRadius: 24, background: 'rgba(4,10,50,0.55)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: 20 }}>
+              <div role="alert" style={{ width: '100%', maxWidth: 440, padding: '18px 20px', borderRadius: 18, background: '#241A0E', border: '1px solid rgba(245,158,11,0.5)', display: 'flex', gap: 14, alignItems: 'flex-start' }}>
+                <IconWifiOff size={24} style={{ color: '#FCD34D', flex: 'none', marginTop: 4 }} />
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flex: 1 }}>
+                  <span style={{ fontWeight: 800, color: '#FCD34D' }}>انقطع اتصال {offP?.username}</span>
+                  <span style={{ fontSize: 14, color: '#E7DCC4', lineHeight: 1.7 }}>المباراة متوقفة مؤقتًا. أمامه {offlineOpp} ثانية للعودة، وإلا يخرج من المباراة.</span>
+                  <div style={{ height: 6, borderRadius: 3, background: 'rgba(245,158,11,0.2)', overflow: 'hidden' }}><div style={{ width: `${Math.min(100, (offlineOpp / 60) * 100)}%`, height: '100%', marginInlineStart: 'auto', background: '#F59E0B' }} /></div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
 
-          {panel(me, true, user?.username ?? '')}
-
-          <div style={{ padding: '18px 20px', borderRadius: 22, background: '#1B1824', border: '1px solid rgba(255,222,170,0.14)' }}>
-            <h2 style={{ margin: '0 0 10px', fontSize: 14, fontWeight: 800, color: '#A9A3B5' }}>سجل المباراة</h2>
-            <ol data-testid="game-log" style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {(log.length ? log : [{ text: waiting ? 'في انتظار الخصم…' : 'بدأت المباراة.', color: '#A9A3B5' }]).map((l, i) => (
-                <li key={i} style={{ display: 'flex', gap: 10, alignItems: 'baseline', fontSize: 14, color: '#DAD5E2' }}>
-                  <span style={{ flex: 'none', width: 8, height: 8, borderRadius: '50%', transform: 'translateY(-1px)', background: l.color }} />{l.text}
-                </li>
-              ))}
-            </ol>
+        <div className="lg-row" dir="ltr">
+          {seatCard('bl')}
+          {c4 ? (
+            <div className="lg-tray" aria-hidden="true" style={{ cursor: 'default' }}>
+              <span style={{ width: '62%', aspectRatio: '1', borderRadius: '50%', background: COLOR_HEX[me?.color ?? 'red'], boxShadow: 'inset 0 -6px 0 rgba(0,0,0,.25), inset 0 4px 0 rgba(255,255,255,.35)', opacity: view?.myTurn ? 1 : 0.45 }} />
+            </div>
+          ) : (
+            <button type="button" data-testid="roll" className={'lg-tray' + (canRoll ? ' ready' : '')} disabled={!canRoll} onClick={roll} aria-label={rolling ? 'جارٍ الرمي…' : view?.myTurn ? 'ارمِ النرد' : 'دور الخصم'}>
+              <Die face={face} rolling={rolling} size={64} />
+            </button>
+          )}
+          {seatCard('br')}
+        </div>
+        {!c4 && (
+          <div style={{ textAlign: 'center', fontSize: 12, color: '#C9D8FF', marginTop: -2 }}>
+            آخر رمية: <b data-testid="die-value" style={{ color: '#FFD54A', fontSize: 16 }}>{snap?.state.die ?? '—'}</b>
+            {' · '}{canRoll ? 'اضغط على النرد لرميه' : view?.myTurn && view.phase !== 'roll' ? 'اختر بيدقًا مضيئًا' : 'الرقم 5 يُخرج بيدقًا · الرقم 6 يمنحك رمية إضافية'}
           </div>
-        </aside>
-      </main>
+        )}
 
-      {result && !(iAmOut && dismissed) && (
+        <details className="lg-log">
+          <summary>سجل المباراة</summary>
+          <ol data-testid="game-log" style={{ listStyle: 'none', margin: '6px 0 0', padding: 0, display: 'flex', flexDirection: 'column', gap: 4 }}>
+            {(log.length ? log : [{ text: waiting ? 'في انتظار الخصم…' : 'بدأت المباراة.', color: '#A9A3B5' }]).map((l, i) => (
+              <li key={i} style={{ display: 'flex', gap: 8, alignItems: 'baseline', fontSize: 13, color: '#E3EBFF' }}>
+                <span style={{ flex: 'none', width: 8, height: 8, borderRadius: '50%', transform: 'translateY(-1px)', background: l.color }} />{l.text}
+              </li>
+            ))}
+          </ol>
+        </details>
+      </div>
+
+      {result && revealed && !dismissed && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 50, background: 'rgba(6,6,20,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
           <div role="dialog" aria-modal="true" aria-labelledby="result-title" data-testid="result" style={{ width: '100%', maxWidth: 420, padding: '32px 28px 28px', borderRadius: 26, background: 'linear-gradient(170deg, #241C5E, #1B1824 55%)', border: '1px solid rgba(255,200,61,0.4)', boxShadow: '0 30px 80px rgba(0,0,0,0.6)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, textAlign: 'center' }}>
             <span style={{ width: 88, height: 88, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', ...(result === 'victory' ? { background: 'rgba(255,200,61,0.18)', color: '#FFC83D', boxShadow: '0 0 0 8px rgba(255,200,61,0.08), 0 0 40px rgba(255,200,61,0.35)' } : { background: 'rgba(255,222,170,0.14)', color: '#B8B2C4' }) }}>
@@ -540,12 +588,13 @@ export function GamePage() {
             {practice && <span className="badge" style={{ background: 'rgba(34,197,94,0.14)', color: '#4ADE80' }}>تدريب: بدون عملات ولا خبرة ولا ترتيب</span>}
             <span style={{ fontSize: 15, lineHeight: 1.7, color: '#DAD5E2' }}>
               {result === 'victory'
-                ? snap!.endReason === 'COMPLETED' ? (c4 ? 'صففت أربع قطع على التوالي قبل خصمك.' : 'أوصلت بيادقك الأربعة إلى البيت قبل الجميع.') : 'انسحب منافسوك، الفوز لك.'
+                ? snap!.endReason === 'COMPLETED' ? (c4 ? `صففت أربع قطع على التوالي ${winLineText} قبل خصمك.` : 'أوصلت بيادقك الأربعة إلى البيت قبل الجميع.') : 'انسحب منافسوك، الفوز لك.'
                 : result === 'draw' ? `امتلأت الشبكة دون فائز${room.stake && !practice ? '، وأُعيد رهان كل لاعب' : ''}.`
                 : result === 'aborted' ? (practice ? 'انتهت جلسة التدريب.' : 'أُلغيت المباراة وأُعيدت الرهانات.')
                 : iAmOut ? 'خرجت من المباراة. يواصل الآخرون اللعب ويحصل الفائز على الرهانات.'
-                : snap!.endReason === 'COMPLETED' ? (c4 ? `صفّ ${winnerP?.username} أربع قطع أولًا. الثأر بانتظارك!` : `أوصل ${winnerP?.username} بيادقه الأربعة أولًا. الثأر بانتظارك!`)
-                : me?.eliminated ? 'خرجت من المباراة.' : `فاز ${winnerP?.username} بالانسحاب.`}
+                : snap!.endReason === 'COMPLETED' ? (c4 ? `خسرت لأن ${winnerP?.username} صفّ أربع قطع من لونه ${winLineText} قبلك. تلميح: عندما يصفّ خصمك ثلاث قطع، ضع قطعتك في الخانة التي تكمل خطّه.` : `أوصل ${winnerP?.username} بيادقه الأربعة أولًا. الثأر بانتظارك!`)
+                : snap!.endReason === 'DISCONNECT' ? 'خسرت لأنك بقيت غير متصل أكثر من المدة المسموح بها.'
+                : me?.eliminated ? 'خسرت لأنك انسحبت من المباراة.' : `فاز ${winnerP?.username} بالانسحاب.`}
             </span>
             {result !== 'aborted' && !practice && (
               <div style={{ display: 'flex', gap: 10, width: '100%', margin: '6px 0' }}>
@@ -562,7 +611,7 @@ export function GamePage() {
             <div style={{ display: 'flex', gap: 10, width: '100%', flexWrap: 'wrap' }}>
               <button type="button" className="pb-btn pb-gold" style={{ flex: '1 1 140px' }} disabled={actions.busy} onClick={() => (practice ? actions.practice(room.maxPlayers - 1, room.gameType) : actions.quick(room.stake, room.maxPlayers, room.gameType))}>{result === 'defeat' ? 'مباراة الثأر' : 'العب مجددًا'}</button>
               <Link className="pb-btn pb-ghost" to="/" style={{ flex: '1 1 140px' }}>العودة للرئيسية</Link>
-              {iAmOut && <button type="button" className="pb-btn pb-plain" style={{ flex: '1 1 100%' }} onClick={() => setDismissed(true)}>متابعة مشاهدة المباراة</button>}
+              <button type="button" className="pb-btn pb-plain" style={{ flex: '1 1 100%' }} onClick={() => setDismissed(true)}>{iAmOut ? 'متابعة مشاهدة المباراة' : 'عرض اللوحة'}</button>
             </div>
             {actions.error && <span className="field-error">{actions.error}</span>}
           </div>

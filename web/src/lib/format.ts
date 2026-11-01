@@ -21,7 +21,9 @@ export const TX_LABEL: Record<string, string> = {
   ADMIN_DEBIT: 'خصم إداري',
   DEPOSIT: 'إيداع بنكي',
   WITHDRAWAL: 'طلب سحب',
-  WITHDRAWAL_REFUND: 'استرجاع سحب مرفوض'
+  WITHDRAWAL_REFUND: 'استرجاع سحب مرفوض',
+  WHEEL_SPIN: 'دورة عجلة مدفوعة',
+  WHEEL_PRIZE: 'ربح العجلة'
 };
 
 /** RIB affiché par groupes (banque · ville · compte · clé) pour être recopié sans erreur. */
