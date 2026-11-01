@@ -259,6 +259,12 @@ export function GamePage() {
     };
   }, [gameId, applySnap]);
 
+  // Quitter l'écran de la partie (retour, accueil, solde…) = absent : après le délai de retour, l'adversaire gagne.
+  useEffect(() => {
+    if (!gameId) return;
+    return () => { getSocket().emit('game:leave', gameId); };
+  }, [gameId]);
+
   const now = useNow(!!snap && snap.status === 'ACTIVE');
 
   // --- actions joueur (toujours validées par le serveur) ---
@@ -450,7 +456,7 @@ export function GamePage() {
         <header className="lg-top" dir="ltr">
           <div className="lg-top-side">
             {/* Retour pendant l'attente : la table est quittée (mise remboursée) au lieu de rester ouverte. */}
-            <button type="button" className="lg-round" aria-label="الرئيسية" onClick={() => (waiting ? leave() : nav('/'))}><IconArrowBack size={26} style={{ transform: 'scaleX(-1)' }} /></button>
+            <button type="button" className="lg-round" aria-label="الرئيسية" onClick={() => (waiting ? leave() : snap?.status === 'ACTIVE' && !iAmOut && !practice ? setQuit(true) : nav('/'))}><IconArrowBack size={26} style={{ transform: 'scaleX(-1)' }} /></button>
             {!result && <button type="button" className="lg-round" aria-label="مغادرة" title="مغادرة" onClick={() => setQuit(true)}><IconLogout size={24} /></button>}
           </div>
           <Link to="/cashier" className="lg-balance" title="رصيدي · إيداع" data-testid="balance">

@@ -91,6 +91,18 @@ export function createSocketServer(http: HttpServer) {
     });
     handle(socket, 'game:forfeit', async (p) => gameManager.forfeit(idSchema.parse(p), user.id));
 
+    // Le joueur quitte l'écran de la partie sans fermer le site : traité comme une déconnexion
+    // (délai de retour, puis défaite par abandon et victoire de l'adversaire).
+    handle(socket, 'game:leave', async (p) => {
+      const gameId = idSchema.parse(p);
+      await socket.leave(`game:${gameId}`);
+      const games = socket.data.games as Set<string>;
+      if (games.delete(gameId) && hub.removePresence(gameId, user.id)) {
+        await gameManager.presenceChanged(gameId, user.id, false);
+      }
+      return null;
+    });
+
     socket.on('disconnect', () => {
       const n = (hub.connectedUsers.get(user.id) ?? 1) - 1;
       if (n > 0) hub.connectedUsers.set(user.id, n);

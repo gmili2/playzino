@@ -242,6 +242,26 @@ describe('multijoueur temps réel', () => {
     expect(await balance(b.user.id)).toBe(950);
   });
 
+  it('quitter l’écran de la partie sans fermer le site : l’adversaire gagne après le délai', async () => {
+    const { a, b, room } = await seatedPair(50);
+    const joined = await b.post('/api/rooms/join-code', { code: room.code });
+    const gameId = joined.body.room.gameId;
+    const sa = await sock(a.cookie);
+    const sb = await sock(b.cookie);
+    await emit(sa, 'game:join', gameId);
+    await emit(sb, 'game:join', gameId);
+
+    const over = new Promise<Snapshot>((r) => sa.on('game:state', (s: Snapshot) => s.status === 'FINISHED' && r(s)));
+    // Socket toujours connecté (le joueur navigue ailleurs sur le site), mais il a quitté la partie.
+    expect((await emit(sb, 'game:leave', gameId)).ok).toBe(true);
+    expect(sb.connected).toBe(true);
+    const end = await over;
+    expect(end.winnerId).toBe(a.user.id);
+    expect(end.endReason).toBe('DISCONNECT');
+    expect(await balance(a.user.id)).toBe(1050);
+    expect(await balance(b.user.id)).toBe(950);
+  });
+
   it('abandon volontaire : forfait et gain pour l’adversaire', async () => {
     const { a, b, room } = await seatedPair(100);
     const joined = await b.post('/api/rooms/join-code', { code: room.code });
