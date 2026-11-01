@@ -11,6 +11,8 @@ describe('aucun adversaire : partie contre le robot', () => {
     const a = await registered();
     const q = await a.post('/api/rooms', { name: 'Table test', visibility: 'PUBLIC', stake: 250, maxPlayers: 2, gameType: 'CONNECT4' });
     expect(q.body.room.status).toBe('WAITING');
+    // Comme une table ouverte par « partie rapide » (sans risquer d'en rejoindre une autre restée en attente).
+    await prisma.room.update({ where: { id: q.body.room.id }, data: { quickMatch: true } });
     expect(await balanceOf(a.user.id)).toBe(750);
 
     const r = await a.post(`/api/rooms/${q.body.room.id}/play-bot`);
@@ -25,11 +27,30 @@ describe('aucun adversaire : partie contre le robot', () => {
     const a = await registered();
     const b = await registered();
     const q = await a.post('/api/rooms', { name: 'Table test', visibility: 'PUBLIC', stake: 0, maxPlayers: 4, gameType: 'PARCHEESI' });
+    await prisma.room.update({ where: { id: q.body.room.id }, data: { quickMatch: true } });
     await b.post(`/api/rooms/${q.body.room.id}/join`);
     const r = await a.post(`/api/rooms/${q.body.room.id}/play-bot`);
     expect(r.status).toBe(409);
     expect(r.body.error.code).toBe('OPPONENT_FOUND');
     expect((await prisma.roomPlayer.count({ where: { roomId: q.body.room.id } }))).toBe(2);
+  });
+});
+
+describe('table créée pour un ami', () => {
+  it('ne bascule jamais vers le robot, même publique ; l’ami la rejoint par le code', async () => {
+    const host = await registered();
+    const friend = await registered();
+    const t = await host.post('/api/rooms', { name: 'Avec mon ami', visibility: 'PUBLIC', stake: 0, maxPlayers: 2, gameType: 'PARCHEESI' });
+    expect(t.body.room.quickMatch).toBe(false);
+    const r = await host.post(`/api/rooms/${t.body.room.id}/play-bot`);
+    expect(r.status).toBe(409);
+    expect(r.body.error.code).toBe('NOT_QUICK_MATCH');
+    // L'ami, même s'il a une partie contre le robot ouverte, arrive bien à la table de son ami.
+    await friend.post('/api/rooms/practice', { bots: 1 });
+    const j = await friend.post('/api/rooms/join-code', { code: t.body.room.code });
+    expect(j.status).toBe(200);
+    expect(j.body.room).toMatchObject({ id: t.body.room.id, status: 'PLAYING' });
+    expect(j.body.room.players.map((p: { userId: string }) => p.userId).sort()).toEqual([host.user.id, friend.user.id].sort());
   });
 });
 

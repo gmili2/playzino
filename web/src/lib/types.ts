@@ -43,6 +43,7 @@ export interface Room {
   stake: number;
   turnSeconds: number;
   isPractice?: boolean;
+  quickMatch?: boolean;
   hostId: string;
   createdAt: string;
   gameId: string | null;

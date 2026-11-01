@@ -38,6 +38,7 @@ export function serializeRoom(r: RoomWithPlayers, viewerId?: string) {
     stake: r.stake,
     turnSeconds: r.turnSeconds,
     isPractice: r.isPractice,
+    quickMatch: r.quickMatch,
     hostId: r.hostId,
     createdAt: r.createdAt,
     gameId: r.games[0]?.id ?? null,
@@ -96,6 +97,7 @@ export interface CreateRoomInput {
   turnSeconds: number;
   maxPlayers: number;
   gameType: GameType;
+  quickMatch?: boolean;
 }
 
 export async function createRoom(userId: string, input: CreateRoomInput, ip?: string) {
@@ -220,7 +222,7 @@ export async function quickJoin(userId: string, stake: number, maxPlayers: numbe
     }
   }
   const user = await prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { username: true } });
-  const room = await createRoom(userId, { name: `Table de ${user.username}`, gameType, visibility: 'PUBLIC', stake, turnSeconds: 30, maxPlayers }, ip);
+  const room = await createRoom(userId, { name: `Table de ${user.username}`, gameType, visibility: 'PUBLIC', stake, turnSeconds: 30, maxPlayers, quickMatch: true }, ip);
   return { room, startedGameId: null };
 }
 

@@ -191,8 +191,9 @@ export function GamePage() {
     return () => clearTimeout(t);
   }, [gain]);
 
-  // Seul sur une table publique : sans adversaire au bout de BOT_WAIT_SECONDS, partie contre le robot.
-  const soloWaiting = room?.status === 'WAITING' && room.visibility === 'PUBLIC' && room.players.length === 1 && room.players[0].userId === user?.id;
+  // Seul sur une table de partie rapide : sans adversaire au bout de BOT_WAIT_SECONDS, partie contre le robot.
+  // Une table créée pour un ami (avec code) attend son invité sans limite.
+  const soloWaiting = room?.status === 'WAITING' && !!room.quickMatch && room.players.length === 1 && room.players[0].userId === user?.id;
   const playBot = useCallback(async () => {
     setBotBusy(true);
     try {
@@ -201,7 +202,7 @@ export function GamePage() {
       nav('/room/' + r.room.id, { replace: true });
     } catch (e) {
       // Un adversaire est arrivé entre-temps : la partie normale démarre, rien à faire.
-      if (!(e instanceof ApiError && ['OPPONENT_FOUND', 'ROOM_NOT_WAITING'].includes(e.code))) setError(errorText(e));
+      if (!(e instanceof ApiError && ['OPPONENT_FOUND', 'ROOM_NOT_WAITING', 'NOT_QUICK_MATCH'].includes(e.code))) setError(errorText(e));
       setBotBusy(false);
     }
   }, [roomId, refresh, nav]);
@@ -441,7 +442,7 @@ export function GamePage() {
   const canRoll = !!view?.myTurn && view.phase === 'roll' && !busy;
   const face = snap?.state.die ?? 5;
   const myPayout = snap && user ? snap.payouts[user.id] ?? 0 : 0;
-  const soloWait = waiting && room.visibility === 'PUBLIC' && room.players.length === 1;
+  const soloWait = waiting && !!room.quickMatch && room.players.length === 1;
 
   return (
     <div dir="rtl" className="lg-root">

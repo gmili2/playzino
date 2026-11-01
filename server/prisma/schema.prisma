@@ -148,6 +148,8 @@ model Room {
   gameType    GameType       @default(PARCHEESI)
   // Partie d'entraînement contre des robots : sans mise, sans XP, hors classement.
   isPractice  Boolean        @default(false)
+  // Table ouverte par « partie rapide » : seule celle-ci bascule vers le robot faute d'adversaire.
+  quickMatch  Boolean        @default(false)
   hostId      String         @db.VarChar(30)
   host        User           @relation("RoomHost", fields: [hostId], references: [id], onDelete: Restrict)
   createdAt   DateTime       @default(now())

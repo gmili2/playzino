@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { ALLOWED_STAKES, TURN_SECONDS } from '../../config.js';
 import { prisma } from '../../lib/prisma.js';
+import { conflict } from '../../lib/errors.js';
 import { parse } from '../../lib/validate.js';
 import { requireAuth } from '../../middleware/auth.js';
 import { gameManager } from '../../realtime/gameManager.js';
@@ -126,6 +127,9 @@ roomsRouter.post('/:id/leave', requireAuth, async (req, res) => {
  */
 roomsRouter.post('/:id/play-bot', requireAuth, async (req, res) => {
   const id = String(req.params.id);
+  // Une table créée pour inviter quelqu'un (avec code) ne bascule jamais vers le robot.
+  const target = await prisma.room.findUnique({ where: { id }, select: { quickMatch: true } });
+  if (!target?.quickMatch) throw conflict('NOT_QUICK_MATCH', 'Cette table attend un joueur invité');
   const room = await leaveWaitingRoom(req.user!.id, id, req.ip, true);
   hub.roomChanged(id, null);
   res.status(201).json(await afterJoin(await createPracticeRoom(req.user!.id, room.maxPlayers - 1, room.turnSeconds, room.gameType, req.ip)));
