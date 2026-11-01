@@ -506,3 +506,18 @@ body{background:radial-gradient(1100px 520px at 50% -12%,rgba(65,105,225,.28),tr
 footer{border-top-color:var(--royal-line)!important;background:linear-gradient(180deg,transparent,rgba(19,36,95,.35))}
 .rl-slide-purple{background:radial-gradient(500px 300px at 20% 30%,rgba(242,178,50,.22),transparent 60%),linear-gradient(120deg,#2B4FC4,#1A2F86 55%,#0F1A4D)}
 .rl-hero{border-color:rgba(110,145,240,.45)}
+
+/* ---------- Cartes illustrées des modes de jeu ---------- */
+.md-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+@media (max-width:900px){.md-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}}
+.md-card{position:relative;display:block;aspect-ratio:400/560;border-radius:22px;overflow:hidden;padding:0;border:3px solid var(--md-edge);cursor:pointer;text-decoration:none;color:#fff;background:#111;box-shadow:0 14px 34px rgba(0,0,0,.45);transition:transform .15s,box-shadow .15s;font:inherit}
+.md-card::after{content:'';position:absolute;inset:7px;border-radius:16px;border:2px solid rgba(255,226,150,.75);pointer-events:none}
+.md-card:hover{transform:translateY(-3px);box-shadow:0 18px 40px rgba(0,0,0,.55),0 0 24px color-mix(in srgb,var(--md-edge) 60%,transparent);color:#fff}
+.md-card:focus-visible{outline:3px solid #FFD54A;outline-offset:3px}
+.md-card:disabled{cursor:not-allowed;filter:saturate(.75)}
+.md-art{position:absolute;inset:0;width:100%;height:100%}
+.md-text{position:absolute;inset-inline:10px;bottom:7%;display:flex;flex-direction:column;align-items:center;gap:2px;text-align:center}
+.md-text b{font-weight:900;font-size:clamp(17px,2.4vw,26px);line-height:1.2;text-shadow:0 3px 8px rgba(0,0,0,.55)}
+.md-text small{font-size:clamp(11px,1.2vw,13px);color:rgba(255,255,255,.88);line-height:1.4;text-shadow:0 2px 4px rgba(0,0,0,.5)}
+.md-tag{position:absolute;top:14px;inset-inline-start:14px;z-index:1;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:800;background:linear-gradient(180deg,#FFDA6B,#F2B232);color:#3A2600}
+@media (prefers-reduced-motion:reduce){.md-card{transition:none}.md-card:hover{transform:none}}

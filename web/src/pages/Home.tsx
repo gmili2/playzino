@@ -5,6 +5,7 @@ import { Connect4Board, SHOWCASE_C4 } from '../components/Connect4Board';
 import { Footer, Header } from '../components/AppShell';
 import { Gift, IconBolt, IconCrown, IconLock, IconTrophy, IconUsers, IconWheel } from '../components/Icons';
 import { SHOWCASE_WHEEL, Wheel } from '../components/Wheel';
+import { ModeCard } from '../components/ModeCards';
 import { RoomCard } from '../components/RoomCard';
 import { Avatar, Empty } from '../components/ui';
 import { api } from '../lib/api';
@@ -121,11 +122,14 @@ export function HomePage() {
           <HeroCarousel busy={actions.busy} onQuick={() => actions.quick(0)} onC4={() => actions.quick(0, 2, 'CONNECT4')} />
           {actions.error && <div role="alert" className="alert alert-error">{actions.error}</div>}
 
+          <section aria-label="بارتشيزي" className="md-grid">
+            <ModeCard variant="friend" title="العب مع صديق" sub="أنشئ طاولة خاصة وادعُ أصدقاءك" to="/tables#create" testId="mode-friend" />
+            <ModeCard variant="duel" title="1 ضد 1" sub="مباراة كلاسيكية بين لاعبَين" onClick={() => actions.quick(0, 2)} disabled={actions.busy} testId="mode-duel" />
+            <ModeCard variant="team" title="فريق ضد فريق" sub="تحالف مع زميل واهزم الفريق الآخر" disabled tag="قريبًا" testId="mode-team" />
+            <ModeCard variant="four" title="4 لاعبين" sub="كل لاعب لنفسه — أول من يوصل بيادقه يفوز" onClick={() => actions.quick(0, 4)} disabled={actions.busy} testId="mode-four" />
+          </section>
+
           <section aria-label="أنماط اللعب" className="rl-modes">
-            <button type="button" className="rl-mode" style={{ background: 'radial-gradient(160px 120px at 50% 30%, rgba(80,120,255,.35), transparent), linear-gradient(180deg,#2A1E4A,#14101E)' }} onClick={() => actions.quick(0)} disabled={actions.busy}>
-              <span className="rl-mode-art" style={{ inset: '10px 22% 46% 22%' }}><Board pawns={SHOWCASE_PAWNS} label="" /></span>
-              <b>مباراة سريعة</b><small>بارتشيزي · من 2 إلى 4</small>
-            </button>
             <button type="button" className="rl-mode" style={{ background: 'radial-gradient(160px 120px at 50% 30%, rgba(80,170,255,.3), transparent), linear-gradient(180deg,#132B4A,#0E1220)' }} onClick={() => actions.quick(0, 2, 'CONNECT4')} disabled={actions.busy}>
               <span className="rl-mode-art" style={{ inset: '12px 24% 48% 24%' }}><Connect4Board board={SHOWCASE_C4} label="" /></span>
               <b>أربعة على التوالي</b><small>1 ضد 1</small>
@@ -134,10 +138,6 @@ export function HomePage() {
               <span className="rl-mode-art">{ROBOT_ART}</span>
               <b>ضد الروبوت</b><small>تدريب مجاني</small>
             </button>
-            <Link to="/tables#create" className="rl-mode" style={{ background: 'radial-gradient(160px 120px at 50% 30%, rgba(74,222,128,.25), transparent), linear-gradient(180deg,#123A2A,#0D1712)' }}>
-              <span className="rl-mode-art" style={{ color: '#7EF0AA' }}><IconUsers size={84} /></span>
-              <b>مع الأصدقاء</b><small>طاولة خاصة برمز</small>
-            </Link>
             <Link to="/wheel" className="rl-mode" style={{ background: 'radial-gradient(160px 120px at 50% 30%, rgba(242,178,50,.35), transparent), linear-gradient(180deg,#3A2410,#1A120A)' }}>
               <span className="rl-mode-tag">مجانًا</span>
               <span className="rl-mode-art" style={{ inset: '12px 26% 48% 26%' }}><Wheel segments={SHOWCASE_WHEEL} /></span>
