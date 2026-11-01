@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { ALLOWED_STAKES, TURN_SECONDS } from '../../config.js';
+import { prisma } from '../../lib/prisma.js';
 import { parse } from '../../lib/validate.js';
 import { requireAuth } from '../../middleware/auth.js';
 import { gameManager } from '../../realtime/gameManager.js';
@@ -42,10 +43,32 @@ const createSchema = z.object({
 });
 
 roomsRouter.post('/', requireAuth, async (req, res) => {
-  const room = await createRoom(req.user!.id, parse(createSchema, req.body), req.ip);
+  const body = parse(createSchema, req.body);
+  await releaseIdleSeat(req.user!.id, req.ip);
+  const room = await createRoom(req.user!.id, body, req.ip);
   hub.lobbyChanged();
   res.status(201).json({ room });
 });
+
+/**
+ * Avant de lancer une autre partie : libère une place « oubliée » au lieu de renvoyer le joueur dessus.
+ * Table encore en attente → on la quitte (mise remboursée) ; partie contre le robot → annulée.
+ * Une vraie partie en cours n'est jamais touchée : le joueur y est renvoyé (ALREADY_IN_ROOM) pour la finir.
+ */
+async function releaseIdleSeat(userId: string, ip?: string, keepRoomId?: string) {
+  const seat = await prisma.roomPlayer.findFirst({
+    where: { userId, room: { status: { in: ['WAITING', 'PLAYING'] } } },
+    include: { room: { select: { id: true, status: true, isPractice: true, games: { where: { status: 'ACTIVE' }, select: { id: true } } } } }
+  });
+  if (!seat || seat.roomId === keepRoomId) return;
+  if (seat.room.status === 'WAITING') {
+    await leaveWaitingRoom(userId, seat.roomId, ip).catch(() => {}); // partie démarrée entre-temps : ALREADY_IN_ROOM suivra
+    hub.roomChanged(seat.roomId, null);
+    hub.lobbyChanged();
+  } else if (seat.room.isPractice && seat.room.games[0]) {
+    await gameManager.abort(seat.room.games[0].id, 'FORFEIT', userId);
+  }
+}
 
 /** Après un join : si la table est complète, la partie démarre et les joueurs sont prévenus. */
 async function afterJoin(r: JoinResult) {
@@ -68,20 +91,24 @@ roomsRouter.post('/practice', requireAuth, async (req, res) => {
     }),
     req.body ?? {}
   );
+  await releaseIdleSeat(req.user!.id, req.ip);
   res.status(201).json(await afterJoin(await createPracticeRoom(req.user!.id, body.bots, body.turnSeconds, body.gameType, req.ip)));
 });
 
 roomsRouter.post('/quick', requireAuth, async (req, res) => {
   const { stake, maxPlayers, gameType } = parse(z.object({ stake: stakeSchema.default(0), maxPlayers: playersSchema, gameType: gameTypeSchema }), req.body ?? {});
+  await releaseIdleSeat(req.user!.id, req.ip);
   res.json(await afterJoin(await quickJoin(req.user!.id, stake, maxPlayers, gameType, req.ip)));
 });
 
 roomsRouter.post('/join-code', requireAuth, async (req, res) => {
   const { code } = parse(z.object({ code: z.string().trim().regex(/^PRC-[A-Za-z0-9]{4}$/, 'Format attendu : PRC-XXXX') }), req.body);
+  await releaseIdleSeat(req.user!.id, req.ip);
   res.json(await afterJoin(await joinByCode(req.user!.id, code, req.ip)));
 });
 
 roomsRouter.post('/:id/join', requireAuth, async (req, res) => {
+  await releaseIdleSeat(req.user!.id, req.ip, String(req.params.id));
   res.json(await afterJoin(await joinRoom(req.user!.id, String(req.params.id), req.ip)));
 });
 

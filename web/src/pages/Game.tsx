@@ -448,7 +448,8 @@ export function GamePage() {
       <div className="lg-frame">
         <header className="lg-top" dir="ltr">
           <div className="lg-top-side">
-            <Link className="lg-round" to="/" aria-label="الرئيسية"><IconArrowBack size={26} style={{ transform: 'scaleX(-1)' }} /></Link>
+            {/* Retour pendant l'attente : la table est quittée (mise remboursée) au lieu de rester ouverte. */}
+            <button type="button" className="lg-round" aria-label="الرئيسية" onClick={() => (waiting ? leave() : nav('/'))}><IconArrowBack size={26} style={{ transform: 'scaleX(-1)' }} /></button>
             {!result && <button type="button" className="lg-round" aria-label="مغادرة" title="مغادرة" onClick={() => setQuit(true)}><IconLogout size={24} /></button>}
           </div>
           <Link to="/cashier" className="lg-balance" title="رصيدي · إيداع" data-testid="balance">
