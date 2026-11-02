@@ -1,16 +1,12 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { DEPOSIT_MAX, DEPOSIT_MIN, MAX_PENDING_DEPOSITS, WITHDRAWAL_MAX, WITHDRAWAL_MIN } from '../../config.js';
-import { audit } from '../../lib/audit.js';
-import { notFound } from '../../lib/errors.js';
-import { prisma } from '../../lib/prisma.js';
 import { parse } from '../../lib/validate.js';
 import { requireAdmin, requireAuth } from '../../middleware/auth.js';
 import {
   approveDeposit,
   createDeposit,
   createWithdrawal,
-  listActiveBanks,
   listDeposits,
   listWithdrawals,
   markWithdrawalPaid,
@@ -18,6 +14,7 @@ import {
   rejectDeposit,
   rejectWithdrawal
 } from './payments.service.js';
+import { listPaymentMethods, METHOD_NAMES } from './methods.js';
 
 /** RIB marocain saisi avec ou sans espaces : on ne garde que les 24 chiffres. */
 export const ribSchema = z
@@ -36,7 +33,7 @@ paymentsRouter.use(requireAuth);
 paymentsRouter.get('/', async (req, res) => {
   const userId = req.user!.id;
   const [banks, deposits, withdrawals] = await Promise.all([
-    listActiveBanks(),
+    listPaymentMethods(),
     listDeposits({ userId }, 20),
     listWithdrawals({ userId }, 20)
   ]);
@@ -75,7 +72,7 @@ paymentsRouter.post('/withdrawals', async (req, res) => {
   const body = parse(
     z.object({
       amount: z.number().int().min(WITHDRAWAL_MIN).max(WITHDRAWAL_MAX),
-      bankName: nameSchema(60),
+      bankName: z.enum(METHOD_NAMES),
       accountHolder: nameSchema(100),
       rib: ribSchema,
       requestId: z.string().uuid()
@@ -91,28 +88,9 @@ paymentsRouter.post('/withdrawals', async (req, res) => {
 export const paymentsAdminRouter = Router();
 paymentsAdminRouter.use(requireAdmin);
 
-paymentsAdminRouter.get('/banks', async (_req, res) => {
-  res.json({ items: await prisma.paymentBank.findMany({ orderBy: { createdAt: 'asc' } }) });
-});
-
-const bankSchema = z.object({ name: nameSchema(60), accountHolder: nameSchema(100), rib: ribSchema, active: z.boolean().default(true) });
-
-paymentsAdminRouter.post('/banks', async (req, res) => {
-  const body = parse(bankSchema, req.body);
-  const bank = await prisma.paymentBank.create({ data: body });
-  await audit({ actorId: req.user!.id, action: 'admin.bank_create', targetType: 'bank', targetId: bank.id, details: body, ip: req.ip });
-  res.status(201).json({ bank });
-});
-
-paymentsAdminRouter.patch('/banks/:id', async (req, res) => {
-  const body = parse(bankSchema.partial(), req.body);
-  const id = String(req.params.id);
-  const before = await prisma.paymentBank.findUnique({ where: { id } });
-  if (!before) throw notFound('Banque introuvable');
-  const bank = await prisma.paymentBank.update({ where: { id }, data: body });
-  // Un RIB modifié détourne les dépôts suivants : l'ancien et le nouveau sont journalisés.
-  await audit({ actorId: req.user!.id, action: 'admin.bank_update', targetType: 'bank', targetId: id, details: { before: { name: before.name, accountHolder: before.accountHolder, rib: before.rib, active: before.active }, after: body }, ip: req.ip });
-  res.json({ bank });
+// Lecture seule : les moyens de paiement sont fixés dans le code (methods.ts).
+paymentsAdminRouter.get('/banks', (_req, res) => {
+  res.json({ items: listPaymentMethods() });
 });
 
 paymentsAdminRouter.get('/deposits', async (req, res) => {

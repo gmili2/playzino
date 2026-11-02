@@ -1,36 +1,35 @@
 import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { prisma } from '../lib/prisma.js';
+import { syncPaymentMethods } from '../modules/payments/methods.js';
 import { makeAdmin, registered } from './helpers.js';
 
 afterAll(() => prisma.$disconnect());
 
 const balanceOf = async (userId: string) => (await prisma.wallet.findUniqueOrThrow({ where: { userId } })).balance;
-const RIB = '230 780 1234567890123456 78';
 // Plus petit PNG valide (1 × 1 pixel).
 const PNG = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
 
 let admin: Awaited<ReturnType<typeof registered>>;
-let bankId: string;
+// Moyen de paiement fixé dans le code et complet (titulaire + RIB).
+const bankId = 'wafacash';
 
 beforeAll(async () => {
   admin = await registered();
   await makeAdmin(admin.user.id);
-  const r = await admin.post('/api/admin/payments/banks', { name: 'CIH Bank', accountHolder: 'Playzino SARL', rib: RIB });
-  expect(r.status).toBe(201);
-  expect(r.body.bank.rib).toBe('230780123456789012345678');
-  bankId = r.body.bank.id;
+  await syncPaymentMethods();
 });
 
 const deposit = (c: Awaited<ReturnType<typeof registered>>, amount = 200, receipt = PNG, requestId = randomUUID()) =>
   c.post('/api/payments/deposits', { bankId, amount, receipt, requestId });
 
 describe('dépôts par virement', () => {
-  it('le joueur voit les banques actives et leur RIB', async () => {
+  it('le joueur voit les moyens de paiement ; le RIB seulement pour ceux qui sont complets', async () => {
     const a = await registered(undefined, 0);
     const r = await a.get('/api/payments');
     expect(r.status).toBe(200);
-    expect(r.body.banks.find((b: { id: string }) => b.id === bankId)).toMatchObject({ name: 'CIH Bank', rib: '230780123456789012345678' });
+    expect(r.body.banks.find((b: { id: string }) => b.id === bankId)).toMatchObject({ name: 'Wafacash', accountHolder: 'AHMED', rib: '820780261705426339117470', available: true });
+    expect(r.body.banks.find((b: { id: string }) => b.id === 'cashplus')).toMatchObject({ available: false, rib: '' });
   });
 
   it('dépôt en attente : rien n’est crédité avant la validation de l’admin', async () => {
@@ -97,18 +96,22 @@ describe('dépôts par virement', () => {
     expect((await a.post(`/api/admin/payments/deposits/${body.deposit.id}/approve`)).status).toBe(403);
   });
 
-  it('banque désactivée : plus de dépôt possible', async () => {
-    const b = await admin.post('/api/admin/payments/banks', { name: 'BMCE', accountHolder: 'Playzino SARL', rib: '011780000012345678901234' });
-    await admin.patch(`/api/admin/payments/banks/${b.body.bank.id}`, { active: false });
+  it('moyen sans compte renseigné : pas de dépôt possible', async () => {
     const a = await registered(undefined, 0);
-    const r = await a.post('/api/payments/deposits', { bankId: b.body.bank.id, amount: 200, receipt: PNG, requestId: randomUUID() });
+    const r = await a.post('/api/payments/deposits', { bankId: 'cashplus', amount: 200, receipt: PNG, requestId: randomUUID() });
     expect(r.body.error.code).toBe('BANK_UNAVAILABLE');
+  });
+
+  it('l’admin ne peut ni ajouter ni modifier un moyen de paiement', async () => {
+    expect((await admin.post('/api/admin/payments/banks', { name: 'BMCE', accountHolder: 'X', rib: '011780000012345678901234' })).status).toBe(404);
+    expect((await admin.patch(`/api/admin/payments/banks/${bankId}`, { rib: '011780000012345678901234' })).status).toBe(404);
+    expect((await prisma.paymentBank.findUniqueOrThrow({ where: { id: bankId } })).rib).toBe('820780261705426339117470');
   });
 });
 
 describe('retraits', () => {
   const withdraw = (c: Awaited<ReturnType<typeof registered>>, amount: number, requestId = randomUUID()) =>
-    c.post('/api/payments/withdrawals', { amount, bankName: 'Attijariwafa', accountHolder: 'Karim Test', rib: '007780000012345678901234', requestId });
+    c.post('/api/payments/withdrawals', { amount, bankName: 'Orange Money', accountHolder: 'Karim Test', rib: '007780000012345678901234', requestId });
 
   it('le montant est bloqué dès la demande, puis le virement est marqué exécuté', async () => {
     const a = await registered();
@@ -133,8 +136,10 @@ describe('retraits', () => {
   it('solde insuffisant ou RIB mal formé : refusé', async () => {
     const a = await registered(undefined, 150);
     expect((await withdraw(a, 200)).body.error.code).toBe('INSUFFICIENT_FUNDS');
-    const bad = await a.post('/api/payments/withdrawals', { amount: 100, bankName: 'CIH', accountHolder: 'Karim', rib: '1234', requestId: randomUUID() });
+    const bad = await a.post('/api/payments/withdrawals', { amount: 100, bankName: 'Wafacash', accountHolder: 'Karim', rib: '1234', requestId: randomUUID() });
     expect(bad.status).toBe(400);
+    const unknown = await a.post('/api/payments/withdrawals', { amount: 100, bankName: 'Banque inconnue', accountHolder: 'Karim', rib: '007780000012345678901234', requestId: randomUUID() });
+    expect(unknown.status).toBe(400);
     expect(await prisma.withdrawalRequest.count({ where: { userId: a.user.id } })).toBe(0);
     expect(await balanceOf(a.user.id)).toBe(150);
   });

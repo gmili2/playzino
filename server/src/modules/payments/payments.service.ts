@@ -43,11 +43,6 @@ export async function readReceipt(depositId: string, viewer: { id: string; role:
   return { data: await readFile(resolve(UPLOAD_DIR, d.receiptFile)), mime: d.receiptMime };
 }
 
-// ---------- Banques de l'administration ----------
-
-export const listActiveBanks = () =>
-  prisma.paymentBank.findMany({ where: { active: true }, orderBy: { createdAt: 'asc' }, select: { id: true, name: true, accountHolder: true, rib: true } });
-
 // ---------- Dépôts ----------
 
 export async function createDeposit(

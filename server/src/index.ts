@@ -7,10 +7,12 @@ import { gameManager } from './realtime/gameManager.js';
 import { hub } from './realtime/hub.js';
 import { createSocketServer } from './realtime/socket.js';
 import { ensureAdminFromEnv } from './scripts/adminAccount.js';
+import { syncPaymentMethods } from './modules/payments/methods.js';
 
 async function main() {
   await prisma.$connect();
   await ensureAdminFromEnv();
+  await syncPaymentMethods();
   gameManager.setBroadcaster(hub);
   const http = createServer(createApp());
   const io = createSocketServer(http);

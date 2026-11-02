@@ -1,10 +1,10 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react';
-import { IconArrowDown, IconArrowUp, IconBank, IconCopy, IconPlus } from '../components/Icons';
+import { useCallback, useEffect, useState } from 'react';
+import { IconArrowDown, IconArrowUp, IconBank, IconCopy } from '../components/Icons';
 import { Empty } from '../components/ui';
-import { api, errorText, fieldErrors } from '../lib/api';
+import { api, errorText } from '../lib/api';
 import { fmt, fmtDate, fmtRib } from '../lib/format';
 import type { Bank, Deposit, PaymentStatus, Withdrawal } from '../lib/types';
-import { PaymentBadge } from './Cashier';
+import { MethodLogo, PaymentBadge } from './Cashier';
 
 type Filter = PaymentStatus | '';
 type Ask = (d: { title: string; confirm: string; danger?: boolean; run: (reason: string) => Promise<void> }) => void;
@@ -169,93 +169,36 @@ export function WithdrawalsAdmin({ ask, onChange }: { ask: Ask; onChange: () => 
   );
 }
 
-const EMPTY_BANK = { name: '', accountHolder: '', rib: '' };
-
-/** Comptes bancaires de la plateforme affichés aux joueurs pour le dépôt. */
+/** Moyens de paiement de la plateforme : fixés dans le code serveur (payments/methods.ts), en lecture seule ici. */
 export function BanksAdmin() {
   const [banks, setBanks] = useState<Bank[] | null>(null);
-  const [form, setForm] = useState(EMPTY_BANK);
-  const [editing, setEditing] = useState<string | null>(null);
-  const [errors, setErrors] = useState<Record<string, string>>({});
-  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
-
-  const load = () => api.get<{ items: Bank[] }>('/api/admin/payments/banks').then((r) => setBanks(r.items), (e) => setMsg({ ok: false, text: errorText(e) }));
-  useEffect(() => { load(); }, []);
-
-  const save = async (e: FormEvent) => {
-    e.preventDefault();
-    setMsg(null);
-    setErrors({});
-    try {
-      if (editing) await api.patch(`/api/admin/payments/banks/${editing}`, form);
-      else await api.post('/api/admin/payments/banks', form);
-      setMsg({ ok: true, text: editing ? 'تم تحديث الحساب' : 'تمت إضافة الحساب' });
-      setForm(EMPTY_BANK);
-      setEditing(null);
-      await load();
-    } catch (err) {
-      setErrors(fieldErrors(err));
-      setMsg({ ok: false, text: errorText(err) });
-    }
-  };
-  const toggle = async (b: Bank) => {
-    try {
-      await api.patch(`/api/admin/payments/banks/${b.id}`, { active: !b.active });
-      await load();
-    } catch (err) {
-      setMsg({ ok: false, text: errorText(err) });
-    }
-  };
+  const [error, setError] = useState('');
+  useEffect(() => { api.get<{ items: Bank[] }>('/api/admin/payments/banks').then((r) => setBanks(r.items), (e) => setError(errorText(e))); }, []);
 
   return (
-    <div className="ad-grid">
-      <section className="panel ad-panel ad-col">
-        <div className="ad-sec-head"><h2><IconBank size={22} />حسابات الإيداع</h2></div>
-        {banks?.length ? (
-          <div className="table-wrap">
-            <table className="table" data-testid="admin-banks">
-              <thead><tr><th>البنك</th><th>صاحب الحساب</th><th>RIB</th><th>الحالة</th><th /></tr></thead>
-              <tbody>
-                {banks.map((b) => (
-                  <tr key={b.id} className="pb-row">
-                    <td style={{ fontWeight: 800 }}>{b.name}</td>
-                    <td dir="auto">{b.accountHolder}</td>
-                    <td dir="ltr" style={{ fontSize: 13, letterSpacing: '.04em' }}>{fmtRib(b.rib)}</td>
-                    <td>{b.active
-                      ? <span className="badge" style={{ background: 'rgba(34,197,94,0.14)', color: '#4ADE80' }}>ظاهر للاعبين</span>
-                      : <span className="badge" style={{ background: 'rgba(255,222,170,0.14)', color: '#B8B2C4' }}>مخفي</span>}</td>
-                    <td>
-                      <span style={{ display: 'flex', gap: 6 }}>
-                        <button type="button" className="pb-btn pb-ghost pb-sm" onClick={() => { setEditing(b.id); setForm({ name: b.name, accountHolder: b.accountHolder, rib: b.rib }); setMsg(null); }}>تعديل</button>
-                        <button type="button" className={'pb-btn pb-sm ' + (b.active ? 'pb-danger' : 'pb-ghost')} onClick={() => toggle(b)}>{b.active ? 'إخفاء' : 'إظهار'}</button>
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : <div style={{ padding: '0 22px 22px' }}><Empty>{banks === null ? 'جارٍ التحميل…' : 'أضف حسابًا بنكيًا ليتمكن اللاعبون من الإيداع.'}</Empty></div>}
-      </section>
-      <form className="panel ad-col ad-col-side" onSubmit={save} style={{ gap: 14 }}>
-        <h2 className="panel-title"><IconPlus size={22} style={{ color: '#F2B232' }} />{editing ? 'تعديل الحساب' : 'إضافة حساب'}</h2>
-        <label className="field"><span>اسم البنك</span>
-          <input className="pb-input" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} aria-invalid={!!errors.name} placeholder="CIH Bank" />
-        </label>
-        <label className="field"><span>صاحب الحساب</span>
-          <input className="pb-input" dir="auto" value={form.accountHolder} onChange={(e) => setForm({ ...form, accountHolder: e.target.value })} aria-invalid={!!errors.accountHolder} />
-        </label>
-        <label className="field"><span>RIB (24 رقمًا)</span>
-          <input className="pb-input" dir="ltr" inputMode="numeric" value={form.rib} onChange={(e) => setForm({ ...form, rib: e.target.value })} aria-invalid={!!errors.rib} />
-          {errors.rib && <span className="field-error">رقم RIB يتكون من 24 رقمًا</span>}
-        </label>
-        <span className="hint">كل تعديل على RIB يُسجَّل في سجل النشاطات (القديم والجديد).</span>
-        {msg && <div role="status" className={'alert ' + (msg.ok ? 'alert-ok' : 'alert-error')}>{msg.text}</div>}
-        <div style={{ display: 'flex', gap: 10 }}>
-          {editing && <button type="button" className="pb-btn pb-ghost" style={{ flex: 1 }} onClick={() => { setEditing(null); setForm(EMPTY_BANK); }}>إلغاء</button>}
-          <button type="submit" className="pb-btn pb-gold" style={{ flex: 1 }}>{editing ? 'حفظ' : 'إضافة'}</button>
+    <section className="panel ad-panel">
+      <div className="ad-sec-head"><h2><IconBank size={22} />وسائل الدفع</h2></div>
+      {error && <div role="alert" className="alert alert-error" style={{ margin: '0 20px' }}>{error}</div>}
+      {banks?.length ? (
+        <div className="table-wrap">
+          <table className="table" data-testid="admin-banks">
+            <thead><tr><th>الوسيلة</th><th>صاحب الحساب</th><th>RIB</th><th>الإيداع</th></tr></thead>
+            <tbody>
+              {banks.map((b) => (
+                <tr key={b.id} className="pb-row">
+                  <td><span style={{ display: 'flex', alignItems: 'center', gap: 10, fontWeight: 800 }}><MethodLogo bank={b} size={36} />{b.name}</span></td>
+                  <td dir="auto">{b.accountHolder || '—'}</td>
+                  <td dir="ltr" style={{ fontSize: 13, letterSpacing: '.04em' }}>{b.rib ? fmtRib(b.rib) : '—'}</td>
+                  <td>{b.available
+                    ? <span className="badge" style={{ background: 'rgba(34,197,94,0.14)', color: '#4ADE80' }}>متاح</span>
+                    : <span className="badge" style={{ background: 'rgba(255,222,170,0.14)', color: '#B8B2C4' }}>قريبًا</span>}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
-      </form>
-    </div>
+      ) : !error && <div style={{ padding: '0 22px 22px' }}><Empty>جارٍ التحميل…</Empty></div>}
+      <p className="hint" style={{ padding: '0 20px 18px', margin: 0 }}>وسائل الدفع ثابتة ولا يمكن تعديلها من لوحة الإدارة. الوسيلة التي لا يوجد لها حساب تظهر للاعبين بعلامة «قريبًا» ولا تقبل الإيداع بعد. السحب متاح عبر جميع الوسائل.</p>
+    </section>
   );
 }

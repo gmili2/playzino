@@ -12,7 +12,6 @@ interface Limits { depositMin: number; depositMax: number; withdrawalMin: number
 interface Payments { banks: Bank[]; deposits: Deposit[]; withdrawals: Withdrawal[]; limits: Limits }
 
 const MAX_RECEIPT = 5 * 1024 * 1024;
-const BANKS = ['Attijariwafa bank', 'Banque Populaire', 'BMCE Bank of Africa', 'CIH Bank', 'Crédit Agricole du Maroc', 'Société Générale', 'BMCI', 'Al Barid Bank', 'CDM', 'Umnia Bank'];
 
 export function PaymentBadge({ status, paid }: { status: PaymentStatus; paid?: boolean }) {
   const [label, fg, bg] = {
@@ -21,6 +20,33 @@ export function PaymentBadge({ status, paid }: { status: PaymentStatus; paid?: b
     REJECTED: ['مرفوض', '#FB7185', 'rgba(244,63,94,0.14)']
   }[status];
   return <span className="badge" style={{ color: fg, background: bg }}><span style={{ width: 7, height: 7, borderRadius: '50%', background: fg }} />{label}</span>;
+}
+
+export function MethodLogo({ bank, size = 44 }: { bank: Bank; size?: number }) {
+  return (
+    <span style={{ flex: 'none', width: size, height: size, borderRadius: size / 4, overflow: 'hidden', background: '#fff', display: 'grid', placeItems: 'center' }}>
+      <img src={bank.logo} alt="" width={size} height={size} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+    </span>
+  );
+}
+
+/** Cartes des moyens de paiement ; `disabled` grise une carte avec la mention « قريبًا ». */
+function MethodGrid({ banks, selected, onPick, disabled, testId }: { banks: Bank[]; selected?: string; onPick: (b: Bank) => void; disabled?: (b: Bank) => boolean; testId: string }) {
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))', gap: 12 }} data-testid={testId}>
+      {banks.map((b) => {
+        const off = disabled?.(b) ?? false;
+        return (
+          <button key={b.id} type="button" disabled={off} aria-pressed={selected === b.name} onClick={() => onPick(b)} className="pb-btn pb-ghost"
+            style={{ height: 'auto', padding: '16px 12px', flexDirection: 'column', gap: 10, borderRadius: 18, whiteSpace: 'normal', opacity: off ? 0.5 : 1, cursor: off ? 'not-allowed' : 'pointer', borderColor: selected === b.name ? '#F2B232' : undefined, boxShadow: selected === b.name ? '0 0 0 2px #F2B232 inset' : undefined }}>
+            <MethodLogo bank={b} size={72} />
+            <b style={{ fontSize: 16 }}>{b.name}</b>
+            {off && <small style={{ color: '#A9A3B5', fontWeight: 700 }}>قريبًا</small>}
+          </button>
+        );
+      })}
+    </div>
+  );
 }
 
 const readAsDataUrl = (f: File) =>
@@ -57,7 +83,7 @@ export function CashierPage() {
         <section className="panel" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 16, background: 'radial-gradient(500px 220px at 100% 0%, rgba(242,178,50,0.18), transparent 70%), linear-gradient(180deg,#1E1A28,#17141F)' }}>
           <span style={{ display: 'flex', flexDirection: 'column', marginInlineEnd: 'auto' }}>
             <h1 style={{ fontWeight: 900, fontSize: 28 }}>الإيداع والسحب</h1>
-            <span className="hint" style={{ fontSize: 14 }}>بالتحويل البنكي · 1 درهم = 1 عملة · كل عملية تراجعها الإدارة</span>
+            <span className="hint" style={{ fontSize: 14 }}>بالتحويل البنكي أو تحويل الأموال · 1 درهم = 1 عملة · كل عملية تراجعها الإدارة</span>
           </span>
           <span style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 18px', borderRadius: 18, background: '#110E17', border: '1px solid rgba(255,200,61,0.35)' }}>
             <Coin size={34} />
@@ -78,7 +104,7 @@ export function CashierPage() {
         {!data ? !error && <Loading /> : (
           <>
             {tab === 'deposit' && <DepositForm banks={data.banks} limits={data.limits} onDone={done} onHistory={() => setTab('history')} />}
-            {tab === 'withdraw' && <WithdrawForm balance={user.balance} limits={data.limits} last={data.withdrawals[0]} onDone={done} onHistory={() => setTab('history')} />}
+            {tab === 'withdraw' && <WithdrawForm banks={data.banks} balance={user.balance} limits={data.limits} last={data.withdrawals[0]} onDone={done} onHistory={() => setTab('history')} />}
             {tab === 'history' && <History deposits={data.deposits} withdrawals={data.withdrawals} />}
           </>
         )}
@@ -156,17 +182,10 @@ function DepositForm({ banks, limits, onDone, onHistory }: { banks: Bank[]; limi
   if (!bank) {
     return (
       <section className="panel" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-        <h2 className="panel-title"><IconBank size={22} style={{ color: '#F2B232' }} />1. اختر البنك</h2>
-        {banks.length ? (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 12 }} data-testid="deposit-banks">
-            {banks.map((b) => (
-              <button key={b.id} type="button" onClick={() => setBank(b)} className="pb-btn pb-ghost" style={{ height: 'auto', padding: '18px 16px', justifyContent: 'flex-start', gap: 12, borderRadius: 18, whiteSpace: 'normal', textAlign: 'start' }}>
-                <span style={{ flex: 'none', width: 44, height: 44, borderRadius: 12, display: 'grid', placeItems: 'center', background: 'linear-gradient(180deg,#FFDA5C,#F2B232)', color: '#2B1A00' }}><IconBank size={22} /></span>
-                <span style={{ display: 'flex', flexDirection: 'column', gap: 2 }}><b style={{ fontSize: 16 }}>{b.name}</b><small style={{ color: '#A9A3B5', fontWeight: 600 }}>تحويل بنكي</small></span>
-              </button>
-            ))}
-          </div>
-        ) : <Empty>الإيداع غير متاح حاليًا. حاول لاحقًا.</Empty>}
+        <h2 className="panel-title"><IconBank size={22} style={{ color: '#F2B232' }} />1. اختر وسيلة الدفع</h2>
+        {banks.some((b) => b.available)
+          ? <MethodGrid banks={banks} onPick={setBank} disabled={(b) => !b.available} testId="deposit-banks" />
+          : <Empty>الإيداع غير متاح حاليًا. حاول لاحقًا.</Empty>}
       </section>
     );
   }
@@ -175,11 +194,11 @@ function DepositForm({ banks, limits, onDone, onHistory }: { banks: Bank[]; limi
     <form className="panel" onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
         <h2 className="panel-title" style={{ margin: 0, marginInlineEnd: 'auto' }}><IconBank size={22} style={{ color: '#F2B232' }} />2. حوّل المبلغ إلى هذا الحساب</h2>
-        <button type="button" className="pb-btn pb-ghost pb-sm" onClick={() => setBank(null)}>تغيير البنك</button>
+        <button type="button" className="pb-btn pb-ghost pb-sm" onClick={() => setBank(null)}>تغيير الوسيلة</button>
       </div>
 
       <div style={{ padding: 18, borderRadius: 18, background: '#110E17', border: '1px solid rgba(255,200,61,0.35)', display: 'flex', flexDirection: 'column', gap: 10 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}><span style={{ color: '#B8B2C4' }}>البنك</span><b>{bank.name}</b></div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}><span style={{ color: '#B8B2C4' }}>الوسيلة</span><b style={{ display: 'flex', alignItems: 'center', gap: 8 }}><MethodLogo bank={bank} size={28} />{bank.name}</b></div>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}><span style={{ color: '#B8B2C4' }}>صاحب الحساب</span><b dir="auto">{bank.accountHolder}</b></div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           <span style={{ color: '#B8B2C4' }}>رقم الحساب (RIB)</span>
@@ -209,9 +228,9 @@ function DepositForm({ banks, limits, onDone, onHistory }: { banks: Bank[]; limi
   );
 }
 
-function WithdrawForm({ balance, limits, last, onDone, onHistory }: { balance: number; limits: Limits; last?: Withdrawal; onDone: () => Promise<void>; onHistory: () => void }) {
+function WithdrawForm({ banks, balance, limits, last, onDone, onHistory }: { banks: Bank[]; balance: number; limits: Limits; last?: Withdrawal; onDone: () => Promise<void>; onHistory: () => void }) {
   // Pré-rempli avec le dernier compte utilisé : le joueur n'a qu'à saisir le montant.
-  const [form, setForm] = useState({ amount: '', bankName: last?.bankName ?? '', accountHolder: last?.accountHolder ?? '', rib: last?.rib ? fmtRib(last.rib) : '' });
+  const [form, setForm] = useState({ amount: '', bankName: banks.some((b) => b.name === last?.bankName) ? last!.bankName : '', accountHolder: last?.accountHolder ?? '', rib: last?.rib ? fmtRib(last.rib) : '' });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
@@ -223,6 +242,7 @@ function WithdrawForm({ balance, limits, last, onDone, onHistory }: { balance: n
     const n = Number(form.amount);
     if (!Number.isInteger(n) || n < limits.withdrawalMin || n > limits.withdrawalMax) return setMsg({ ok: false, text: `المبلغ بين ${fmt(limits.withdrawalMin)} و${fmt(limits.withdrawalMax)} درهم` });
     if (n > balance) return setMsg({ ok: false, text: 'رصيدك غير كافٍ' });
+    if (!form.bankName) return setMsg({ ok: false, text: 'اختر وسيلة السحب' });
     if (form.rib.replace(/[\s-]/g, '').length !== 24) return setErrors({ rib: 'رقم RIB يتكون من 24 رقمًا' });
     setBusy(true);
     setMsg(null);
@@ -243,15 +263,14 @@ function WithdrawForm({ balance, limits, last, onDone, onHistory }: { balance: n
 
   return (
     <form className="panel" onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 16, maxWidth: 620 }}>
-      <h2 className="panel-title"><IconArrowUp size={22} style={{ color: '#F2B232' }} />طلب سحب إلى حسابك البنكي</h2>
+      <h2 className="panel-title"><IconArrowUp size={22} style={{ color: '#F2B232' }} />طلب سحب إلى حسابك</h2>
       <label className="field"><span>المبلغ (درهم)</span>
         <input className="pb-input" type="number" inputMode="numeric" dir="ltr" min={limits.withdrawalMin} max={Math.min(limits.withdrawalMax, balance)} value={form.amount} onChange={(e) => set('amount', e.target.value)} style={{ fontSize: 20, fontWeight: 900, textAlign: 'center' }} data-testid="withdraw-amount" />
         <span className="hint">الحد الأدنى {fmt(limits.withdrawalMin)} درهم · المتاح للسحب: <b dir="ltr" style={{ color: '#FFD866' }}>{fmt(balance)}</b></span>
       </label>
-      <label className="field"><span>البنك</span>
-        <input className="pb-input" list="ma-banks" value={form.bankName} onChange={(e) => set('bankName', e.target.value)} aria-invalid={!!errors.bankName} required minLength={2} maxLength={60} />
-        <datalist id="ma-banks">{BANKS.map((b) => <option key={b} value={b} />)}</datalist>
-      </label>
+      <div className="field"><span>وسيلة السحب</span>
+        <MethodGrid banks={banks} selected={form.bankName} onPick={(b) => set('bankName', b.name)} testId="withdraw-methods" />
+      </div>
       <label className="field"><span>الاسم الكامل لصاحب الحساب</span>
         <input className="pb-input" dir="auto" value={form.accountHolder} onChange={(e) => set('accountHolder', e.target.value)} aria-invalid={!!errors.accountHolder} required minLength={2} maxLength={100} />
       </label>

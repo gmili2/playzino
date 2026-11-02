@@ -111,7 +111,8 @@ export interface GameSnapshot {
 
 export type PaymentStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
 
-export interface Bank { id: string; name: string; accountHolder: string; rib: string; active?: boolean }
+/** Moyen de paiement fixé par la plateforme ; `available` = compte de dépôt renseigné. */
+export interface Bank { id: string; name: string; logo: string; accountHolder: string; rib: string; available: boolean }
 
 export interface Deposit {
   id: string;
