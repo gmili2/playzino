@@ -9,6 +9,7 @@ import { ModeCard } from '../components/ModeCards';
 import { RoomCard } from '../components/RoomCard';
 import { StakePicker, type QuickChoice } from '../components/StakePicker';
 import { TaskCard } from '../components/TaskCard';
+import { FloatingCoins, Sparkles, StageLights } from '../components/Casino';
 import { Avatar, Empty } from '../components/ui';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
@@ -74,7 +75,7 @@ function HeroCarousel({ busy, onQuick, onC4 }: { busy: boolean; onQuick: () => v
   }, [paused, slides.length]);
   return (
     <section aria-roledescription="carrousel" aria-label="العروض" onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)}>
-      <div className="rl-hero">{slides[i]}</div>
+      <div className="rl-hero"><StageLights beams={3} />{slides[i]}<FloatingCoins count={5} /><Sparkles count={10} /></div>
       <div className="rl-dots">
         {slides.map((_, k) => <button key={k} type="button" aria-label={`العرض ${k + 1}`} aria-current={i === k} onClick={() => { setI(k); setPaused(true); }} />)}
       </div>

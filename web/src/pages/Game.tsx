@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
+import { MarqueeBulbs, Sparkles, StageLights } from '../components/Casino';
 import { Board, type BoardPawn, type BoardTarget } from '../components/Board';
 import { C4_COLS, C4_ROWS, Connect4Board } from '../components/Connect4Board';
 import { IconArrowBack, IconCrown, IconLogout, IconMute, IconSmile, IconVolume, IconWifiOff } from '../components/Icons';
@@ -491,6 +492,7 @@ export function GamePage() {
 
   return (
     <div dir="rtl" className="lg-root">
+      <StageLights beams={5} />
       <div className="lg-frame">
         <header className="lg-top" dir="ltr">
           <div className="lg-top-side">
@@ -538,7 +540,8 @@ export function GamePage() {
 
         <div className="lg-row" dir="ltr">{seatCard('tl')}{seatCard('tr')}</div>
 
-        <div className="lg-board" style={c4 ? { background: 'none', boxShadow: 'none', padding: 0 } : undefined}>
+        <div className={'lg-board' + (c4 ? '' : ' cs-framed')} style={c4 ? { background: 'none', boxShadow: 'none', padding: 0 } : undefined}>
+          {!c4 && <><MarqueeBulbs inset={5} radius={22} gap={20} /><Sparkles count={8} /></>}
           {c4 ? (
             <Connect4Board
               board={snap?.state.board}

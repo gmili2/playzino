@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Page } from '../components/AppShell';
+import { FloatingCoins, Podium, Sparkles, StageLights } from '../components/Casino';
 import { Coin, Loading } from '../components/ui';
 import { restAngle, Wheel } from '../components/Wheel';
 import { api, errorText } from '../lib/api';
@@ -109,7 +110,7 @@ export function WheelPage() {
   const canPay = !!paid?.enabled && paid.price !== null;
   const paidButton = state && paid?.enabled && (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-      <button type="button" className="pb-btn pb-violet pb-lg" style={{ minWidth: 240, height: 58, fontSize: 18 }} onClick={paidSpin} disabled={spinning || !canPay || (user?.balance ?? 0) < (paid.price ?? 0)} data-testid="wheel-paid-spin">
+      <button type="button" className="pb-btn pb-casino pb-lg" style={{ minWidth: 250, height: 60, fontSize: 20, fontWeight: 900 }} onClick={paidSpin} disabled={spinning || !canPay || (user?.balance ?? 0) < (paid.price ?? 0)} data-testid="wheel-paid-spin">
         {spinning ? 'العجلة تدور…' : canPay ? <>أدر مقابل <Coin size={20} /><b dir="ltr">{fmt(paid.price!)}</b></> : 'انتهت الدورات المدفوعة لليوم'}
       </button>
       <span className="hint" style={{ fontSize: 13 }}>
@@ -122,20 +123,34 @@ export function WheelPage() {
 
   return (
     <Page width={1100}>
-      <section className="panel" style={{ position: 'relative', overflow: 'hidden', padding: '28px 20px 32px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 18, textAlign: 'center', background: 'radial-gradient(600px 360px at 50% 0%, rgba(139,92,246,0.35), transparent 70%), linear-gradient(180deg,#221A33,#15111D)' }}>
+      <section className="panel" style={{ position: 'relative', overflow: 'hidden', padding: '28px 20px 32px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 18, textAlign: 'center', background: 'radial-gradient(600px 360px at 50% 0%, rgba(88,110,255,0.45), transparent 70%), linear-gradient(180deg,#1B2290,#0C0F4A 60%,#0A0B30)', border: '1px solid rgba(255,210,63,0.45)', boxShadow: '0 0 0 1px rgba(122,74,0,0.6), 0 0 40px rgba(255,200,61,0.18)' }}>
         <h1 style={{ fontWeight: 900, fontSize: 'clamp(34px, 6vw, 54px)', lineHeight: 1.1, background: 'linear-gradient(180deg,#FFE9A8,#F2B232)', WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent' }}>عجلة الحظ</h1>
         <p style={{ margin: 0, fontSize: 18, fontWeight: 700, color: '#EFEAF5' }}>أدر العجلة واربح عملات لتلعب بها!</p>
 
         {!user ? (
           <>
-            <Wheel segments={[10, 50, 20, 100, 25, 200, 15, 500]} label="عجلة الحظ" />
+            <div className="cs-stage">
+              <StageLights />
+              <span className="cs-ring" aria-hidden="true" />
+              <FloatingCoins count={8} />
+              <Sparkles count={12} />
+              <Wheel segments={[10, 50, 20, 100, 25, 200, 15, 500]} label="عجلة الحظ" />
+              <Podium />
+            </div>
             <Link to="/register?next=/wheel" className="pb-btn pb-gold pb-lg">أنشئ حسابك وأدر العجلة</Link>
           </>
         ) : !state ? (
           error ? <div role="alert" className="alert alert-error">{error}</div> : <Loading />
         ) : (
           <>
-            <Wheel segments={state.segments} rotation={rotation} label="عجلة الحظ" />
+            <div className="cs-stage">
+              <StageLights />
+              <span className="cs-ring" aria-hidden="true" />
+              <FloatingCoins count={8} />
+              <Sparkles count={12} />
+              <Wheel segments={state.segments} rotation={rotation} label="عجلة الحظ" />
+              <Podium />
+            </div>
             {paidButton || <span className="hint" style={{ fontSize: 15 }}>العجلة غير متاحة حاليًا.</span>}
             {error && <div role="alert" className="alert alert-error">{error}</div>}
           </>
