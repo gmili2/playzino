@@ -172,10 +172,11 @@ async function startGame(tx: Tx, roomId: string) {
  * Hors classement et sans XP (voir gameManager.finish et stats).
  */
 export async function createPracticeRoom(
-  userId: string, bots: number, turnSeconds: number, gameType: GameType = 'PARCHEESI', ip?: string, name = 'تدريب ضد الروبوت'
+  userId: string, bots: number, turnSeconds: number, gameType: GameType = 'PARCHEESI', ip?: string, name = 'تدريب ضد الروبوت',
+  chosenBots?: string[]
 ) {
   bots = playersFor(gameType, bots + 1) - 1;
-  const botIds = await ensureBots(bots);
+  const botIds = chosenBots?.slice(0, bots) ?? await ensureBots(bots);
   for (let attempt = 0; attempt < 5; attempt++) {
     try {
       const result = await prisma.$transaction(async (tx) => {

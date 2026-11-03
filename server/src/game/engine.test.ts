@@ -377,7 +377,7 @@ describe('robot', () => {
     while (s.phase !== 'finished' && n++ < 40000) {
       if (s.phase === 'roll') s = applyRoll(s, rnd()).state;
       else {
-        const pawn = botChooseMove(s, (['LOW', 'MEDIUM', 'HIGH'] as const)[n % 3]);
+        const pawn = botChooseMove(s, (['LOW', 'MEDIUM', 'HIGH', 'EXPERT'] as const)[n % 4]);
         expect(legalMoves(s).some((m) => m.pawn === pawn)).toBe(true);
         s = applyMove(s, pawn!).state;
       }

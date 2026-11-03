@@ -9,11 +9,11 @@ const balanceOf = async (userId: string) => (await prisma.wallet.findUniqueOrThr
 describe('aucun adversaire : partie contre le robot', () => {
   it('mise remboursée, table annulée, partie d’entraînement lancée avec le même jeu', async () => {
     const a = await registered();
-    const q = await a.post('/api/rooms', { name: 'Table test', visibility: 'PUBLIC', stake: 250, maxPlayers: 2, gameType: 'CONNECT4' });
+    const q = await a.post('/api/rooms', { name: 'Table test', visibility: 'PUBLIC', stake: 50, maxPlayers: 2, gameType: 'CONNECT4' });
     expect(q.body.room.status).toBe('WAITING');
     // Comme une table ouverte par « partie rapide » (sans risquer d'en rejoindre une autre restée en attente).
     await prisma.room.update({ where: { id: q.body.room.id }, data: { quickMatch: true } });
-    expect(await balanceOf(a.user.id)).toBe(750);
+    expect(await balanceOf(a.user.id)).toBe(950);
 
     const r = await a.post(`/api/rooms/${q.body.room.id}/play-bot`);
     expect(r.status).toBe(201);

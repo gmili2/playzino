@@ -35,8 +35,14 @@ par `server/src/game/engine.ts` et couvertes par `server/src/game/engine.test.ts
 ## Entraînement contre les robots
 
 - 1 à 3 robots (`POST /api/rooms/practice`), table privée sans mise ; la partie démarre immédiatement.
-- Les robots jouent côté serveur avec les mêmes règles (`botChooseMove` : arriver au centre > capturer > sortir
-  un pion > se mettre à l'abri > avancer, en évitant de finir à portée d'un pion adverse), une action toutes les ~0,9 s.
+- Les robots jouent côté serveur avec les mêmes règles et le même dé que les joueurs (aucun tirage truqué), une action
+  toutes les ~0,9 s. Niveau choisi par l'admin (par défaut **خبير / EXPERT**) : `botChooseMove` joue chaque coup, bonus
+  compris, puis évalue la position après chacune des 6 réponses possibles de l'adversaire (avance, risque de capture,
+  menaces, barrages). Au Puissance 4, EXPERT cherche jusqu'à 16 demi-coups en ~0,25 s.
+- **Joueurs en ligne** : s'il y a moins de 8 vrais joueurs connectés (`BOTS_ONLINE_TARGET`), des robots complètent la
+  liste « اللاعبون المتصلون » (même liste pendant 10 minutes). Un défi lancé à un robot est accepté après 1,5 à 4 s et
+  devient une partie d'entraînement **sans mise**, quel que soit le montant choisi.
+- **Mises** proposées : 0 (gratuite), 5, 10, 15, 20, 30, 40, 50, 100.
 - Aucune mise, aucun gain, aucune XP ; ces parties ne comptent ni dans les statistiques ni dans le classement.
 - Si le joueur quitte : à un contre un le robot gagne ; contre plusieurs robots la partie est annulée.
 - Les comptes robots (`User.isBot`) ne peuvent pas se connecter et n'apparaissent pas dans l'administration.

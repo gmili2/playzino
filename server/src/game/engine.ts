@@ -389,7 +389,7 @@ export function finishedCount(s: GameState, color: Color): number {
   return s.pawns[color].filter((p) => p === GOAL).length;
 }
 
-export const BOT_LEVELS = ['LOW', 'MEDIUM', 'HIGH'] as const;
+export const BOT_LEVELS = ['LOW', 'MEDIUM', 'HIGH', 'EXPERT'] as const;
 export type BotLevel = (typeof BOT_LEVELS)[number];
 
 /**
@@ -397,12 +397,16 @@ export type BotLevel = (typeof BOT_LEVELS)[number];
  * - LOW : un coup légal au hasard ;
  * - MEDIUM : glouton simple (arriver au centre > capturer > sortir un pion > avancer), sans lire le danger ;
  * - HIGH : en plus, se mettre à l'abri, former des barrages et éviter de finir exposé juste devant
- *   un pion adverse. MEDIUM et HIGH sont déterministes (aucun aléa) pour être testables.
+ *   un pion adverse ;
+ * - EXPERT : joue chaque coup (bonus de capture ou d'arrivée compris) et évalue la position obtenue : avance sur
+ *   les adversaires, probabilité d'être capturé au prochain lancer, menaces sur les pions adverses, barrages.
+ * MEDIUM, HIGH et EXPERT sont déterministes (aucun aléa) pour être testables.
  */
 export function botChooseMove(s: GameState, level: BotLevel = 'HIGH', rand: () => number = Math.random): number | null {
   const moves = legalMoves(s);
   if (!moves.length) return null;
   if (level === 'LOW') return moves[Math.floor(rand() * moves.length)].pawn;
+  if (level === 'EXPERT') return expertMove(s, moves);
   if (level === 'MEDIUM') {
     const simple = (m: Move) => m.to + (m.to === GOAL ? 1000 : 0) + (m.capture ? 500 : 0) + (m.from === NEST ? 300 : 0);
     return moves.reduce((best, m) => (simple(m) > simple(best) ? m : best)).pawn;
@@ -437,4 +441,150 @@ export function botChooseMove(s: GameState, level: BotLevel = 'HIGH', rand: () =
     return v;
   };
   return moves.reduce((best, m) => (score(m) > score(best) ? m : best)).pawn;
+}
+
+// ---------- robot EXPERT ----------
+
+const WIN_VALUE = 1_000_000;
+/**
+ * Poids de l'évaluation, réglés en faisant jouer EXPERT contre HIGH (≈ 67 % de victoires sur 1 500 parties) :
+ * out = valeur d'un pion sorti du nid (il faut un 5), home = bonus du couloir final où il ne craint plus rien,
+ * risk = poids du risque de capture, threat = poids des menaces sur l'adversaire, maxRival = part du rival le plus avancé.
+ */
+const W = { out: 18, risk: 1, threat: 0.25, maxRival: 0.65, home: 30 };
+
+/**
+ * Valeur d'un pion selon sa position : progression, sortie du nid, sécurité du couloir final.
+ * Le centre ne vaut pas plus que le couloir : un pion du couloir est déjà à l'abri, le robot garde donc ses dés pour
+ * les pions exposés et ne le rentre que s'il n'a rien de mieux (ou pour gagner). Mesuré : 67 % contre HIGH, 51 % sinon.
+ */
+function pawnValue(p: number): number {
+  if (p === NEST) return 0;
+  if (p === GOAL) return W.out + GOAL + 25;
+  return W.out + p + 1 + (p > LAST_TRACK ? W.home : 0);
+}
+
+/** Probabilité qu'un lancer (1‥6, le 6 valant 7 sans pion au nid) amène un pion de `attacker` sur `abs`. */
+function hitChance(s: GameState, attacker: Color, abs: number): number {
+  const reach = new Set<number>();
+  const sixIsSeven = s.pawns[attacker].every((p) => p !== NEST);
+  for (const p of s.pawns[attacker]) {
+    if (!isTrack(p)) continue;
+    const dist = (abs - absSquare(attacker, p) + TRACK_LENGTH) % TRACK_LENGTH;
+    if (p + dist > LAST_TRACK) continue;
+    if (dist >= 1 && dist <= 5) reach.add(dist);
+    if (dist === (sixIsSeven ? 7 : 6)) reach.add(6);
+  }
+  // Un 6 rejoue : on compte un peu les doubles lancers (6 puis 1‥6).
+  let n = reach.size;
+  if (!reach.has(6)) {
+    for (const p of s.pawns[attacker]) {
+      if (!isTrack(p)) continue;
+      const dist = (abs - absSquare(attacker, p) + TRACK_LENGTH) % TRACK_LENGTH;
+      const step = sixIsSeven ? 7 : 6;
+      if (dist > step && dist - step <= 6 && p + dist <= LAST_TRACK) {
+        n += 1 / 6;
+        break;
+      }
+    }
+  }
+  return Math.min(6, n) / 6;
+}
+
+/** Évaluation de la position du point de vue de `me` (plus grand = meilleur). */
+function evaluateFor(s: GameState, me: Color): number {
+  if (s.winner) return s.winner === me ? WIN_VALUE : -WIN_VALUE;
+  const rivals = activeColors(s).filter((c) => c !== me);
+  const total = (c: Color) => s.pawns[c].reduce((a, p) => a + pawnValue(p), 0);
+
+  let v = total(me);
+  if (rivals.length) {
+    const scores = rivals.map(total);
+    // Surveiller surtout le rival le plus avancé.
+    v -= W.maxRival * Math.max(...scores) + ((1 - W.maxRival) * scores.reduce((a, b) => a + b, 0)) / scores.length;
+  }
+
+  const myBlocks = blockadeMembers(s, me);
+  s.pawns[me].forEach((p, i) => {
+    if (!isTrack(p)) return;
+    const abs = absSquare(me, p);
+    if (SAFE.includes(abs) || myBlocks.has(i)) return;
+    // Risque : chance d'être capturé avant notre prochain tour (pion perdu + bonus de 20 offert).
+    let safe = 1;
+    for (const c of rivals) safe *= 1 - hitChance(s, c, abs);
+    v -= W.risk * (1 - safe) * (pawnValue(p) + CAPTURE_BONUS + 6);
+  });
+
+  // Menaces : pions adverses exposés que nous pourrons capturer au prochain tour.
+  for (const c of rivals) {
+    const blocks = blockadeMembers(s, c);
+    s.pawns[c].forEach((p, i) => {
+      if (!isTrack(p) || blocks.has(i)) return;
+      const abs = absSquare(c, p);
+      if (SAFE.includes(abs)) return;
+      v += W.threat * hitChance(s, me, abs) * (pawnValue(p) + CAPTURE_BONUS);
+    });
+  }
+
+  // Barrage juste devant un pion adverse : il le bloque.
+  for (const i of myBlocks) {
+    const abs = absSquare(me, s.pawns[me][i]);
+    const blocking = rivals.some((c) => s.pawns[c].some((p) => isTrack(p) && ((abs - absSquare(c, p) + TRACK_LENGTH) % TRACK_LENGTH) <= 6));
+    v += blocking ? 6 : 2;
+  }
+  return v;
+}
+
+/** Meilleure suite pour la couleur au trait (coup puis bonus éventuels), vue de cette couleur. */
+function greedyReply(s: GameState): GameState {
+  const color = currentColor(s);
+  let state = s;
+  for (let k = 0; k < 3 && (state.phase === 'move' || state.phase === 'bonus') && currentColor(state) === color; k++) {
+    let best: GameState | null = null, bestScore = -Infinity;
+    for (const m of legalMoves(state)) {
+      const next = applyMove(state, m.pawn).state;
+      const v = evaluateFor(next, color);
+      if (v > bestScore) {
+        bestScore = v;
+        best = next;
+      }
+    }
+    if (!best) break;
+    state = best;
+  }
+  return state;
+}
+
+/**
+ * Espérance de la position après le prochain lancer de l'adversaire suivant (6 valeurs équiprobables,
+ * l'adversaire jouant au mieux pour lui), vue de `me`.
+ */
+function expectAfterReply(s: GameState, me: Color): number {
+  if (s.phase === 'finished' || currentColor(s) === me || s.phase !== 'roll') return evaluateFor(s, me);
+  let sum = 0;
+  for (let d = 1; d <= 6; d++) sum += evaluateFor(greedyReply(applyRoll(s, d).state), me);
+  return sum / 6;
+}
+
+/** Comme bestFollowUp, mais chaque position finale est jugée après la réponse de l'adversaire. */
+function bestLine(s: GameState, me: Color, depth: number): number {
+  if (depth < 3 && (s.phase === 'move' || s.phase === 'bonus') && currentColor(s) === me) {
+    let best = -Infinity;
+    for (const m of legalMoves(s)) best = Math.max(best, bestLine(applyMove(s, m.pawn).state, me, depth + 1));
+    if (best > -Infinity) return best;
+  }
+  return expectAfterReply(s, me);
+}
+
+function expertMove(s: GameState, moves: Move[]): number {
+  const me = currentColor(s);
+  let best = moves[0], bestScore = -Infinity;
+  for (const m of moves) {
+    const v = bestLine(applyMove(s, m.pawn).state, me, 0);
+    if (v > bestScore) {
+      bestScore = v;
+      best = m;
+    }
+  }
+  return best.pawn;
 }

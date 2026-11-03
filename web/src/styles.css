@@ -94,7 +94,7 @@ select.pb-input{appearance:auto}
 .alert-ok{background:rgba(34,197,94,.12);border:1px solid rgba(34,197,94,.38);color:#86EFAC}
 .badge{white-space:nowrap;display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:800;padding:4px 12px;border-radius:999px}
 
-.seg{display:flex;gap:6px;padding:5px;border-radius:14px;background:var(--inset)}
+.seg{display:flex;flex-wrap:wrap;gap:6px;padding:5px;border-radius:14px;background:var(--inset)}
 .seg button{flex:1;padding:0 12px;white-space:nowrap;height:40px;border:0;border-radius:10px;background:transparent;color:#CFC9D9;font:800 14px Cairo,system-ui,sans-serif;cursor:pointer}
 .seg button[aria-pressed="true"]{background:linear-gradient(180deg,#FFDA6B,#F2B232);color:#2B1A00;box-shadow:0 6px 16px rgba(242,178,50,.3)}
 

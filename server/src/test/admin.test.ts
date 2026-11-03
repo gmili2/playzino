@@ -12,11 +12,11 @@ describe('niveau des robots', () => {
     expect((await a.patch('/api/admin/settings/bot-level', { level: 'LOW' })).status).toBe(403);
   });
 
-  it('l’admin choisit bas, moyen ou haut : enregistré, appliqué aux robots et journalisé', async () => {
+  it('l’admin choisit bas, moyen, haut ou expert : enregistré, appliqué aux robots et journalisé', async () => {
     const admin = await registered();
     await makeAdmin(admin.user.id);
-    expect((await admin.patch('/api/admin/settings/bot-level', { level: 'EXPERT' })).status).toBe(400);
-    for (const level of ['HIGH', 'LOW', 'MEDIUM'] as const) {
+    expect((await admin.patch('/api/admin/settings/bot-level', { level: 'GOD' })).status).toBe(400);
+    for (const level of ['HIGH', 'EXPERT', 'LOW', 'MEDIUM'] as const) {
       const r = await admin.patch('/api/admin/settings/bot-level', { level });
       expect(r.status).toBe(200);
       expect((await admin.get('/api/admin/settings/bot-level')).body.level).toBe(level);
@@ -24,6 +24,6 @@ describe('niveau des robots', () => {
     }
     expect((await prisma.setting.findUniqueOrThrow({ where: { key: 'botLevel' } })).value).toBe('MEDIUM');
     const logs = await prisma.auditLog.findMany({ where: { action: 'admin.bot_level', actorId: admin.user.id } });
-    expect(logs).toHaveLength(3);
+    expect(logs).toHaveLength(4);
   });
 });

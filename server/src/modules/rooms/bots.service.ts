@@ -80,3 +80,29 @@ async function ensureBot(bot: (typeof BOTS)[number]): Promise<string> {
   }
   throw new Error('Impossible de créer le robot');
 }
+
+export interface BotPlayer { id: string; key: number; username: string; avatarColor: string; xp: number }
+
+/** XP d'un robot : niveau 2 à 15, fixe pour chaque robot (même niveau dans la liste et en partie). */
+const botXp = (key: number) => 1000 + ((key * 5281) % 14) * 1000 + ((key * 389) % 1000);
+
+let allBots: Promise<BotPlayer[]> | null = null;
+
+/** Tous les robots (créés au premier appel), pour les montrer parmi les joueurs en ligne. */
+export function listBots(): Promise<BotPlayer[]> {
+  allBots ??= (async () => {
+    const ids: string[] = [];
+    for (const bot of BOTS) ids.push(await ensureBot(bot));
+    const users = await prisma.user.findMany({ where: { id: { in: ids } }, select: { id: true, username: true, profile: { select: { avatarColor: true, xp: true } } } });
+    return Promise.all(BOTS.map(async (bot, i) => {
+      const u = users.find((x) => x.id === ids[i])!;
+      // Les robots ne gagnent pas d'XP (parties d'entraînement) : on leur donne un niveau crédible une fois pour toutes.
+      if (!u.profile?.xp) await prisma.profile.updateMany({ where: { userId: u.id }, data: { xp: botXp(bot.key) } });
+      return { id: u.id, key: bot.key, username: u.username, avatarColor: u.profile?.avatarColor ?? bot.color, xp: u.profile?.xp || botXp(bot.key) };
+    }));
+  })().catch((e) => {
+    allBots = null;
+    throw e;
+  });
+  return allBots;
+}

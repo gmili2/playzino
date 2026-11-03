@@ -4,7 +4,8 @@ import { AppError, conflict, notFound } from '../../lib/errors.js';
 import { prisma } from '../../lib/prisma.js';
 import { hub } from '../../realtime/hub.js';
 import { insufficientFunds } from '../wallet/wallet.service.js';
-import { createRoom, joinRoom, leaveWaitingRoom } from '../rooms/rooms.service.js';
+import { listBots } from '../rooms/bots.service.js';
+import { createPracticeRoom, createRoom, joinRoom, leaveWaitingRoom } from '../rooms/rooms.service.js';
 import { afterJoin, releaseIdleSeat } from '../rooms/rooms.routes.js';
 
 /** Durée de validité d'un défi sans réponse. */
@@ -12,8 +13,51 @@ export const CHALLENGE_TTL_MS = Number(process.env.CHALLENGE_TTL_MS ?? 30_000);
 
 const levelOf = (xp: number) => Math.floor(xp / 1000) + 1;
 
-/** Joueurs connectés visibles (hors robots, comptes suspendus et joueurs qui masquent leur présence). */
+/** En dessous de ce nombre de vrais joueurs en ligne, des robots complètent la liste. */
+export const BOTS_ONLINE_TARGET = Number(process.env.BOTS_ONLINE_TARGET ?? 8);
+/** Les robots affichés changent toutes les 10 minutes (liste stable entre deux rafraîchissements). */
+const BOT_ROTATION_MS = 10 * 60_000;
+
+/** Petit générateur déterministe : même fenêtre de temps → mêmes robots, mêmes niveaux, mêmes statuts. */
+function seeded(seed: number) {
+  return () => {
+    seed = (seed * 1103515245 + 12345) % 2147483648;
+    return seed / 2147483648;
+  };
+}
+
+/** Robots présentés comme joueurs en ligne quand il y a peu de monde ; ils acceptent les défis (partie sans mise). */
+async function onlineBots(count: number) {
+  if (count <= 0) return [];
+  const window = Math.floor(Date.now() / BOT_ROTATION_MS);
+  const rand = seeded(window);
+  const pool = [...(await listBots())];
+  for (let i = pool.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1));
+    [pool[i], pool[j]] = [pool[j], pool[i]];
+  }
+  return pool.slice(0, count).map((b) => {
+    const r = seeded(window * 31 + b.key);
+    return {
+      id: b.id,
+      username: b.username,
+      avatarColor: b.avatarColor,
+      level: levelOf(b.xp),
+      status: r() < 0.3 ? ('playing' as const) : ('available' as const),
+      acceptsChallenges: true
+    };
+  });
+}
+
+/** Joueurs connectés visibles (comptes suspendus et joueurs qui masquent leur présence exclus), complétés par des robots. */
 export async function onlinePlayers(viewerId: string) {
+  const real = await realOnlinePlayers(viewerId);
+  const window = Math.floor(Date.now() / BOT_ROTATION_MS);
+  const bots = await onlineBots(BOTS_ONLINE_TARGET + (window % 4) - real.length);
+  return [...real, ...bots].sort((a, b) => (a.status === b.status ? a.username.localeCompare(b.username) : a.status === 'available' ? -1 : 1));
+}
+
+async function realOnlinePlayers(viewerId: string) {
   const ids = [...hub.connectedUsers.keys()].filter((id) => id !== viewerId);
   if (!ids.length) return [];
   const [users, seated] = await Promise.all([
@@ -33,8 +77,7 @@ export async function onlinePlayers(viewerId: string) {
       level: levelOf(u.profile?.xp ?? 0),
       status: playing.has(u.id) ? ('playing' as const) : ('available' as const),
       acceptsChallenges: u.profile?.invitesEnabled ?? true
-    }))
-    .sort((a, b) => (a.status === b.status ? a.username.localeCompare(b.username) : a.status === 'available' ? -1 : 1));
+    }));
 }
 
 interface Challenge {
@@ -65,7 +108,8 @@ export async function sendChallenge(fromId: string, input: { toUserId: string; s
     where: { id: input.toUserId },
     select: { isBot: true, status: true, profile: { select: { invitesEnabled: true, hideOnline: true } } }
   });
-  if (!target || target.isBot || target.status !== 'ACTIVE' || target.profile?.hideOnline || !hub.connectedUsers.has(input.toUserId)) {
+  if (target?.isBot) return challengeBot(fromId, input);
+  if (!target || target.status !== 'ACTIVE' || target.profile?.hideOnline || !hub.connectedUsers.has(input.toUserId)) {
     throw conflict('PLAYER_OFFLINE', 'Ce joueur n’est plus en ligne');
   }
   if (target.profile && !target.profile.invitesEnabled) throw conflict('INVITES_DISABLED', 'Ce joueur n’accepte pas les défis');
@@ -98,6 +142,37 @@ export async function sendChallenge(fromId: string, input: { toUserId: string; s
     id, stake: c.stake, gameType: c.gameType, expiresAt, ttlMs: CHALLENGE_TTL_MS,
     from: { id: fromId, username: from.username, avatarColor: from.profile?.avatarColor ?? '#2F6BFF', level: levelOf(from.profile?.xp ?? 0) }
   });
+  return { id, expiresAt, ttlMs: CHALLENGE_TTL_MS };
+}
+
+/** Délai avant qu'un robot accepte un défi, comme un joueur qui lit l'invitation. */
+const BOT_ACCEPT_MS = () => Number(process.env.BOT_ACCEPT_MS ?? 1500 + Math.floor(Math.random() * 2500));
+
+/**
+ * Défi lancé à un robot : il l'accepte après quelques secondes. La partie est une partie d'entraînement
+ * sans mise (comme le repli sur robot de la partie rapide) : aucune pièce n'est jouée contre un robot.
+ */
+async function challengeBot(fromId: string, input: { toUserId: string; stake: number; gameType: GameType }) {
+  if (await inGame(fromId)) throw conflict('ALREADY_IN_GAME', 'Terminez d’abord votre partie en cours');
+  for (const c of challenges.values()) if (c.fromId === fromId) drop(c);
+  const bot = await prisma.user.findUniqueOrThrow({ where: { id: input.toUserId }, select: { username: true } });
+  const id = randomUUID();
+  const expiresAt = Date.now() + CHALLENGE_TTL_MS;
+  const c: Challenge = {
+    id, fromId, toId: input.toUserId, stake: 0, gameType: input.gameType, expiresAt,
+    timer: setTimeout(async () => {
+      if (challenges.get(id) !== c) return; // annulé entre-temps
+      challenges.delete(id);
+      try {
+        await releaseIdleSeat(fromId);
+        const r = await afterJoin(await createPracticeRoom(fromId, 1, 30, input.gameType, undefined, `تحدي ${bot.username}`.slice(0, 40), [input.toUserId]));
+        hub.emitUser(fromId, 'challenge:accepted', { id, roomId: r.room.id });
+      } catch (e) {
+        hub.emitUser(fromId, 'challenge:failed', { id, code: e instanceof AppError ? e.code : 'INTERNAL' });
+      }
+    }, BOT_ACCEPT_MS())
+  };
+  challenges.set(id, c);
   return { id, expiresAt, ttlMs: CHALLENGE_TTL_MS };
 }
 

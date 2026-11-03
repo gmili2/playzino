@@ -190,8 +190,13 @@ function evaluate(g: Grid) {
 
 const WIN_SCORE = 1_000_000;
 
+/** Échéance de la recherche EXPERT (approfondissement itératif) ; 0 = sans limite. */
+let deadline = 0;
+class Timeout extends Error {}
+
 /** Négamax alpha-bêta : score du point de vue du joueur 1 si `who` = 1. */
 function negamax(g: Grid, depth: number, alpha: number, beta: number, who: 1 | 2): number {
+  if (deadline && depth > 1 && Date.now() > deadline) throw new Timeout();
   if (depth === 0) return who === 1 ? evaluate(g) : -evaluate(g);
   let any = false;
   for (const c of ORDER) {
@@ -209,12 +214,38 @@ function negamax(g: Grid, depth: number, alpha: number, beta: number, who: 1 | 2
 }
 
 const SEARCH_DEPTH = 6;
+/** EXPERT : recherche de plus en plus profonde tant que le temps le permet. */
+const EXPERT_MAX_DEPTH = 16;
+const EXPERT_BUDGET_MS = 250;
+
+/** Meilleure colonne à profondeur fixe (la colonne `first` est explorée en premier). */
+function searchRoot(g: Grid, depth: number, first = -1) {
+  let best = -1, bestScore = -Infinity;
+  for (const c of first >= 0 ? [first, ...ORDER.filter((x) => x !== first)] : ORDER) {
+    const idx = gridLanding(g, c);
+    if (idx < 0) continue;
+    g[idx] = 1;
+    let v: number;
+    try {
+      v = -negamax(g, depth - 1, -Infinity, -bestScore, 2);
+    } finally {
+      g[idx] = 0;
+    }
+    if (v > bestScore) {
+      bestScore = v;
+      best = c;
+    }
+  }
+  return { best, bestScore };
+}
 
 /**
  * Colonne choisie par le robot :
  * - LOW : au hasard ;
  * - MEDIUM : gagne s'il le peut, sinon bloque, sinon évite d'offrir la victoire et préfère le centre ;
- * - HIGH : recherche négamax à 6 demi-coups. MEDIUM et HIGH sont déterministes.
+ * - HIGH : recherche négamax à 6 demi-coups ;
+ * - EXPERT : approfondissement itératif (jusqu'à 16 demi-coups) dans un budget d’environ 0,25 s.
+ * MEDIUM et HIGH sont déterministes.
  */
 export function c4BotColumn(s: C4State, level: BotLevel = 'HIGH', rand: () => number = Math.random): number | null {
   const moves = c4LegalMoves(s);
@@ -237,17 +268,22 @@ export function c4BotColumn(s: C4State, level: BotLevel = 'HIGH', rand: () => nu
     });
     return safe[0] ?? ORDER.find((c) => gridLanding(g, c) >= 0)!;
   }
-  let best = -1, bestScore = -Infinity;
-  for (const c of ORDER) {
-    const idx = gridLanding(g, c);
-    if (idx < 0) continue;
-    g[idx] = 1;
-    const v = -negamax(g, SEARCH_DEPTH - 1, -Infinity, -bestScore, 2);
-    g[idx] = 0;
-    if (v > bestScore) {
-      bestScore = v;
-      best = c;
+  if (level === 'EXPERT') {
+    const empty = g.reduce((n, v) => n + (v ? 0 : 1), 0);
+    let best = searchRoot(g, SEARCH_DEPTH).best;
+    deadline = Date.now() + EXPERT_BUDGET_MS;
+    try {
+      for (let depth = SEARCH_DEPTH + 1; depth <= Math.min(EXPERT_MAX_DEPTH, empty); depth++) {
+        const r = searchRoot(g, depth, best);
+        best = r.best;
+        if (Math.abs(r.bestScore) >= WIN_SCORE) break; // issue forcée trouvée
+      }
+    } catch (e) {
+      if (!(e instanceof Timeout)) throw e;
+    } finally {
+      deadline = 0;
     }
+    return best;
   }
-  return best;
+  return searchRoot(g, SEARCH_DEPTH).best;
 }

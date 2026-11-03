@@ -5,7 +5,7 @@ import type { GameType } from '../lib/types';
 import { Coin } from './ui';
 
 /** Mises proposées (partie rapide et création de table). 0 = partie gratuite. */
-export const STAKES = [0, 50, 100, 250, 500, 1000];
+export const STAKES = [0, 5, 10, 15, 20, 30, 40, 50, 100];
 export const stakeLabel = (s: number) => (s === 0 ? 'مجانية' : String(s));
 
 export interface QuickChoice { maxPlayers: number; gameType: GameType; title: string }

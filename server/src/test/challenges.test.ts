@@ -2,6 +2,8 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { Socket } from 'socket.io-client';
 
 process.env.CHALLENGE_TTL_MS = '600';
+process.env.BOT_ACCEPT_MS = '50';
+process.env.BOTS_ONLINE_TARGET = '500'; // des robots complètent toujours la liste, même avec les joueurs des autres tests
 
 const { prisma } = await import('../lib/prisma.js');
 const { gameManager } = await import('../realtime/gameManager.js');
@@ -47,6 +49,26 @@ describe('joueurs en ligne et défis', () => {
     expect(ids).not.toContain(hidden.user.id);
     expect(ids).not.toContain(offline.user.id);
     expect(r.body.players.find((p: { id: string }) => p.id === b.user.id)).toMatchObject({ username: b.user.username, status: 'available' });
+  });
+
+  it('peu de joueurs en ligne : des robots complètent la liste et acceptent les défis, sans mise', async () => {
+    const a = await online();
+    const players = (await a.get('/api/challenges/online')).body.players as { id: string; status: string; level: number }[];
+    const bots = await prisma.user.findMany({ where: { id: { in: players.map((p) => p.id) }, isBot: true }, select: { id: true } });
+    expect(bots.length).toBeGreaterThan(5);
+    // La liste reste la même d'un rafraîchissement à l'autre.
+    expect((await a.get('/api/challenges/online')).body.players.map((p: { id: string }) => p.id)).toEqual(players.map((p) => p.id));
+
+    const bot = players.find((p) => p.status === 'available' && bots.some((b) => b.id === p.id))!;
+    const accepted = next(a.s, 'challenge:accepted');
+    const sent = await a.post('/api/challenges', { toUserId: bot.id, stake: 50, gameType: 'CONNECT4' });
+    expect(sent.status).toBe(201);
+    const { roomId } = await accepted;
+    const room = (await a.get('/api/rooms/current')).body.room;
+    expect(room).toMatchObject({ id: roomId, status: 'PLAYING', isPractice: true, stake: 0, gameType: 'CONNECT4' });
+    expect(room.players.map((p: { userId: string }) => p.userId).sort()).toEqual([a.user.id, bot.id].sort());
+    expect(await balance(a.user.id)).toBe(1000);
+    await gameManager.forfeit(room.gameId, a.user.id);
   });
 
   it('défi accepté : table privée à deux, mises débitées, partie lancée pour les deux', async () => {

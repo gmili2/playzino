@@ -3,7 +3,7 @@ import { audit } from './audit.js';
 import { prisma } from './prisma.js';
 
 const BOT_LEVEL_KEY = 'botLevel';
-export const DEFAULT_BOT_LEVEL: BotLevel = 'MEDIUM';
+export const DEFAULT_BOT_LEVEL: BotLevel = 'EXPERT';
 
 // Lu à chaque coup de robot : gardé en mémoire, relu en base seulement au premier accès.
 let botLevelCache: BotLevel | null = null;

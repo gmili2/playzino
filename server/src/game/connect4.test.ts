@@ -59,9 +59,11 @@ describe('Puissance 4 : robot', () => {
     const canWin = play([0, 6, 0, 6, 0, 5]); // rouge a 3 jetons en colonne 0
     expect(c4BotColumn(canWin, 'MEDIUM')).toBe(0);
     expect(c4BotColumn(canWin, 'HIGH')).toBe(0);
+    expect(c4BotColumn(canWin, 'EXPERT')).toBe(0);
     const mustBlock = play([0, 6, 0, 6, 0]); // jaune doit bloquer la colonne 0
     expect(c4BotColumn(mustBlock, 'MEDIUM')).toBe(0);
     expect(c4BotColumn(mustBlock, 'HIGH')).toBe(0);
+    expect(c4BotColumn(mustBlock, 'EXPERT')).toBe(0);
   });
 
   it('bas : colonne légale au hasard', () => {
@@ -82,7 +84,7 @@ describe('Puissance 4 : robot', () => {
   });
 
   it('toujours un coup légal, jusqu’à la fin, à tous les niveaux', () => {
-    for (const level of ['LOW', 'MEDIUM', 'HIGH'] as const) {
+    for (const level of ['LOW', 'MEDIUM', 'HIGH', 'EXPERT'] as const) {
       let s = fresh();
       while (s.phase === 'play') {
         const col = c4BotColumn(s, level)!;

@@ -161,8 +161,8 @@ describe('multijoueur temps réel', () => {
   });
 
   it('salle d’attente : quitter rembourse la mise et annule la table', async () => {
-    const { a, room } = await seatedPair(250);
-    expect(await balance(a.user.id)).toBe(750);
+    const { a, room } = await seatedPair(50);
+    expect(await balance(a.user.id)).toBe(950);
     expect((await a.post(`/api/rooms/${room.id}/leave`)).status).toBe(204);
     expect(await balance(a.user.id)).toBe(1000);
     const r = await prisma.room.findUniqueOrThrow({ where: { id: room.id } });
@@ -194,9 +194,9 @@ describe('multijoueur temps réel', () => {
   it('partie rapide publique : le second joueur rejoint la table du premier', async () => {
     const a = await registered(server.url);
     const b = await registered(server.url);
-    const r1 = await a.post('/api/rooms/quick', { stake: 1000 });
+    const r1 = await a.post('/api/rooms/quick', { stake: 100 });
     expect(r1.body.room.status).toBe('WAITING');
-    const r2 = await b.post('/api/rooms/quick', { stake: 1000 });
+    const r2 = await b.post('/api/rooms/quick', { stake: 100 });
     expect(r2.body.room.id).toBe(r1.body.room.id);
     expect(r2.body.room.status).toBe('PLAYING');
     await gameManager.forfeit(r2.body.room.gameId, a.user.id);
@@ -394,14 +394,14 @@ describe('tables de 3 et 4 joueurs', () => {
 
   it('partie rapide à 4 : ne mélange pas les tables de tailles différentes', async () => {
     // Base de test conservée entre deux exécutions : on ferme les tables d'une exécution précédente.
-    await prisma.room.updateMany({ where: { visibility: 'PUBLIC', status: 'WAITING', stake: 500 }, data: { status: 'CANCELLED' } });
+    await prisma.room.updateMany({ where: { visibility: 'PUBLIC', status: 'WAITING', stake: 40 }, data: { status: 'CANCELLED' } });
     const a = await registered(server.url);
     const b = await registered(server.url);
-    const r1 = await a.post('/api/rooms/quick', { stake: 500, maxPlayers: 4 });
-    const r2 = await b.post('/api/rooms/quick', { stake: 500, maxPlayers: 3 });
+    const r1 = await a.post('/api/rooms/quick', { stake: 40, maxPlayers: 4 });
+    const r2 = await b.post('/api/rooms/quick', { stake: 40, maxPlayers: 3 });
     expect(r2.body.room.id).not.toBe(r1.body.room.id);
     const c = await registered(server.url);
-    const r3 = await c.post('/api/rooms/quick', { stake: 500, maxPlayers: 4 });
+    const r3 = await c.post('/api/rooms/quick', { stake: 40, maxPlayers: 4 });
     expect(r3.body.room.id).toBe(r1.body.room.id);
     expect(r3.body.room.status).toBe('WAITING');
   });

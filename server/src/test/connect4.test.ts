@@ -130,13 +130,13 @@ describe('Puissance 4 en ligne', () => {
 
   it('partie rapide : ne mélange pas Puissance 4 et Parchís', async () => {
     const [a, b, c] = await Promise.all([registered(server.url), registered(server.url), registered(server.url)]);
-    const ra = await a.post('/api/rooms/quick', { gameType: 'CONNECT4', stake: 250 });
+    const ra = await a.post('/api/rooms/quick', { gameType: 'CONNECT4', stake: 50 });
     expect(ra.body.room).toMatchObject({ gameType: 'CONNECT4', maxPlayers: 2 });
     // Même mise, autre jeu : jamais la table Puissance 4.
-    const rb = await b.post('/api/rooms/quick', { stake: 250 });
+    const rb = await b.post('/api/rooms/quick', { stake: 50 });
     expect(rb.body.room.gameType).toBe('PARCHEESI');
     expect(rb.body.room.id).not.toBe(ra.body.room.id);
-    const rc = await c.post('/api/rooms/quick', { gameType: 'CONNECT4', stake: 250 });
+    const rc = await c.post('/api/rooms/quick', { gameType: 'CONNECT4', stake: 50 });
     expect(rc.body.room.gameType).toBe('CONNECT4');
     for (const r of [ra, rb, rc]) if (r.body.room.gameId) await gameManager.forfeit(r.body.room.gameId, r.body.room.players[0].userId);
   });
