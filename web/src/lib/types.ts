@@ -5,6 +5,7 @@ export interface Me {
   id: string;
   email: string;
   username: string;
+  phone: string | null;
   role: 'USER' | 'ADMIN';
   createdAt: string;
   balance: number;

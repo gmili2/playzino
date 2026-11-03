@@ -9,7 +9,7 @@ interface AuthValue {
   refresh: () => Promise<void>;
   setUser: (u: Me | null) => void;
   login: (login: string, password: string) => Promise<void>;
-  register: (email: string, username: string, password: string) => Promise<void>;
+  register: (email: string, username: string, phone: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -44,8 +44,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       closeSocket();
       setUser(r.user);
     },
-    async register(email, username, password) {
-      const r = await api.post<{ user: Me }>('/api/auth/register', { email, username, password });
+    async register(email, username, phone, password) {
+      const r = await api.post<{ user: Me }>('/api/auth/register', { email, username, phone, password });
       closeSocket();
       setUser(r.user);
     },

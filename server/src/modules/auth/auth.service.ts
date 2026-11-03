@@ -14,15 +14,17 @@ export async function hashPassword(pw: string) {
   return bcrypt.hash(pw, BCRYPT_ROUNDS);
 }
 
-export async function registerUser(input: { email: string; username: string; password: string }, ip?: string) {
+export async function registerUser(input: { email: string; username: string; phone?: string; password: string }, ip?: string) {
   const taken = await prisma.user.findFirst({
-    where: { OR: [{ email: input.email }, { username: input.username }] },
-    select: { email: true, username: true }
+    where: { OR: [{ email: input.email }, { username: input.username }, ...(input.phone ? [{ phone: input.phone }] : [])] },
+    select: { email: true, username: true, phone: true }
   });
   if (taken) {
     throw taken.email === input.email
       ? conflict('EMAIL_TAKEN', 'Cette adresse e-mail est déjà utilisée')
-      : conflict('USERNAME_TAKEN', 'Ce nom d’utilisateur est déjà pris');
+      : input.phone && taken.phone === input.phone
+        ? conflict('PHONE_TAKEN', 'Ce numéro de téléphone est déjà utilisé')
+        : conflict('USERNAME_TAKEN', 'Ce nom d’utilisateur est déjà pris');
   }
   const passwordHash = await hashPassword(input.password);
   // Compte, profil, portefeuille (et crédit de bienvenue s'il y en a un) : tout ou rien.
@@ -31,6 +33,7 @@ export async function registerUser(input: { email: string; username: string; pas
       data: {
         email: input.email,
         username: input.username,
+        phone: input.phone,
         passwordHash,
         profile: { create: { avatarColor: AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)] } },
         wallet: { create: { balance: 0 } }

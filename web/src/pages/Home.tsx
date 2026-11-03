@@ -3,11 +3,12 @@ import { Link } from 'react-router-dom';
 import { Board, SHOWCASE_PAWNS } from '../components/Board';
 import { Connect4Board, SHOWCASE_C4 } from '../components/Connect4Board';
 import { Footer, Header } from '../components/AppShell';
-import { Gift, IconBolt, IconCrown, IconLock, IconTrophy, IconUsers, IconWheel } from '../components/Icons';
+import { IconBolt, IconCrown, IconLock, IconTrophy, IconUsers, IconWheel } from '../components/Icons';
 import { SHOWCASE_WHEEL, Wheel } from '../components/Wheel';
 import { ModeCard } from '../components/ModeCards';
 import { RoomCard } from '../components/RoomCard';
 import { StakePicker, type QuickChoice } from '../components/StakePicker';
+import { TaskCard } from '../components/TaskCard';
 import { Avatar, Empty } from '../components/ui';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
@@ -93,7 +94,6 @@ export function HomePage() {
   const [codeMsg, setCodeMsg] = useState('');
   const [period, setPeriod] = useState('week');
   const [stats, setStats] = useState<Stats | null>(null);
-  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     api.get<Stats>('/api/stats?period=' + period).then(setStats).catch(() => setStats(null));
@@ -106,15 +106,6 @@ export function HomePage() {
     actions.joinCode(code);
   };
 
-  const copyInvite = async () => {
-    try {
-      await navigator.clipboard.writeText(location.origin + '/register');
-    } catch {
-      /* presse-papiers indisponible */
-    }
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1800);
-  };
 
   return (
     <>
@@ -242,11 +233,10 @@ export function HomePage() {
             </ol>
           </div>
 
-          <div style={{ padding: 18, borderRadius: 22, background: 'linear-gradient(120deg, #3B1F6E, #24124A)', border: '1px solid rgba(242,178,50,0.35)', display: 'flex', alignItems: 'center', gap: 14 }}>
-            <Gift size={44} />
-            <span style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2 }}><span style={{ fontWeight: 800 }}>ادعُ أصدقاءك</span><span style={{ fontSize: 12, lineHeight: 1.6, color: '#DCD6FF' }}>العب معهم وتحدَّهم على الطاولات</span></span>
-            <button type="button" className="pb-btn pb-gold pb-sm" onClick={copyInvite}>{copied ? 'تم النسخ ✓' : 'نسخ الرابط'}</button>
-          </div>
+          {user && !user.phone && (
+            <Link to="/profile" className="alert alert-error" style={{ textDecoration: 'none' }}>أضف رقم هاتفك في حسابك ليتعرّف عليك فريق الدعم عند الإيداع والسحب ←</Link>
+          )}
+          <TaskCard />
         </aside>
       </div>
       <StakePicker

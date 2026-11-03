@@ -12,6 +12,7 @@ import { gamesRouter } from './modules/games/games.routes.js';
 import { challengesRouter } from './modules/challenges/challenges.routes.js';
 import { roomsRouter } from './modules/rooms/rooms.routes.js';
 import { statsRouter } from './modules/stats/stats.routes.js';
+import { tasksRouter } from './modules/tasks/tasks.routes.js';
 import { paymentsAdminRouter, paymentsRouter } from './modules/payments/payments.routes.js';
 import { meRouter } from './modules/users/users.routes.js';
 import { walletRouter } from './modules/wallet/wallet.routes.js';
@@ -65,6 +66,7 @@ export function createApp() {
   app.use('/api/me', meRouter);
   app.use('/api/wallet', walletRouter);
   app.use('/api/wheel', wheelRouter);
+  app.use('/api/tasks', tasksRouter);
   app.use('/api/rooms', roomsRouter);
   app.use('/api/challenges', challengesRouter);
   app.use('/api/games', gamesRouter);

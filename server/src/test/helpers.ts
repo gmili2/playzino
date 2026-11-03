@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { randomInt, randomUUID } from 'node:crypto';
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import request from 'supertest';
@@ -23,6 +23,8 @@ export function client(target: Parameters<typeof request.agent>[0] = app) {
 }
 
 export const uniq = () => randomUUID().replace(/-/g, '').slice(0, 10);
+/** Mobile marocain aléatoire (06 + 8 chiffres), unique en pratique d'un test à l'autre. */
+export const phone = () => '06' + String(randomInt(100_000_000)).padStart(8, '0');
 
 /** Solde de départ des comptes de test (l'inscription donne 0 pièce). */
 export const TEST_CREDITS = 1000;
@@ -30,7 +32,7 @@ export const TEST_CREDITS = 1000;
 export async function registered(target?: Parameters<typeof request.agent>[0], credits = TEST_CREDITS) {
   const c = client(target);
   const name = 'u' + uniq();
-  const res = await c.post('/api/auth/register', { email: `${name}@test.local`, username: name, password: 'motdepasse-123' });
+  const res = await c.post('/api/auth/register', { email: `${name}@test.local`, username: name, phone: phone(), password: 'motdepasse-123' });
   if (res.status !== 201) throw new Error(`register ${res.status} ${JSON.stringify(res.body)}`);
   const user = res.body.user as { id: string; username: string; balance: number };
   if (credits > 0) {

@@ -25,6 +25,8 @@ model User {
   id              String     @id @default(cuid()) @db.VarChar(30)
   email           String     @unique @db.VarChar(191)
   username        String     @unique @db.VarChar(32)
+  // Mobile marocain « 06XXXXXXXX », pour que l'admin identifie le joueur. Absent des comptes créés avant.
+  phone           String?    @unique @db.VarChar(10)
   passwordHash    String     @db.VarChar(100)
   role            Role       @default(USER)
   status          UserStatus @default(ACTIVE)
@@ -93,6 +95,7 @@ enum TxType {
   WITHDRAWAL_REFUND
   WHEEL_SPIN
   WHEEL_PRIZE
+  TASK_REWARD
 }
 
 model WalletTransaction {

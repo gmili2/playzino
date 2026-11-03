@@ -67,11 +67,13 @@ export function LoginPage() {
   );
 }
 
+export const PHONE_HINT = 'رقم مغربي: 06 أو 07 أو 08 متبوع بـ 8 أرقام (أو ‎+212‎)';
+
 export function RegisterPage() {
   const { user, register } = useAuth();
   const nav = useNavigate();
   const next = useNext();
-  const [form, setForm] = useState({ email: '', username: '', password: '', confirm: '' });
+  const [form, setForm] = useState({ email: '', username: '', phone: '', password: '', confirm: '' });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -84,10 +86,12 @@ export function RegisterPage() {
     setErrors({});
     setBusy(true);
     try {
-      await register(form.email, form.username, form.password);
+      await register(form.email, form.username, form.phone, form.password);
       nav(next, { replace: true });
     } catch (err) {
-      setErrors(fieldErrors(err));
+      const fe = fieldErrors(err);
+      if (fe.phone) fe.phone = PHONE_HINT;
+      setErrors(fe);
       setError(errorText(err));
     } finally {
       setBusy(false);
@@ -112,6 +116,7 @@ export function RegisterPage() {
           {error && <div role="alert" className="alert alert-error">{error}</div>}
           {field('email', 'البريد الإلكتروني', 'email', 'email')}
           {field('username', 'اسم المستخدم', 'text', 'username', 'من 3 إلى 16 حرفًا لاتينيًا أو رقمًا، مع . أو - أو _')}
+          {field('phone', 'رقم الهاتف', 'tel', 'tel', 'رقم مغربي يبدأ بـ 06 أو 07 أو 08')}
           {field('password', 'كلمة المرور', 'password', 'new-password', '8 أحرف على الأقل')}
           {field('confirm', 'تأكيد كلمة المرور', 'password', 'new-password')}
           <button className="pb-btn pb-gold" type="submit" disabled={busy}>{busy ? 'جارٍ الإنشاء…' : 'إنشاء الحساب'}</button>

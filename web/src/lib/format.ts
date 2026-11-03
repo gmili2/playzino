@@ -23,7 +23,8 @@ export const TX_LABEL: Record<string, string> = {
   WITHDRAWAL: 'طلب سحب',
   WITHDRAWAL_REFUND: 'استرجاع سحب مرفوض',
   WHEEL_SPIN: 'دورة عجلة مدفوعة',
-  WHEEL_PRIZE: 'ربح العجلة'
+  WHEEL_PRIZE: 'ربح العجلة',
+  TASK_REWARD: 'مكافأة مهمة اليوم'
 };
 
 /** RIB affiché par groupes (banque · ville · compte · clé) pour être recopié sans erreur. */

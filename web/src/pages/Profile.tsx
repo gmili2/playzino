@@ -7,6 +7,7 @@ import { api, errorText, fieldErrors } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { COLOR_HEX, COLOR_NAME, fmt, fmtDate, fmtMonth, signed, TX_LABEL, GAME_LABEL } from '../lib/format';
 import type { Me } from '../lib/types';
+import { PHONE_HINT } from './Auth';
 
 interface HistoryItem {
   gameId: string;
@@ -155,7 +156,7 @@ export function ProfilePage() {
 
 function Settings({ user, onSaved, onLogout }: { user: Me; onSaved: (u: Me) => void; onLogout: () => void }) {
   const [form, setForm] = useState({
-    username: user.username, email: user.email, avatarColor: user.profile.avatarColor,
+    username: user.username, email: user.email, phone: user.phone ?? '', avatarColor: user.profile.avatarColor,
     soundEnabled: user.profile.soundEnabled, invitesEnabled: user.profile.invitesEnabled, hideOnline: user.profile.hideOnline
   });
   const [pw, setPw] = useState({ currentPassword: '', newPassword: '' });
@@ -169,11 +170,13 @@ function Settings({ user, onSaved, onLogout }: { user: Me; onSaved: (u: Me) => v
     setMsg(null);
     setErrors({});
     try {
-      const r = await api.patch<{ user: Me }>('/api/me', form);
+      const r = await api.patch<{ user: Me }>('/api/me', { ...form, phone: form.phone.trim() || undefined });
       onSaved(r.user);
       setMsg({ ok: true, text: 'تم حفظ التغييرات' });
     } catch (err) {
-      setErrors(fieldErrors(err));
+      const fe = fieldErrors(err);
+      if (fe.phone) fe.phone = PHONE_HINT;
+      setErrors(fe);
       setMsg({ ok: false, text: errorText(err) });
     } finally {
       setBusy(false);
@@ -204,6 +207,10 @@ function Settings({ user, onSaved, onLogout }: { user: Me; onSaved: (u: Me) => v
         <label className="field"><span>البريد الإلكتروني</span>
           <input className="pb-input" dir="ltr" type="email" value={form.email} aria-invalid={!!errors.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
           {errors.email && <span className="field-error">{errors.email}</span>}
+        </label>
+        <label className="field"><span>رقم الهاتف</span>
+          <input className="pb-input" dir="ltr" type="tel" autoComplete="tel" placeholder="06XXXXXXXX" value={form.phone} aria-invalid={!!errors.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+          <span className={errors.phone ? 'field-error' : 'hint'}>{errors.phone ?? 'رقم مغربي يبدأ بـ 06 أو 07 أو 08'}</span>
         </label>
         <div className="field"><span>لون الصورة الرمزية</span>
           <div style={{ display: 'flex', gap: 10 }}>

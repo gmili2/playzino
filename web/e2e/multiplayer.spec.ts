@@ -7,6 +7,7 @@ async function register(page: Page, name: string) {
   await page.goto('/register');
   await page.locator('input[name=email]').fill(`${name}@e2e.local`);
   await page.locator('input[name=username]').fill(name);
+  await page.locator('input[name=phone]').fill('06' + String(Math.floor(Math.random() * 1e8)).padStart(8, '0'));
   await page.locator('input[name=password]').fill('motdepasse-123');
   await page.locator('input[name=confirm]').fill('motdepasse-123');
   await page.getByRole('button', { name: 'إنشاء الحساب' }).click();

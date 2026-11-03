@@ -27,6 +27,7 @@ export async function getMe(userId: string) {
     id: u.id,
     email: u.email,
     username: u.username,
+    phone: u.phone,
     role: u.role,
     createdAt: u.createdAt,
     balance: u.wallet.balance,
@@ -46,6 +47,7 @@ export async function getMe(userId: string) {
 export interface ProfileUpdate {
   username?: string;
   email?: string;
+  phone?: string;
   bio?: string | null;
   avatarColor?: string;
   soundEnabled?: boolean;
@@ -54,20 +56,22 @@ export interface ProfileUpdate {
 }
 
 export async function updateProfile(userId: string, data: ProfileUpdate, ip?: string) {
-  const { username, email, ...profile } = data;
-  if (username || email) {
+  const { username, email, phone, ...profile } = data;
+  if (username || email || phone) {
     const clash = await prisma.user.findFirst({
-      where: { id: { not: userId }, OR: [...(email ? [{ email }] : []), ...(username ? [{ username }] : [])] },
-      select: { email: true }
+      where: { id: { not: userId }, OR: [...(email ? [{ email }] : []), ...(username ? [{ username }] : []), ...(phone ? [{ phone }] : [])] },
+      select: { email: true, phone: true }
     });
     if (clash) {
-      throw clash.email === email
+      throw email && clash.email === email
         ? conflict('EMAIL_TAKEN', 'Cette adresse e-mail est déjà utilisée')
-        : conflict('USERNAME_TAKEN', 'Ce nom d’utilisateur est déjà pris');
+        : phone && clash.phone === phone
+          ? conflict('PHONE_TAKEN', 'Ce numéro de téléphone est déjà utilisé')
+          : conflict('USERNAME_TAKEN', 'Ce nom d’utilisateur est déjà pris');
     }
   }
   await prisma.$transaction(async (tx) => {
-    if (username || email) await tx.user.update({ where: { id: userId }, data: { username, email } });
+    if (username || email || phone) await tx.user.update({ where: { id: userId }, data: { username, email, phone } });
     if (Object.keys(profile).length) await tx.profile.update({ where: { userId }, data: profile });
     await audit({ actorId: userId, action: 'user.update_profile', targetType: 'user', targetId: userId, details: { fields: Object.keys(data) }, ip }, tx);
   });

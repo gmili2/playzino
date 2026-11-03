@@ -9,13 +9,13 @@ import { fmt, fmtDate, GAME_LABEL, signed, TX_LABEL } from '../lib/format';
 import { BanksAdmin, DepositsAdmin, WithdrawalsAdmin } from './AdminPayments';
 
 interface Overview { users: number; newUsersWeek: number; online: number; gamesToday: number; activeGames: number; creditsInCirculation: number; suspended: number; privateOpen: number; abandonsToday: number; pendingDeposits: number; pendingWithdrawals: number }
-interface AdminUser { id: string; username: string; email: string; role: string; status: 'ACTIVE' | 'SUSPENDED'; suspendedReason: string | null; balance: number; level: number; avatarColor: string; games: number; createdAt: string }
+interface AdminUser { id: string; username: string; email: string; phone: string | null; role: string; status: 'ACTIVE' | 'SUSPENDED'; suspendedReason: string | null; balance: number; level: number; avatarColor: string; games: number; createdAt: string }
 interface AdminGame { id: string; room: { name: string; code: string; stake: number; gameType?: string }; status: string; endReason: string | null; players: { username: string; color: string; result: string | null }[]; winner: string | null; moves: number; startedAt: string; endedAt: string | null }
 interface AdminTx { id: string; type: string; amount: number; reason: string; username: string; actor: string | null; createdAt: string }
 interface Audit { id: string; action: string; actor: string | null; targetType: string; targetId: string | null; details: Record<string, unknown> | null; createdAt: string }
 
 const ACTION_LABEL: Record<string, string> = {
-  'admin.user_suspend': 'إيقاف حساب', 'admin.user_reactivate': 'إعادة تفعيل', 'admin.credit_adjust': 'تعديل رصيد', 'admin.game_abort_request': 'إلغاء مباراة', 'admin.bot_level': 'مستوى الروبوت', 'admin.wheel': 'تعديل عجلة الحظ', 'admin.wheel_paid': 'إعدادات الدورات المدفوعة',
+  'admin.user_suspend': 'إيقاف حساب', 'admin.user_reactivate': 'إعادة تفعيل', 'admin.credit_adjust': 'تعديل رصيد', 'admin.game_abort_request': 'إلغاء مباراة', 'admin.bot_level': 'مستوى الروبوت', 'admin.wheel': 'تعديل عجلة الحظ', 'admin.wheel_paid': 'إعدادات الدورات المدفوعة', 'task.claim': 'مكافأة مهمة اليوم',
   'admin.deposit_approve': 'قبول إيداع', 'admin.deposit_reject': 'رفض إيداع', 'admin.withdrawal_paid': 'تنفيذ سحب', 'admin.withdrawal_reject': 'رفض سحب', 'admin.bank_create': 'إضافة حساب بنكي', 'admin.bank_update': 'تعديل حساب بنكي',
   'payment.deposit_request': 'طلب إيداع', 'payment.withdrawal_request': 'طلب سحب',
   'game.finish': 'نهاية مباراة', 'game.abort': 'إلغاء مباراة', 'auth.register': 'تسجيل', 'auth.login': 'دخول', 'auth.login_failed': 'دخول فاشل', 'auth.logout': 'خروج',
@@ -311,6 +311,7 @@ export function AdminPage() {
                   <span style={{ display: 'flex', flexDirection: 'column' }}>
                     <span style={{ fontWeight: 800 }}>{u.username} {u.role === 'ADMIN' && <span style={{ fontSize: 11, color: '#FFC83D' }}>· مسؤول</span>}</span>
                     <span dir="ltr" style={{ fontSize: 12, color: '#A9A3B5', textAlign: 'end' }}>{u.email}</span>
+                    <span dir="ltr" style={{ fontSize: 13, fontWeight: 700, color: u.phone ? '#FFD866' : '#6F6880', textAlign: 'end' }}>{u.phone ? <a href={`tel:${u.phone}`} style={{ color: 'inherit' }}>{u.phone}</a> : 'بدون هاتف'}</span>
                   </span>
                 </span>
               </td>
@@ -360,7 +361,7 @@ export function AdminPage() {
   const search = (
     <label style={{ position: 'relative', width: 'min(280px, 100%)' }}>
       <span style={{ position: 'absolute', insetInlineStart: 14, top: '50%', transform: 'translateY(-50%)', color: '#8C8698', display: 'flex' }}><IconSearch size={16} /></span>
-      <input className="pb-input" placeholder="ابحث بالاسم أو البريد…" value={q} onChange={(e) => setQ(e.target.value)} style={{ height: 42, paddingInlineStart: 40 }} />
+      <input className="pb-input" placeholder="ابحث بالاسم أو البريد أو الهاتف…" value={q} onChange={(e) => setQ(e.target.value)} style={{ height: 42, paddingInlineStart: 40 }} />
     </label>
   );
 
@@ -525,11 +526,12 @@ export function AdminPage() {
   );
 }
 
-const BOT_LEVEL_LABEL: Record<string, string> = { LOW: 'سهل', MEDIUM: 'متوسط', HIGH: 'صعب' };
+const BOT_LEVEL_LABEL: Record<string, string> = { LOW: 'سهل', MEDIUM: 'متوسط', HIGH: 'صعب', EXPERT: 'خبير' };
 const BOT_LEVEL_HINT: Record<string, string> = {
   LOW: 'يلعب حركة عشوائية: مناسب للمبتدئين.',
   MEDIUM: 'يُدخل البيادق ويأسر ويتقدّم، دون حساب الخطر.',
-  HIGH: 'يحتمي في الخانات الآمنة ويتجنّب الوقوف أمام الخصم.'
+  HIGH: 'يحتمي في الخانات الآمنة ويتجنّب الوقوف أمام الخصم.',
+  EXPERT: 'يحسب كل حركة ورد الخصم المحتمل على كل رمية نرد: الأصعب.'
 };
 
 /** Niveau de jeu des robots d'entraînement, appliqué dès leur prochain coup. */
@@ -562,7 +564,7 @@ function BotLevelControl({ onDone }: { onDone: () => void }) {
     <section className="panel" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       <h2 className="panel-title"><IconActivity size={22} style={{ color: '#22D3EE' }} />مستوى الروبوت</h2>
       <div className="seg" data-testid="bot-level">
-        {['LOW', 'MEDIUM', 'HIGH'].map((k) => (
+        {['LOW', 'MEDIUM', 'HIGH', 'EXPERT'].map((k) => (
           <button key={k} type="button" aria-pressed={level === k} disabled={busy || !level} onClick={() => choose(k)}>{BOT_LEVEL_LABEL[k]}</button>
         ))}
       </div>
@@ -614,7 +616,7 @@ function CreditControl({ users, onDone }: { users: AdminUser[]; onDone: () => Pr
       <label className="field"><span>اختر المستخدم</span>
         <select className="pb-input" value={userId} onChange={(e) => setUserId(e.target.value)} data-testid="credit-user">
           <option value="">—</option>
-          {users.map((u) => <option key={u.id} value={u.id}>{u.username} — {fmt(u.balance)}</option>)}
+          {users.map((u) => <option key={u.id} value={u.id}>{u.username} — {u.phone ?? 'بدون هاتف'} — {fmt(u.balance)}</option>)}
         </select>
       </label>
       {selected && (

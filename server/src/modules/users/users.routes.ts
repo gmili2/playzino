@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { setSessionCookie, signSession } from '../../lib/session.js';
 import { parse } from '../../lib/validate.js';
 import { requireAuth } from '../../middleware/auth.js';
-import { emailSchema, passwordSchema, usernameSchema } from '../auth/auth.schemas.js';
+import { emailSchema, passwordSchema, phoneSchema, usernameSchema } from '../auth/auth.schemas.js';
 import { changePassword, gameHistory, getMe, updateProfile } from './users.service.js';
 
 export const meRouter = Router();
@@ -17,6 +17,7 @@ const updateSchema = z
   .object({
     username: usernameSchema.optional(),
     email: emailSchema.optional(),
+    phone: phoneSchema.optional(),
     bio: z.string().trim().max(280).nullable().optional(),
     avatarColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional(),
     soundEnabled: z.boolean().optional(),

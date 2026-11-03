@@ -1,6 +1,6 @@
 import { afterAll, describe, expect, it } from 'vitest';
 import { prisma } from '../lib/prisma.js';
-import { client, registered, uniq } from './helpers.js';
+import { client, phone, registered, uniq } from './helpers.js';
 
 afterAll(() => prisma.$disconnect());
 
@@ -8,7 +8,8 @@ describe('authentification', () => {
   it('inscription : 201, cookie httpOnly, solde à 0 et mot de passe haché', async () => {
     const c = client();
     const name = 'u' + uniq();
-    const res = await c.post('/api/auth/register', { email: `${name}@Test.local`, username: name, password: 'motdepasse-123' });
+    const tel = phone();
+    const res = await c.post('/api/auth/register', { email: `${name}@Test.local`, username: name, phone: `+212 ${tel.slice(1, 4)}-${tel.slice(4)}`, password: 'motdepasse-123' });
     expect(res.status).toBe(201);
     expect(res.body.user.balance).toBe(0);
     expect(res.body.user.role).toBe('USER');
@@ -18,20 +19,41 @@ describe('authentification', () => {
     expect(cookie).toMatch(/HttpOnly/i);
     const db = await prisma.user.findUniqueOrThrow({ where: { username: name } });
     expect(db.email).toBe(`${name}@test.local`);
+    expect(db.phone).toBe(tel); // +212 converti au format 06…
+    expect(res.body.user.phone).toBe(tel);
     expect(db.passwordHash).toMatch(/^\$2[aby]\$12\$/);
     expect(db.passwordHash).not.toContain('motdepasse');
     const txs = await prisma.walletTransaction.findMany({ where: { wallet: { userId: db.id } } });
     expect(txs).toHaveLength(0);
   });
 
-  it('refuse les doublons d’e-mail et de nom', async () => {
+  it('refuse les doublons d’e-mail, de nom et de téléphone', async () => {
     const a = await registered();
     const c = client();
-    const r1 = await c.post('/api/auth/register', { email: `${a.user.username}@test.local`, username: 'x' + uniq(), password: 'motdepasse-123' });
+    const r1 = await c.post('/api/auth/register', { email: `${a.user.username}@test.local`, username: 'x' + uniq(), phone: phone(), password: 'motdepasse-123' });
     expect(r1.status).toBe(409);
     expect(r1.body.error.code).toBe('EMAIL_TAKEN');
-    const r2 = await c.post('/api/auth/register', { email: `${uniq()}@test.local`, username: a.user.username, password: 'motdepasse-123' });
+    const r2 = await c.post('/api/auth/register', { email: `${uniq()}@test.local`, username: a.user.username, phone: phone(), password: 'motdepasse-123' });
     expect(r2.body.error.code).toBe('USERNAME_TAKEN');
+    const used = (await prisma.user.findUniqueOrThrow({ where: { id: a.user.id } })).phone!;
+    const r3 = await c.post('/api/auth/register', { email: `${uniq()}@test.local`, username: 'x' + uniq(), phone: used, password: 'motdepasse-123' });
+    expect(r3.body.error.code).toBe('PHONE_TAKEN');
+  });
+
+  it('téléphone obligatoire, mobile marocain ; ajout ou changement depuis le profil', async () => {
+    const base = { email: `${uniq()}@test.local`, username: 'x' + uniq(), password: 'motdepasse-123' };
+    for (const bad of [undefined, '0512345678', '0612345', '+33612345678']) {
+      const r = await client().post('/api/auth/register', { ...base, phone: bad });
+      expect(r.status).toBe(400);
+      expect(Object.keys(r.body.error.details)).toContain('phone');
+    }
+    const a = await registered();
+    const tel = phone();
+    const r = await a.patch('/api/me', { phone: tel.replace(/(\d{2})(?=\d)/g, '$1 ') });
+    expect(r.status).toBe(200);
+    expect(r.body.user.phone).toBe(tel);
+    const b = await registered();
+    expect((await b.patch('/api/me', { phone: tel })).body.error.code).toBe('PHONE_TAKEN');
   });
 
   it('valide les champs', async () => {
