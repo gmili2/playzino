@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { Page } from '../components/AppShell';
+import { WalletCard } from '../components/WalletCard';
 import { IconArrowDown, IconArrowUp, IconBank, IconCopy, IconList, IconUpload } from '../components/Icons';
-import { Coin, Empty, Loading } from '../components/ui';
+import { Empty, Loading } from '../components/ui';
 import { api, errorText, fieldErrors } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { fmt, fmtDate, fmtRib } from '../lib/format';
@@ -85,13 +86,7 @@ export function CashierPage() {
             <h1 style={{ fontWeight: 900, fontSize: 28 }}>الإيداع والسحب</h1>
             <span className="hint" style={{ fontSize: 14 }}>بالتحويل البنكي أو تحويل الأموال · 1 درهم = 1 عملة · كل عملية تراجعها الإدارة</span>
           </span>
-          <span style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 18px', borderRadius: 18, background: '#110E17', border: '1px solid rgba(255,200,61,0.35)' }}>
-            <Coin size={34} />
-            <span style={{ display: 'flex', flexDirection: 'column' }}>
-              <span style={{ fontSize: 13, color: '#B8B2C4' }}>رصيدي</span>
-              <b dir="ltr" data-testid="cashier-balance" style={{ fontSize: 24, color: '#FFC83D' }}>{fmt(user.balance)}</b>
-            </span>
-          </span>
+          <span style={{ flex: '1 1 300px', maxWidth: 460 }}><WalletCard userId={user.id} balance={user.balance} /></span>
         </section>
 
         <div role="tablist" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>

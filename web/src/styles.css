@@ -574,3 +574,12 @@ footer{border-top-color:var(--royal-line)!important;background:linear-gradient(1
 .ch-incoming{animation:ch-pop .35s cubic-bezier(.2,1.4,.4,1)}
 @keyframes ch-pop{from{transform:scale(.8);opacity:0}to{transform:scale(1);opacity:1}}
 @media (prefers-reduced-motion:reduce){.ch-incoming{animation:none}}
+
+/* Carte « رصيدك الحالي » : image dorée + solde et numéro de compte placés sur ses cases (positions en % de l'image). */
+.wallet-card{position:relative;width:100%;max-width:560px;container-type:inline-size;direction:ltr;border-radius:4.5cqw;overflow:hidden;box-shadow:0 18px 40px rgba(242,178,50,.18)}
+.wallet-card img{display:block;width:100%;height:auto}
+.wallet-card-balance{position:absolute;left:51%;top:24.5%;width:33%;height:26%;display:flex;align-items:center;justify-content:center;font:900 8.5cqw/1 Cairo,system-ui,sans-serif;color:#2B1A00;font-variant-numeric:tabular-nums;white-space:nowrap}
+.wallet-card-account{position:absolute;left:49.5%;top:80%;width:43%;height:14.3%;display:flex;align-items:center;justify-content:center;font:800 4.6cqw/1 ui-monospace,Menlo,monospace;letter-spacing:.12em;color:#3A2400}
+.wallet-card-copy{position:absolute;left:7%;top:74.5%;width:9%;height:16%;border:0;border-radius:2cqw;background:transparent;cursor:pointer}
+.wallet-card-copy:hover,.wallet-card-copy:focus-visible{background:rgba(255,216,102,.18);outline:2px solid #FFD866}
+.wallet-card-copied{position:absolute;left:17%;top:76%;padding:.6cqw 1.6cqw;border-radius:2cqw;background:#2B1A00;color:#FFD866;font:800 3cqw/1.4 Cairo,system-ui,sans-serif}

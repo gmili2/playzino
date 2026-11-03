@@ -1,8 +1,9 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Page } from '../components/AppShell';
+import { WalletCard } from '../components/WalletCard';
 import { IconCrown } from '../components/Icons';
-import { Avatar, Coin, Empty } from '../components/ui';
+import { Avatar, Empty } from '../components/ui';
 import { api, errorText, fieldErrors } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { COLOR_HEX, COLOR_NAME, fmt, fmtDate, fmtMonth, signed, TX_LABEL, GAME_LABEL } from '../lib/format';
@@ -77,13 +78,9 @@ export function ProfilePage() {
             <div style={{ width: '100%', height: 10, borderRadius: 5, background: '#110E17', overflow: 'hidden' }}>
               <div style={{ width: pct + '%', height: '100%', marginInlineStart: 0, background: 'linear-gradient(90deg,#8B5CF6,#B9A8FF)' }} />
             </div>
-            <div style={{ width: '100%', marginTop: 8, padding: 16, borderRadius: 18, background: '#110E17', border: '1px solid rgba(255,200,61,0.35)', display: 'flex', alignItems: 'center', gap: 14 }}>
-              <Coin size={40} />
-              <span style={{ display: 'flex', flexDirection: 'column', textAlign: 'start' }}>
-                <span style={{ fontSize: 13, color: '#B8B2C4' }}>رصيدي</span>
-                <span dir="ltr" data-testid="profile-balance" style={{ fontWeight: 900, fontSize: 26, color: '#FFC83D' }}>{fmt(user.balance)}</span>
-                <Link to="/cashier" style={{ fontSize: 12, color: '#FFC83D' }}>إيداع · سحب</Link>
-              </span>
+            <div style={{ width: '100%', marginTop: 8, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+              <WalletCard userId={user.id} balance={user.balance} />
+              <Link to="/cashier" style={{ fontSize: 13, fontWeight: 800, color: '#FFC83D' }}>إيداع · سحب</Link>
             </div>
           </section>
           <Settings user={user} onSaved={setUser} onLogout={async () => { await logout(); nav('/'); }} />

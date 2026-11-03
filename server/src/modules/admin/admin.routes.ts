@@ -52,7 +52,7 @@ adminRouter.get('/overview', async (_req, res) => {
 adminRouter.get('/users', async (req, res) => {
   const q = parse(z.object({ q: z.string().trim().max(100).optional(), take: z.coerce.number().int().min(1).max(100).default(50) }), req.query);
   const users = await prisma.user.findMany({
-    where: { isBot: false, ...(q.q ? { OR: [{ username: { contains: q.q } }, { email: { contains: q.q } }, { phone: { contains: q.q.replace(/[\s.\-]/g, '') } }] } : {}) },
+    where: { isBot: false, ...(q.q ? { OR: [{ username: { contains: q.q } }, { email: { contains: q.q } }, { phone: { contains: q.q.replace(/[\s.\-]/g, '') } }, ...(q.q.length >= 6 ? [{ id: { endsWith: q.q.toLowerCase() } }] : [])] } : {}) },
     orderBy: { createdAt: 'desc' },
     take: q.take,
     include: { wallet: { select: { balance: true } }, profile: { select: { xp: true, avatarColor: true } }, _count: { select: { gameSeats: true } } }

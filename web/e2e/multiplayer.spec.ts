@@ -106,7 +106,7 @@ test('deux navigateurs : table privée, synchronisation temps réel, abandon et 
 
   // Historique et portefeuille côté profil.
   await b.goto('/profile');
-  await expect(b.getByTestId('profile-balance')).toHaveText('1,100');
+  await expect(b.getByTestId('wallet-balance')).toHaveText('1,100');
   await expect(b.getByTestId('history')).toContainText('Table E2E');
   await b.getByRole('tab', { name: 'سجل المحفظة' }).click();
   await expect(b.getByTestId('transactions')).toContainText('فوز في مباراة');

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNod
 import { Link, useNavigate } from 'react-router-dom';
 import { IconActivity, IconArrowDown, IconArrowUp, IconBank, IconChevron, IconClock, IconCoins, IconCrown, IconDice, IconHome, IconList, IconLock, IconLogout, IconMenu, IconPlus, IconRobot, IconSearch, IconSettings, IconShield, IconUsers, IconWheel } from '../components/Icons';
 import { Wheel } from '../components/Wheel';
+import { accountNo } from '../components/WalletCard';
 import { Avatar, Coin, Empty, StatusChip } from '../components/ui';
 import { api, errorText } from '../lib/api';
 import { useAuth } from '../lib/auth';
@@ -311,6 +312,7 @@ export function AdminPage() {
                   <span style={{ display: 'flex', flexDirection: 'column' }}>
                     <span style={{ fontWeight: 800 }}>{u.username} {u.role === 'ADMIN' && <span style={{ fontSize: 11, color: '#FFC83D' }}>· مسؤول</span>}</span>
                     <span dir="ltr" style={{ fontSize: 12, color: '#A9A3B5', textAlign: 'end' }}>{u.email}</span>
+                    <span dir="ltr" style={{ fontSize: 12, color: '#A9A3B5', textAlign: 'end', fontFamily: 'ui-monospace, Menlo, monospace' }}>#{accountNo(u.id)}</span>
                     <span dir="ltr" style={{ fontSize: 13, fontWeight: 700, color: u.phone ? '#FFD866' : '#6F6880', textAlign: 'end' }}>{u.phone ? <a href={`tel:${u.phone}`} style={{ color: 'inherit' }}>{u.phone}</a> : 'بدون هاتف'}</span>
                   </span>
                 </span>
@@ -361,7 +363,7 @@ export function AdminPage() {
   const search = (
     <label style={{ position: 'relative', width: 'min(280px, 100%)' }}>
       <span style={{ position: 'absolute', insetInlineStart: 14, top: '50%', transform: 'translateY(-50%)', color: '#8C8698', display: 'flex' }}><IconSearch size={16} /></span>
-      <input className="pb-input" placeholder="ابحث بالاسم أو البريد أو الهاتف…" value={q} onChange={(e) => setQ(e.target.value)} style={{ height: 42, paddingInlineStart: 40 }} />
+      <input className="pb-input" placeholder="ابحث بالاسم أو البريد أو الهاتف أو رقم الحساب…" value={q} onChange={(e) => setQ(e.target.value)} style={{ height: 42, paddingInlineStart: 40 }} />
     </label>
   );
 
