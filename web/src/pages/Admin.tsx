@@ -147,7 +147,7 @@ function WheelControl() {
               {segs.map((s, i) => (
                 <tr key={i}>
                   <td>{i + 1}</td>
-                  <td><input className="pb-input" type="number" min={1} max={100000} dir="ltr" value={s.amount} onChange={(e) => setSeg(i, 'amount', Math.max(1, Math.min(100000, Math.round(Number(e.target.value) || 1))))} style={{ height: 40, width: 120 }} /></td>
+                  <td><input className="pb-input" type="number" min={0} max={100000} dir="ltr" value={s.amount} onChange={(e) => setSeg(i, 'amount', Math.max(0, Math.min(100000, Math.round(Number(e.target.value) || 0))))} style={{ height: 40, width: 120 }} /></td>
                   <td><input className="pb-input" type="number" min={0} max={1000} dir="ltr" value={s.weight} onChange={(e) => setSeg(i, 'weight', Math.max(0, Math.min(1000, Math.round(Number(e.target.value) || 0))))} style={{ height: 40, width: 100 }} /></td>
                   <td dir="ltr" style={{ fontWeight: 800, color: '#FFD866', textAlign: 'end' }}>{total ? ((s.weight / total) * 100).toFixed(1) : '0'}%</td>
                   <td><button type="button" className="pb-btn pb-danger pb-sm" disabled={segs.length <= 4} onClick={() => setSegs(segs.filter((_, j) => j !== i))}>حذف</button></td>

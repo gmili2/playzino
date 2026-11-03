@@ -8,40 +8,37 @@ afterAll(() => prisma.$disconnect());
 const balanceOf = async (userId: string) => (await prisma.wallet.findUniqueOrThrow({ where: { userId } })).balance;
 
 describe('roue de la fortune', () => {
-  it('un seul tour par jour, gain crédité et visible dans l’état', async () => {
+  it('plus de tour gratuit : seule la roue payante existe', async () => {
     const a = await registered(undefined, 0);
     const s0 = await a.get('/api/wheel');
     expect(s0.status).toBe(200);
-    expect(s0.body.spunToday).toBe(false);
     expect(s0.body.segments.length).toBeGreaterThanOrEqual(4);
-
-    const r1 = await a.post('/api/wheel/spin');
-    expect(r1.status).toBe(201);
-    expect(r1.body.amount).toBe(s0.body.segments[r1.body.index]);
-    expect(r1.body.balance).toBe(r1.body.amount);
-    expect(await balanceOf(a.user.id)).toBe(r1.body.amount);
-
-    const r2 = await a.post('/api/wheel/spin');
-    expect(r2.status).toBe(409);
-    expect(r2.body.error.code).toBe('ALREADY_SPUN');
-    expect(await balanceOf(a.user.id)).toBe(r1.body.amount);
-
-    const s1 = await a.get('/api/wheel');
-    expect(s1.body).toMatchObject({ spunToday: true, todayAmount: r1.body.amount });
-    expect(new Date(s1.body.nextSpinAt).getTime()).toBeGreaterThan(Date.now());
-  });
-
-  it('tours simultanés : un seul est crédité', async () => {
-    const a = await registered(undefined, 0);
-    const res = await Promise.all(Array.from({ length: 6 }, () => a.post('/api/wheel/spin')));
-    expect(res.filter((r) => r.status === 201)).toHaveLength(1);
-    expect(res.filter((r) => r.status === 409)).toHaveLength(5);
-    expect(await prisma.walletTransaction.count({ where: { wallet: { userId: a.user.id } } })).toBe(1);
+    expect(s0.body).not.toHaveProperty('spunToday');
+    expect((await a.post('/api/wheel/spin')).status).toBe(404);
+    expect(await balanceOf(a.user.id)).toBe(0);
   });
 
   it('tirage pondéré : une case de poids 0 ne sort jamais', () => {
     const segs = [{ amount: 1, weight: 0 }, { amount: 2, weight: 1 }, { amount: 3, weight: 0 }, { amount: 4, weight: 1 }];
     for (let i = 0; i < 200; i++) expect([1, 3]).toContain(pickSegment(segs));
+  });
+
+  it('case « 0 » : tour payant joué sans gain', async () => {
+    const admin = await registered();
+    await makeAdmin(admin.user.id);
+    const put = (url: string, body: object) => admin.agent.put(url).set({ 'X-Requested-With': 'parcheesi' }).send(body);
+    try {
+      expect((await put('/api/admin/settings/wheel', { segments: [{ amount: 0, weight: 1 }, { amount: 5, weight: 0 }, { amount: 6, weight: 0 }, { amount: 7, weight: 0 }] })).status).toBe(200);
+      expect((await put('/api/admin/settings/wheel-paid', { basePrice: 10, step: 0, maxSpins: 2 })).status).toBe(200);
+      const a = await registered(undefined, 100);
+      const r = await a.post('/api/wheel/paid-spin');
+      expect(r.status).toBe(201);
+      expect(r.body).toMatchObject({ index: 0, amount: 0, price: 10, balance: 90 });
+      expect(await balanceOf(a.user.id)).toBe(90);
+    } finally {
+      await put('/api/admin/settings/wheel', { segments: DEFAULT_WHEEL });
+      await put('/api/admin/settings/wheel-paid', DEFAULT_PAID);
+    }
   });
 
   it('jour du Maroc et prochain minuit', () => {
@@ -103,8 +100,6 @@ describe('tours payants', () => {
       expect(over.status).toBe(409);
       expect(over.body.error.code).toBe('PAID_LIMIT');
       expect((await a.get('/api/wheel')).body.paid).toMatchObject({ spinsToday: 3, price: null });
-      // Le tour gratuit du jour reste disponible.
-      expect((await a.post('/api/wheel/spin')).status).toBe(201);
     } finally {
       await put(admin, '/api/admin/settings/wheel-paid', DEFAULT_PAID);
     }

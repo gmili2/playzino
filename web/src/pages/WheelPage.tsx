@@ -9,7 +9,7 @@ import { fmt } from '../lib/format';
 import { sfx } from '../lib/sounds';
 
 interface PaidState { enabled: boolean; spinsToday: number; maxSpins: number; price: number | null; step: number }
-interface WheelState { segments: number[]; spunToday: boolean; todayIndex: number | null; todayAmount: number | null; nextSpinAt: string; paid: PaidState }
+interface WheelState { segments: number[]; paid: PaidState }
 
 const SPIN_MS = 5200;
 
@@ -53,17 +53,6 @@ function tickWhileSpinning(from: number, to: number, segments: number) {
   return () => { cancelAnimationFrame(frame); timers.forEach(clearTimeout); };
 }
 
-function useCountdown(to: string | undefined) {
-  const [now, setNow] = useState(Date.now());
-  useEffect(() => {
-    const t = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(t);
-  }, []);
-  if (!to) return '';
-  const s = Math.max(0, Math.round((new Date(to).getTime() - now) / 1000));
-  return [Math.floor(s / 3600), Math.floor((s % 3600) / 60), s % 60].map((v) => String(v).padStart(2, '0')).join(':');
-}
-
 export function WheelPage() {
   const { user, refresh } = useAuth();
   const [state, setState] = useState<WheelState | null>(null);
@@ -74,14 +63,10 @@ export function WheelPage() {
   const timer = useRef<ReturnType<typeof setTimeout>>();
   const stopTicks = useRef<() => void>(() => {});
   const soundOn = user?.profile.soundEnabled ?? true;
-  const countdown = useCountdown(state?.spunToday ? state.nextSpinAt : undefined);
 
   useEffect(() => {
     if (!user) return;
-    api.get<WheelState>('/api/wheel').then((s) => {
-      setState(s);
-      if (s.todayIndex !== null) setRotation(restAngle(s.todayIndex, s.segments.length));
-    }, (e) => setError(errorText(e)));
+    api.get<WheelState>('/api/wheel').then(setState, (e) => setError(errorText(e)));
     return () => { clearTimeout(timer.current); stopTicks.current(); };
   }, [user?.id]);
 
@@ -100,22 +85,6 @@ export function WheelPage() {
       done();
       await refresh();
     }, SPIN_MS);
-  };
-
-  const spin = async () => {
-    if (!state || spinning) return;
-    setError('');
-    setSpinning(true);
-    try {
-      const r = await api.post<{ index: number; amount: number; balance: number; nextSpinAt: string }>('/api/wheel/spin');
-      animate(r.index, () => {
-        setWon({ amount: r.amount });
-        setState((s) => s && { ...s, spunToday: true, todayIndex: r.index, todayAmount: r.amount, nextSpinAt: r.nextSpinAt });
-      });
-    } catch (e) {
-      setSpinning(false);
-      setError(errorText(e));
-    }
   };
 
   const paidSpin = async () => {
@@ -155,7 +124,7 @@ export function WheelPage() {
     <Page width={1100}>
       <section className="panel" style={{ position: 'relative', overflow: 'hidden', padding: '28px 20px 32px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 18, textAlign: 'center', background: 'radial-gradient(600px 360px at 50% 0%, rgba(139,92,246,0.35), transparent 70%), linear-gradient(180deg,#221A33,#15111D)' }}>
         <h1 style={{ fontWeight: 900, fontSize: 'clamp(34px, 6vw, 54px)', lineHeight: 1.1, background: 'linear-gradient(180deg,#FFE9A8,#F2B232)', WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent' }}>عجلة الحظ</h1>
-        <p style={{ margin: 0, fontSize: 18, fontWeight: 700, color: '#EFEAF5' }}>دورة مجانية كل يوم · اربح عملات لتلعب بها!</p>
+        <p style={{ margin: 0, fontSize: 18, fontWeight: 700, color: '#EFEAF5' }}>أدر العجلة واربح عملات لتلعب بها!</p>
 
         {!user ? (
           <>
@@ -166,36 +135,20 @@ export function WheelPage() {
           error ? <div role="alert" className="alert alert-error">{error}</div> : <Loading />
         ) : (
           <>
-            <Wheel segments={state.segments} rotation={rotation} label={state.todayAmount !== null ? `نتيجة اليوم: ${state.todayAmount} عملة` : 'عجلة الحظ'} />
-            {state.spunToday ? (
-              <>
-                {paidButton}
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-                  <span style={{ color: '#DAD5E2' }}>ربحت في الدورة المجانية اليوم <b style={{ color: '#FFD866' }}>{fmt(state.todayAmount ?? 0)}</b> عملة. الدورة المجانية القادمة بعد</span>
-                  <span dir="ltr" data-testid="wheel-countdown" style={{ fontWeight: 900, fontSize: 30, letterSpacing: '.06em', color: '#FFD866' }}>{countdown}</span>
-                  {!paid?.enabled && <Link to="/" className="pb-btn pb-gold" style={{ marginTop: 8 }}>العب الآن</Link>}
-                </div>
-              </>
-            ) : (
-              <>
-                <button type="button" className="pb-btn pb-gold pb-lg" style={{ minWidth: 240, height: 62, fontSize: 20 }} onClick={spin} disabled={spinning} data-testid="wheel-spin">
-                  {spinning ? 'العجلة تدور…' : 'أدر العجلة مجانًا'}
-                </button>
-                {paidButton}
-              </>
-            )}
+            <Wheel segments={state.segments} rotation={rotation} label="عجلة الحظ" />
+            {paidButton || <span className="hint" style={{ fontSize: 15 }}>العجلة غير متاحة حاليًا.</span>}
             {error && <div role="alert" className="alert alert-error">{error}</div>}
           </>
         )}
-        <p className="hint" style={{ maxWidth: 520, margin: 0 }}>دورة مجانية واحدة لكل لاعب في اليوم، ثم دورات مدفوعة يرتفع سعرها بعد كل دورة. يعود السعر إلى بدايته كل يوم عند منتصف الليل (بتوقيت المغرب).</p>
+        <p className="hint" style={{ maxWidth: 520, margin: 0 }}>يرتفع سعر الدورة بعد كل دورة، ويعود إلى بدايته كل يوم عند منتصف الليل (بتوقيت المغرب).</p>
       </section>
 
       {won !== null && (
         <div role="dialog" aria-modal="true" aria-labelledby="won-title" onClick={() => setWon(null)} style={{ position: 'fixed', inset: 0, zIndex: 80, background: 'rgba(5,4,10,0.75)', display: 'grid', placeItems: 'center', padding: 20 }}>
           <div className="wh-win panel" onClick={(e) => e.stopPropagation()} style={{ width: 'min(380px, 100%)', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, padding: 30, border: '1px solid rgba(242,178,50,0.5)', background: 'radial-gradient(300px 200px at 50% 0%, rgba(242,178,50,0.3), transparent 70%), #1E1A28' }}>
             <Coin size={64} />
-            <h2 id="won-title" style={{ fontWeight: 900, fontSize: 30 }}>{won.price !== undefined && won.amount < won.price ? 'حظ أوفر!' : 'مبروك!'}</h2>
-            <p style={{ margin: 0, fontSize: 18 }}>ربحت <b dir="ltr" style={{ color: '#FFD866', fontSize: 26 }}>{fmt(won.amount)}</b> عملة</p>
+            <h2 id="won-title" style={{ fontWeight: 900, fontSize: 30 }}>{won.amount === 0 || (won.price !== undefined && won.amount < won.price) ? 'حظ أوفر!' : 'مبروك!'}</h2>
+            <p style={{ margin: 0, fontSize: 18 }}>{won.amount === 0 ? 'لم تربح شيئًا هذه المرة، جرّب حظك مرة أخرى!' : <>ربحت <b dir="ltr" style={{ color: '#FFD866', fontSize: 26 }}>{fmt(won.amount)}</b> عملة</>}</p>
             {won.price !== undefined && <span className="hint" style={{ fontSize: 14 }}>سعر الدورة: <b dir="ltr">{fmt(won.price)}</b> · الصافي: <b dir="ltr" style={{ color: won.amount >= won.price ? '#4ADE80' : '#FB7185' }}>{won.amount - won.price > 0 ? '+' : ''}{fmt(won.amount - won.price)}</b></span>}
             <button type="button" className="pb-btn pb-gold pb-lg" style={{ width: '100%' }} onClick={() => setWon(null)} autoFocus>رائع!</button>
           </div>

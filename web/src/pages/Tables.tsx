@@ -1,6 +1,7 @@
 import { useState, type FormEvent, type ReactNode } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Page } from '../components/AppShell';
+import { STAKES, stakeLabel } from '../components/StakePicker';
 import { IconBolt, IconKey, IconLock, IconRobot, IconSearch } from '../components/Icons';
 import { Credits, Empty, StatusChip } from '../components/ui';
 import { useAuth } from '../lib/auth';
@@ -8,11 +9,9 @@ import { COLOR_HEX, GAME_LABEL } from '../lib/format';
 import { useLobby, useRoomActions } from '../lib/hooks';
 import type { GameType } from '../lib/types';
 
-const STAKES = [0, 50, 100, 250, 500, 1000];
 const TURNS = [15, 30, 60];
 const PLAYERS = [2, 3, 4];
 const playersLabel = (n: number) => (n === 2 ? 'لاعبان' : `${n} لاعبين`);
-const stakeLabel = (s: number) => (s === 0 ? 'مجانية' : String(s));
 
 function Seg<T extends string | number>({ value, options, onChange, label, render }: { value: T; options: T[]; onChange: (v: T) => void; label: string; render?: (v: T) => ReactNode }) {
   return (

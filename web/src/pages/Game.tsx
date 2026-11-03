@@ -2,13 +2,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Board, type BoardPawn, type BoardTarget } from '../components/Board';
 import { C4_COLS, C4_ROWS, Connect4Board } from '../components/Connect4Board';
-import { IconArrowBack, IconCrown, IconLogout, IconMute, IconVolume, IconWifiOff } from '../components/Icons';
+import { IconArrowBack, IconCrown, IconLogout, IconMute, IconSmile, IconVolume, IconWifiOff } from '../components/Icons';
 import { Avatar, Coin, Die, Loading, Spinner } from '../components/ui';
 import { api, ApiError, errorText } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { COLOR_HEX, COLOR_NAME, fmt } from '../lib/format';
 import { useRoomActions } from '../lib/hooks';
-import { sfx, type Sfx } from '../lib/sounds';
+import { diceShake, preloadSfx, sfx, type Sfx } from '../lib/sounds';
+import { STICKER_BY_ID, STICKER_COOLDOWN_MS, STICKERS, type StickerId } from '../lib/stickers';
 import { emitAck, getSocket } from '../lib/socket';
 import type { Color, GameEvent, GameSnapshot, Move, Room } from '../lib/types';
 
@@ -75,11 +76,11 @@ export function GamePage() {
   const [error, setError] = useState('');
   const [connected, setConnected] = useState(getSocket().connected);
   const [rolling, setRolling] = useState(false);
+  /** Incrémenté à chaque lancer reçu (le mien ou celui d'un adversaire) : le dé 3D roule à chaque fois. */
+  const [rollId, setRollId] = useState(0);
   const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [gain, setGain] = useState<number | null>(null);
-  const [botIn, setBotIn] = useState<number | null>(null);
-  const [botBusy, setBotBusy] = useState(false);
   const [log, setLog] = useState<{ text: string; color: string }[]>([]);
   const [quit, setQuit] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -87,6 +88,11 @@ export function GamePage() {
   const [skew, setSkew] = useState(0);
   const lastSeq = useRef(-1);
   const play = useSound(sound);
+  /** Sticker affiché au-dessus de l'avatar de chaque joueur (userId → sticker), effacé après quelques secondes. */
+  const [bubbles, setBubbles] = useState<Record<string, { sticker: StickerId; at: number }>>({});
+  const [picker, setPicker] = useState(false);
+  const [stickerWait, setStickerWait] = useState(false);
+  useEffect(() => { if (sound) preloadSfx(); }, [sound]);
 
   const gameId = room?.gameId ?? null;
   const me = snap?.players.find((p) => p.userId === user?.id) ?? null;
@@ -159,9 +165,10 @@ export function GamePage() {
           : extra ? (extra.color === myColorRef.current ? 'رميت 6: العب مرة أخرى!' : 'الخصم يلعب مجددًا (6)') : null;
         if (t) setToast(t);
         // Mon propre lancer sonne dès le clic ; ceux des adversaires à la réception.
+        if (s.events.some((e) => e.type === 'roll')) setRollId((n) => n + 1);
         if (s.events.some((e) => e.type === 'roll' && e.color !== myColorRef.current)) play('dice');
         const at = s.events.some((e) => e.type === 'roll') ? 450 : 0;
-        const pieceSound: Sfx | null = cap ? 'capture' : home ? 'home' : s.events.some((e) => e.type === 'exit') ? 'exit'
+        const pieceSound: Sfx | null = cap ? (cap.victim === myColorRef.current ? 'captured' : 'capture') : home ? 'home' : s.events.some((e) => e.type === 'exit') ? 'exit'
           : s.events.some((e) => e.type === 'move') ? 'move' : s.events.some((e) => e.type === 'drop') ? 'drop' : null;
         if (pieceSound) setTimeout(() => play(pieceSound), at);
       }
@@ -195,7 +202,6 @@ export function GamePage() {
   // Une table créée pour un ami (avec code) attend son invité sans limite.
   const soloWaiting = room?.status === 'WAITING' && !!room.quickMatch && room.players.length === 1 && room.players[0].userId === user?.id;
   const playBot = useCallback(async () => {
-    setBotBusy(true);
     try {
       const r = await api.post<{ room: Room }>(`/api/rooms/${roomId}/play-bot`);
       await refresh();
@@ -203,22 +209,12 @@ export function GamePage() {
     } catch (e) {
       // Un adversaire est arrivé entre-temps : la partie normale démarre, rien à faire.
       if (!(e instanceof ApiError && ['OPPONENT_FOUND', 'ROOM_NOT_WAITING', 'NOT_QUICK_MATCH'].includes(e.code))) setError(errorText(e));
-      setBotBusy(false);
     }
   }, [roomId, refresh, nav]);
   useEffect(() => {
-    if (!soloWaiting) return setBotIn(null);
-    const until = Date.now() + BOT_WAIT_SECONDS * 1000;
-    setBotIn(BOT_WAIT_SECONDS);
-    const t = setInterval(() => {
-      const left = Math.max(0, Math.ceil((until - Date.now()) / 1000));
-      setBotIn(left);
-      if (left === 0) {
-        clearInterval(t);
-        playBot();
-      }
-    }, 500);
-    return () => clearInterval(t);
+    if (!soloWaiting) return;
+    const t = setTimeout(playBot, BOT_WAIT_SECONDS * 1000);
+    return () => clearTimeout(t);
   }, [soloWaiting, playBot]);
 
   useEffect(() => {
@@ -259,6 +255,40 @@ export function GamePage() {
     };
   }, [gameId, applySnap]);
 
+  // Stickers reçus (les miens aussi : le serveur les renvoie à toute la partie).
+  useEffect(() => {
+    if (!gameId) return;
+    const s = getSocket();
+    const timers = new Set<ReturnType<typeof setTimeout>>();
+    const onSticker = (m: { userId: string; sticker: StickerId; at: number }) => {
+      if (!STICKER_BY_ID[m.sticker]) return;
+      setBubbles((b) => ({ ...b, [m.userId]: { sticker: m.sticker, at: m.at } }));
+      play('sticker');
+      const t = setTimeout(() => {
+        timers.delete(t);
+        setBubbles((b) => (b[m.userId]?.at === m.at ? Object.fromEntries(Object.entries(b).filter(([k]) => k !== m.userId)) : b));
+      }, 2800);
+      timers.add(t);
+    };
+    s.on('game:sticker', onSticker);
+    return () => {
+      s.off('game:sticker', onSticker);
+      timers.forEach(clearTimeout);
+    };
+  }, [gameId, play]);
+
+  const sendSticker = async (sticker: StickerId) => {
+    if (!gameId || stickerWait) return;
+    setPicker(false);
+    setStickerWait(true);
+    setTimeout(() => setStickerWait(false), STICKER_COOLDOWN_MS);
+    try {
+      await emitAck('game:sticker', { gameId, sticker });
+    } catch (e) {
+      setToast(errorText(e));
+    }
+  };
+
   // Quitter l'écran de la partie (retour, accueil, solde…) = absent : après le délai de retour, l'adversaire gagne.
   useEffect(() => {
     if (!gameId) return;
@@ -272,13 +302,17 @@ export function GamePage() {
     if (!gameId || busy) return;
     setBusy(true);
     setRolling(true);
-    play('dice');
+    // Les dés sont secoués pendant l'attente du résultat, puis lancés : le bruit du dé qui roule accompagne sa chute.
+    const stopShake = sound ? diceShake() : () => undefined;
     const started = Date.now();
     try {
       const data = await emitAck<GameSnapshot>('game:roll', gameId);
-      await new Promise((r) => setTimeout(r, Math.max(0, 550 - (Date.now() - started))));
+      await new Promise((r) => setTimeout(r, Math.max(0, 650 - (Date.now() - started))));
+      stopShake();
+      play('dice');
       applySnap(data);
     } catch (e) {
+      stopShake();
       setToast(errorText(e));
     } finally {
       setRolling(false);
@@ -423,20 +457,26 @@ export function GamePage() {
     const won = !!snap && snap.winnerId !== null && snap.players.find((x) => x.userId === snap.winnerId)?.color === st.color;
     const arr = snap?.state.pawns?.[st.color] ?? [-1, -1, -1, -1];
     const tokens = snap?.state.board?.filter((c) => c === st.color).length ?? 0;
+    const b = st.p ? bubbles[st.p.userId] : undefined;
+    const bubble = b ? { at: b.at, s: STICKER_BY_ID[b.sticker] } : null;
     const tag = out ? 'خرج' : st.vacant ? 'في الانتظار…' : waiting ? 'جاهز' : offline ? 'غير متصل' : activeTurn ? (st.isMe ? 'دورك' : 'دوره') : null;
     return (
       <div className={'lg-seat' + (right ? ' right' : '')} data-testid={st.isMe ? 'panel-me' : 'panel-opp'} style={{ opacity: out || st.vacant ? 0.5 : offline ? 0.75 : 1 }}>
         <span className={'lg-av' + (activeTurn ? ' turn' : '')}>
           {(won || activeTurn) && <IconCrown size={24} className="lg-crown" />}
           <Avatar name={st.name} color={st.vacant ? '#3B4A8C' : st.isMe ? hex : st.avatarColor} size={54} style={{ boxShadow: `inset 0 0 0 3px ${hex}` }} />
+          {bubble && (
+            <span key={bubble.at} className={'lg-sticker' + ('emoji' in bubble.s ? ' emoji' : '') + (right ? ' right' : '')} data-testid="sticker-bubble" style={{ borderColor: hex }}>
+              {'emoji' in bubble.s ? bubble.s.emoji : bubble.s.text}
+            </span>
+          )}
         </span>
         <span className="lg-seat-info">
           <span className="lg-seat-name">{st.isMe ? 'أنت' : st.name}</span>
           <span className="lg-seat-sub">
             <span style={{ width: 10, height: 10, borderRadius: '50%', background: hex, boxShadow: '0 0 0 2px rgba(255,255,255,.6)' }} />
             <span dir="ltr" title={c4 ? 'القطع الملعوبة' : 'بيادق في البيت'}>{c4 ? `${tokens}/21` : `${arr.filter((v) => v === 71).length}/4`}</span>
-            {st.isBot && <span className="lg-pill" style={{ background: 'rgba(34,197,94,.3)' }}>روبوت</span>}
-            {!st.isBot && st.level !== null && !st.vacant && <span className="lg-pill pb-hide-sm">المستوى {st.level}</span>}
+            {st.level !== null && !st.vacant && <span className="lg-pill pb-hide-sm">المستوى {st.level}</span>}
             {tag && <span className="lg-pill" style={activeTurn ? { background: hex, color: st.color === 'yellow' ? '#2A1E00' : '#fff' } : offline ? { background: 'rgba(245,158,11,.4)' } : undefined}>{tag}</span>}
             {activeTurn && deadlineLeft !== null && view?.active && <span className="lg-pill" data-testid={st.isMe ? 'turn-timer' : undefined} style={{ background: deadlineLeft <= 5 ? '#E5484D' : 'rgba(0,0,0,.35)' }}>{deadlineLeft} ث</span>}
           </span>
@@ -448,7 +488,6 @@ export function GamePage() {
   const canRoll = !!view?.myTurn && view.phase === 'roll' && !busy;
   const face = snap?.state.die ?? 5;
   const myPayout = snap && user ? snap.payouts[user.id] ?? 0 : 0;
-  const soloWait = waiting && !!room.quickMatch && room.players.length === 1;
 
   return (
     <div dir="rtl" className="lg-root">
@@ -463,6 +502,23 @@ export function GamePage() {
             <Coin size={28} /><span dir="ltr">{fmt(user?.balance ?? 0)}</span><span className="lg-plus" aria-hidden="true">+</span>
           </Link>
           <div className="lg-top-side">
+            {snap?.status === 'ACTIVE' && me && !me.eliminated && (
+              <span style={{ position: 'relative' }}>
+                <button type="button" className="lg-round" data-testid="sticker-open" aria-expanded={picker} aria-label="ملصقات" title="ملصقات" disabled={stickerWait} onClick={() => setPicker(!picker)} style={stickerWait ? { opacity: 0.5 } : undefined}>
+                  <IconSmile size={26} />
+                </button>
+                {picker && <span style={{ position: 'fixed', inset: 0, zIndex: 59 }} onClick={() => setPicker(false)} />}
+                {picker && (
+                  <div className="lg-sticker-picker" role="menu" dir="rtl">
+                    {STICKERS.map((st) => (
+                      <button key={st.id} type="button" role="menuitem" className={'emoji' in st ? 'emoji' : 'text'} data-testid={`sticker-${st.id}`} onClick={() => sendSticker(st.id)}>
+                        {'emoji' in st ? st.emoji : st.text}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </span>
+            )}
             <button type="button" className="lg-round" aria-pressed={sound} aria-label={sound ? 'كتم الصوت' : 'تشغيل الصوت'} onClick={() => setSound(!sound)}>
               {sound ? <IconVolume size={26} /> : <IconMute size={26} />}
             </button>
@@ -475,7 +531,7 @@ export function GamePage() {
         <div role="status" aria-live="polite" data-testid="banner" className="lg-banner" style={{ borderColor: tone + '99' }}>
           <span className="pc-pulse" style={{ width: 10, height: 10, borderRadius: '50%', background: tone }} />
           <b>{bannerTitle}</b><span style={{ color: '#DCE6FF' }}>{bannerSub}</span>
-          <span style={{ color: '#9FB6F0', fontSize: 12 }}>· {room.name}{room.stake ? ` · رهان ${fmt(room.stake)}` : ''}{practice ? ' · تدريب' : ''}</span>
+          <span style={{ color: '#9FB6F0', fontSize: 12 }}>· {room.name}{room.stake ? ` · رهان ${fmt(room.stake)}` : ''}{practice ? ' · بدون رهان' : ''}</span>
           {result && dismissed && !iAmOut && <button type="button" className="pb-btn pb-gold pb-sm" onClick={() => setDismissed(false)}>النتيجة</button>}
         </div>
         {error && <div role="alert" className="alert alert-error">{error}</div>}
@@ -522,12 +578,6 @@ export function GamePage() {
                     <Spinner size={38} />
                     <span style={{ fontWeight: 900, fontSize: 21 }}>البحث عن لاعب…</span>
                     <span style={{ fontSize: 14, color: '#C9D8FF', lineHeight: 1.7 }}>{room.players.length} من {room.maxPlayers} لاعبين. ستبدأ المباراة تلقائيًا عند اكتمال الطاولة.</span>
-                    {soloWait && botIn !== null && (
-                      <span data-testid="bot-countdown" style={{ fontSize: 14, color: '#FFD866', lineHeight: 1.7 }}>
-                        إن لم ينضم أحد، تبدأ مباراة ضد الروبوت بعد <b dir="ltr">{botIn}</b> ث{room.stake ? ' (بدون رهان، ويُعاد رهانك)' : ''}.
-                      </span>
-                    )}
-                    {soloWait && <button type="button" className="pb-btn pb-gold pb-sm" style={{ width: '100%' }} onClick={playBot} disabled={botBusy}>العب ضد الروبوت الآن</button>}
                     {room.code && (
                       <div style={{ display: 'flex', gap: 8, width: '100%' }}>
                         <span dir="ltr" data-testid="room-code" style={{ flex: 1, height: 46, borderRadius: 12, background: '#06103A', border: '1px dashed rgba(255,200,61,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, letterSpacing: '0.12em', color: '#FFC83D' }}>{room.code}</span>
@@ -562,7 +612,7 @@ export function GamePage() {
             </div>
           ) : (
             <button type="button" data-testid="roll" className={'lg-tray' + (canRoll ? ' ready' : '')} disabled={!canRoll} onClick={roll} aria-label={rolling ? 'جارٍ الرمي…' : view?.myTurn ? 'ارمِ النرد' : 'دور الخصم'}>
-              <Die face={face} rolling={rolling} size={64} />
+              <Die face={face} rolling={rolling} rollId={rollId} size={64} />
             </button>
           )}
           {seatCard('br')}
@@ -593,7 +643,7 @@ export function GamePage() {
               <svg width="44" height="44" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="m2 4 3 12h14l3-12-6 7-4-7-4 7-6-7zm3 16h14v2H5z" /></svg>
             </span>
             <span id="result-title" style={{ fontWeight: 900, fontSize: 34 }}>{result === 'victory' ? 'فوز!' : result === 'aborted' ? (practice ? 'انتهى التدريب' : 'أُلغيت') : result === 'draw' ? 'تعادل' : 'خسارة'}</span>
-            {practice && <span className="badge" style={{ background: 'rgba(34,197,94,0.14)', color: '#4ADE80' }}>تدريب: بدون عملات ولا خبرة ولا ترتيب</span>}
+            {practice && <span className="badge" style={{ background: 'rgba(34,197,94,0.14)', color: '#4ADE80' }}>مباراة ودية: بدون رهان ولا خبرة ولا ترتيب</span>}
             <span style={{ fontSize: 15, lineHeight: 1.7, color: '#DAD5E2' }}>
               {result === 'victory'
                 ? snap!.endReason === 'COMPLETED' ? (c4 ? `صففت أربع قطع على التوالي ${winLineText} قبل خصمك.` : 'أوصلت بيادقك الأربعة إلى البيت قبل الجميع.') : 'انسحب منافسوك، الفوز لك.'

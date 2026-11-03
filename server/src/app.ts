@@ -9,6 +9,7 @@ import { errorHandler, notFoundHandler } from './middleware/error.js';
 import { adminRouter } from './modules/admin/admin.routes.js';
 import { authRouter } from './modules/auth/auth.routes.js';
 import { gamesRouter } from './modules/games/games.routes.js';
+import { challengesRouter } from './modules/challenges/challenges.routes.js';
 import { roomsRouter } from './modules/rooms/rooms.routes.js';
 import { statsRouter } from './modules/stats/stats.routes.js';
 import { paymentsAdminRouter, paymentsRouter } from './modules/payments/payments.routes.js';
@@ -65,6 +66,7 @@ export function createApp() {
   app.use('/api/wallet', walletRouter);
   app.use('/api/wheel', wheelRouter);
   app.use('/api/rooms', roomsRouter);
+  app.use('/api/challenges', challengesRouter);
   app.use('/api/games', gamesRouter);
   app.use('/api/stats', statsRouter);
   app.use('/api/payments', paymentsRouter);

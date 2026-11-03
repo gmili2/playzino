@@ -106,7 +106,7 @@ export function RegisterPage() {
       <Card title="إنشاء حساب" sub="انضم إلى المجتمع وابدأ اللعب فورًا.">
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderRadius: 16, background: '#221A2E', border: '1px solid rgba(255,200,61,0.35)' }}>
           <Gift size={36} />
-          <span style={{ fontSize: 14, color: '#DAD5E2' }}>أدر <b style={{ color: '#FFC83D' }}>عجلة الحظ</b> مجانًا كل يوم لتربح عملات تلعب بها.</span>
+          <span style={{ fontSize: 14, color: '#DAD5E2' }}>أدر <b style={{ color: '#FFC83D' }}>عجلة الحظ</b> لتربح عملات تلعب بها.</span>
         </div>
         <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }} noValidate>
           {error && <div role="alert" className="alert alert-error">{error}</div>}

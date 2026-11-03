@@ -3,9 +3,9 @@ import { Prisma } from '@prisma/client';
 import { audit } from '../../lib/audit.js';
 import { AppError, conflict } from '../../lib/errors.js';
 import { prisma } from '../../lib/prisma.js';
-import { applyWalletOp, walletOp } from '../wallet/wallet.service.js';
+import { applyWalletOp } from '../wallet/wallet.service.js';
 
-/** Case de la roue : gain en pièces et poids (probabilité relative). */
+/** Case de la roue : gain en pièces (0 = case perdante) et poids (probabilité relative). */
 export interface WheelSegment {
   amount: number;
   weight: number;
@@ -19,6 +19,7 @@ const TIME_ZONE = 'Africa/Casablanca';
 
 // Gains alternés autour de la roue ; les gros lots sont rares.
 export const DEFAULT_WHEEL: WheelSegment[] = [
+  { amount: 0, weight: 20 },
   { amount: 10, weight: 24 },
   { amount: 50, weight: 12 },
   { amount: 20, weight: 20 },
@@ -44,7 +45,7 @@ export function validWheel(segs: WheelSegment[]) {
   return (
     segs.length >= WHEEL_MIN_SEGMENTS &&
     segs.length <= WHEEL_MAX_SEGMENTS &&
-    segs.every((s) => Number.isInteger(s.amount) && s.amount >= 1 && s.amount <= WHEEL_MAX_AMOUNT && Number.isInteger(s.weight) && s.weight >= 0 && s.weight <= 1000) &&
+    segs.every((s) => Number.isInteger(s.amount) && s.amount >= 0 && s.amount <= WHEEL_MAX_AMOUNT && Number.isInteger(s.weight) && s.weight >= 0 && s.weight <= 1000) &&
     segs.some((s) => s.weight > 0)
   );
 }
@@ -128,7 +129,6 @@ export function wheelDay(now = new Date()) {
   return { day: `${parts.year}-${parts.month}-${parts.day}`, nextSpinAt: new Date(Date.UTC(y, m - 1, d + 1) - offset) };
 }
 
-const spinKey = (userId: string, day: string) => `wheel:${userId}:${day}`;
 const paidPrefix = (userId: string, day: string) => `wheel-paid:${userId}:${day}:`;
 const paidSpinsToday = (tx: Prisma.TransactionClient | typeof prisma, userId: string, day: string) =>
   tx.walletTransaction.count({ where: { type: 'WHEEL_SPIN', idempotencyKey: { startsWith: paidPrefix(userId, day) } } });
@@ -144,13 +144,11 @@ export function pickSegment(segs: WheelSegment[]) {
   return segs.length - 1;
 }
 
+/** La roue ne se joue qu'en tours payants (le tour gratuit quotidien a été supprimé). */
 export async function wheelState(userId: string) {
   const [segs, paid] = await Promise.all([getWheel(), getPaidWheel()]);
-  const { day, nextSpinAt } = wheelDay();
-  const [today, paidSpins] = await Promise.all([
-    prisma.walletTransaction.findUnique({ where: { idempotencyKey: spinKey(userId, day) } }),
-    paidSpinsToday(prisma, userId, day)
-  ]);
+  const { day } = wheelDay();
+  const paidSpins = await paidSpinsToday(prisma, userId, day);
   return {
     paid: {
       enabled: paid.maxSpins > 0,
@@ -159,32 +157,8 @@ export async function wheelState(userId: string) {
       price: paidSpins < paid.maxSpins ? paidPrice(paid, paidSpins) : null,
       step: paid.step
     },
-    segments: segs.map((s) => s.amount),
-    spunToday: !!today,
-    // Case affichée sous l'aiguille après le tour du jour.
-    todayIndex: today ? Math.max(0, segs.findIndex((s) => s.amount === today.amount)) : null,
-    todayAmount: today?.amount ?? null,
-    nextSpinAt
+    segments: segs.map((s) => s.amount)
   };
-}
-
-/** Un tour par joueur et par jour (heure du Maroc) : la clé d'idempotence l'impose en base. */
-export async function spin(userId: string) {
-  const segs = await getWheel();
-  const { day, nextSpinAt } = wheelDay();
-  const key = spinKey(userId, day);
-  const already = () => conflict('ALREADY_SPUN', 'Tour du jour déjà joué');
-  if (await prisma.walletTransaction.findUnique({ where: { idempotencyKey: key } })) throw already();
-  const index = pickSegment(segs);
-  try {
-    const r = await walletOp({ userId, amount: segs[index].amount, type: 'DAILY_BONUS', reason: `Roue de la fortune ${day}`, idempotencyKey: key });
-    if (r.duplicate) throw already();
-    return { index, amount: segs[index].amount, balance: r.balance, nextSpinAt };
-  } catch (e) {
-    // Deux tours simultanés : le second tombe sur la clé déjà prise avec un autre gain.
-    if (e instanceof AppError && e.code === 'IDEMPOTENCY_MISMATCH') throw already();
-    throw e;
-  }
 }
 
 /**
@@ -204,7 +178,7 @@ export async function paidSpin(userId: string) {
         const index = pickSegment(segs);
         const amount = segs[index].amount;
         await applyWalletOp(tx, { userId, amount: -price, type: 'WHEEL_SPIN', reason: `Tour payant n° ${n + 1} (${day})`, idempotencyKey: paidPrefix(userId, day) + n });
-        const r = await applyWalletOp(tx, { userId, amount, type: 'WHEEL_PRIZE', reason: `Gain du tour payant n° ${n + 1}`, idempotencyKey: `wheel-prize:${userId}:${day}:${n}` });
+        const r = await applyWalletOp(tx, { userId, amount, type: 'WHEEL_PRIZE', reason: `Gain du tour payant n° ${n + 1}`, idempotencyKey: `wheel-prize:${userId}:${day}:${n}`, allowZero: true });
         const next = n + 1 < paid.maxSpins ? paidPrice(paid, n + 1) : null;
         return { index, amount, price, balance: r.balance, spinsToday: n + 1, nextPrice: next };
       });

@@ -124,7 +124,7 @@ export function LandingPage() {
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5M11 6l-6 6 6 6" /></svg>
                 </span>
               </Link>
-              <span className="ld-cta-note">دورة مجانية في عجلة الحظ كل يوم</span>
+              <span className="ld-cta-note">اربح عملات في عجلة الحظ</span>
             </div>
 
             <div className="ld-live" role="status">
@@ -149,7 +149,7 @@ export function LandingPage() {
 
       <section className="ld-modes" aria-label="أنماط اللعب">
         <ModeCard tone="#8B5CF6" icon={<IconBolt size={40} />} title="لعب سريع" text="نقرة واحدة وتجد طاولة عامة بالرهان الذي تختاره." />
-        <ModeCard tone="#FFC83D" icon={<IconTrophy size={40} />} title="ترتيب ومكافآت" text="تصدّر ترتيب الأسبوع واستلم 200 عملة مجانًا كل يوم." />
+        <ModeCard tone="#FFC83D" icon={<IconTrophy size={40} />} title="ترتيب ومكافآت" text="تصدّر ترتيب الأسبوع وأثبت أنك الأفضل." />
         <ModeCard tone="#22D3EE" icon={<IconUsers size={40} />} title="لعب مع الأصدقاء" text="أنشئ طاولة خاصة وشارك رمز الدعوة PRC-XXXX." />
         <ModeCard tone="#4ADE80" icon={<IconRobot size={40} />} title="ضد الروبوت" text="تدرّب في أي وقت ضد روبوت يلعب بنفس القواعد." />
       </section>

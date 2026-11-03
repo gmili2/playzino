@@ -199,9 +199,9 @@ function DepositForm({ banks, limits, onDone, onHistory }: { banks: Bank[]; limi
 
       <div style={{ padding: 18, borderRadius: 18, background: '#110E17', border: '1px solid rgba(255,200,61,0.35)', display: 'flex', flexDirection: 'column', gap: 10 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}><span style={{ color: '#B8B2C4' }}>الوسيلة</span><b style={{ display: 'flex', alignItems: 'center', gap: 8 }}><MethodLogo bank={bank} size={28} />{bank.name}</b></div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}><span style={{ color: '#B8B2C4' }}>صاحب الحساب</span><b dir="auto">{bank.accountHolder}</b></div>
+        {bank.accountHolder && <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}><span style={{ color: '#B8B2C4' }}>صاحب الحساب</span><b dir="auto">{bank.accountHolder}</b></div>}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <span style={{ color: '#B8B2C4' }}>رقم الحساب (RIB)</span>
+          <span style={{ color: '#B8B2C4' }}>{bank.kind === 'phone' ? 'رقم الهاتف' : 'رقم الحساب (RIB)'}</span>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
             <b dir="ltr" data-testid="deposit-rib" style={{ flex: '1 1 260px', fontSize: 20, letterSpacing: '.06em', color: '#FFD866', userSelect: 'all', overflowWrap: 'anywhere' }}>{fmtRib(bank.rib)}</b>
             <button type="button" className="pb-btn pb-gold pb-sm" onClick={copy}><IconCopy size={16} />{copied ? 'تم النسخ' : 'نسخ'}</button>

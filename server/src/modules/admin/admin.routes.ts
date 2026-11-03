@@ -200,7 +200,7 @@ adminRouter.put('/settings/wheel', async (req, res) => {
   const { segments } = parse(
     z.object({
       segments: z
-        .array(z.object({ amount: z.number().int().min(1).max(WHEEL_MAX_AMOUNT), weight: z.number().int().min(0).max(1000) }))
+        .array(z.object({ amount: z.number().int().min(0).max(WHEEL_MAX_AMOUNT), weight: z.number().int().min(0).max(1000) }))
         .min(WHEEL_MIN_SEGMENTS)
         .max(WHEEL_MAX_SEGMENTS)
         .refine((s) => s.some((x) => x.weight > 0), 'Au moins une case doit pouvoir sortir')

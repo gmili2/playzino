@@ -13,6 +13,8 @@ export interface WalletOp {
   roomId?: string;
   gameId?: string;
   actorId?: string;
+  /** Mouvement à 0 accepté (case « 0 » de la roue) : la ligne garde la trace du tour joué. */
+  allowZero?: boolean;
 }
 
 export interface WalletOpResult {
@@ -29,7 +31,7 @@ export const insufficientFunds = () => new AppError(409, 'INSUFFICIENT_FUNDS', '
  * deux débits concurrents ne peuvent pas rendre le solde négatif.
  */
 export async function applyWalletOp(tx: Tx, op: WalletOp): Promise<WalletOpResult> {
-  if (!Number.isSafeInteger(op.amount) || op.amount === 0) {
+  if (!Number.isSafeInteger(op.amount) || (op.amount === 0 && !op.allowZero)) {
     throw new AppError(400, 'BAD_AMOUNT', 'Montant invalide');
   }
   const existing = await tx.walletTransaction.findUnique({

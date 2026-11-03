@@ -29,7 +29,8 @@ describe('dépôts par virement', () => {
     const r = await a.get('/api/payments');
     expect(r.status).toBe(200);
     expect(r.body.banks.find((b: { id: string }) => b.id === bankId)).toMatchObject({ name: 'Wafacash', accountHolder: 'AHMED', rib: '820780261705426339117470', available: true });
-    expect(r.body.banks.find((b: { id: string }) => b.id === 'cashplus')).toMatchObject({ available: false, rib: '' });
+    expect(r.body.banks.find((b: { id: string }) => b.id === 'cashplus')).toMatchObject({ kind: 'phone', available: true, rib: '0632586771' });
+    expect(r.body.banks.find((b: { id: string }) => b.id === 'simple')).toMatchObject({ available: false, rib: '' });
   });
 
   it('dépôt en attente : rien n’est crédité avant la validation de l’admin', async () => {
@@ -98,7 +99,7 @@ describe('dépôts par virement', () => {
 
   it('moyen sans compte renseigné : pas de dépôt possible', async () => {
     const a = await registered(undefined, 0);
-    const r = await a.post('/api/payments/deposits', { bankId: 'cashplus', amount: 200, receipt: PNG, requestId: randomUUID() });
+    const r = await a.post('/api/payments/deposits', { bankId: 'simple', amount: 200, receipt: PNG, requestId: randomUUID() });
     expect(r.body.error.code).toBe('BANK_UNAVAILABLE');
   });
 

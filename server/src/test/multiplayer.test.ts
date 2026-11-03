@@ -458,7 +458,8 @@ describe('entraînement contre les robots', () => {
     expect((await prisma.profile.findUniqueOrThrow({ where: { userId: a.user.id } })).xp).toBe(0);
     expect((await a.get('/api/me')).body.user.stats.played).toBe(0);
     const stats = await a.get('/api/stats?period=all');
-    expect(stats.body.leaderboard.some((l: { username: string }) => l.username.startsWith('Robot_'))).toBe(false);
+    const botNames = new Set((await prisma.user.findMany({ where: { isBot: true }, select: { username: true } })).map((u) => u.username));
+    expect(stats.body.leaderboard.some((l: { username: string }) => botNames.has(l.username))).toBe(false);
     expect(stats.body.recentWins.some((w: { gameId: string }) => w.gameId === r.body.room.gameId)).toBe(false);
     // L'historique garde la partie, marquée comme entraînement.
     const hist = await a.get('/api/me/games');

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link, NavLink, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
 import { fmt } from '../lib/format';
-import { IconArrowDown, IconArrowUp, IconBook, IconChevron, IconCrown, IconGrid, IconHome, IconLogout, IconShield, IconUser, IconWheel } from './Icons';
+import { IconArrowDown, IconArrowUp, IconBook, IconChevron, IconCrown, IconGrid, IconHome, IconLogout, IconShield, IconUser, IconUsers, IconWheel } from './Icons';
 import { Avatar, Coin, Loading } from './ui';
 
 /** Logo façon Rolly : couronne dorée dans un rond, nom en or. */
@@ -18,6 +18,7 @@ export function Brand() {
 const LINKS = [
   { to: '/', label: 'الرئيسية', icon: <IconHome size={18} />, end: true },
   { to: '/tables', label: 'الطاولات', icon: <IconGrid size={18} /> },
+  { to: '/players', label: 'اللاعبون', icon: <IconUsers size={18} /> },
   { to: '/wheel', label: 'عجلة الحظ', icon: <IconWheel size={18} /> },
   { to: '/rules', label: 'القواعد', icon: <IconBook size={18} /> }
 ];
@@ -56,7 +57,8 @@ function AccountMenu({ onClose }: { onClose: () => void }) {
       {item('/cashier', <IconArrowUp size={20} />, 'سحب')}
       <div className="rl-menu-sec">اللعب</div>
       {item('/tables', <IconGrid size={20} />, 'الطاولات')}
-      {item('/wheel', <IconWheel size={20} />, 'عجلة الحظ', <span className="rl-tag rl-tag-gold">مجانًا</span>)}
+      {item('/players', <IconUsers size={20} />, 'اللاعبون المتصلون')}
+      {item('/wheel', <IconWheel size={20} />, 'عجلة الحظ')}
       <div className="rl-menu-sec">الحساب</div>
       {item('/profile', <IconUser size={20} />, 'الملف الشخصي')}
       {user.role === 'ADMIN' && item('/admin', <IconShield size={20} />, 'لوحة الإدارة')}
@@ -85,7 +87,7 @@ function TabBar() {
         <span className="rl-tab-home-btn"><IconHome size={28} /></span><span>الرئيسية</span>
       </NavLink>
       {tab('/wheel', <IconWheel size={24} />, 'العجلة')}
-      {tab('/rules', <IconBook size={24} />, 'القواعد')}
+      {tab('/players', <IconUsers size={24} />, 'اللاعبون')}
     </nav>
   );
 }

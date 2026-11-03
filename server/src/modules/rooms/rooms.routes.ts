@@ -14,7 +14,7 @@ import {
 
 export const roomsRouter = Router();
 
-const stakeSchema = z.coerce.number().int().refine((v) => (ALLOWED_STAKES as readonly number[]).includes(v), {
+export const stakeSchema = z.coerce.number().int().refine((v) => (ALLOWED_STAKES as readonly number[]).includes(v), {
   message: `Mise autorisée : ${ALLOWED_STAKES.join(', ')}`
 });
 
@@ -32,7 +32,7 @@ roomsRouter.get('/:id', requireAuth, async (req, res) => {
 });
 
 const playersSchema = z.coerce.number().int().min(2, '2 à 4 joueurs').max(4, '2 à 4 joueurs').default(2);
-const gameTypeSchema = z.enum(['PARCHEESI', 'CONNECT4']).default('PARCHEESI');
+export const gameTypeSchema = z.enum(['PARCHEESI', 'CONNECT4']).default('PARCHEESI');
 
 const createSchema = z.object({
   name: z.string().trim().min(3, '3 caractères minimum').max(40),
@@ -56,7 +56,7 @@ roomsRouter.post('/', requireAuth, async (req, res) => {
  * Table encore en attente → on la quitte (mise remboursée) ; partie contre le robot → annulée.
  * Une vraie partie en cours n'est jamais touchée : le joueur y est renvoyé (ALREADY_IN_ROOM) pour la finir.
  */
-async function releaseIdleSeat(userId: string, ip?: string, keepRoomId?: string) {
+export async function releaseIdleSeat(userId: string, ip?: string, keepRoomId?: string) {
   const seat = await prisma.roomPlayer.findFirst({
     where: { userId, room: { status: { in: ['WAITING', 'PLAYING'] } } },
     include: { room: { select: { id: true, status: true, isPractice: true, games: { where: { status: 'ACTIVE' }, select: { id: true } } } } }
@@ -72,7 +72,7 @@ async function releaseIdleSeat(userId: string, ip?: string, keepRoomId?: string)
 }
 
 /** Après un join : si la table est complète, la partie démarre et les joueurs sont prévenus. */
-async function afterJoin(r: JoinResult) {
+export async function afterJoin(r: JoinResult) {
   if (r.startedGameId) {
     await gameManager.load(r.startedGameId);
     hub.roomChanged(r.room.id, { ...r.room, status: 'PLAYING', gameId: r.startedGameId });
@@ -132,5 +132,5 @@ roomsRouter.post('/:id/play-bot', requireAuth, async (req, res) => {
   if (!target?.quickMatch) throw conflict('NOT_QUICK_MATCH', 'Cette table attend un joueur invité');
   const room = await leaveWaitingRoom(req.user!.id, id, req.ip, true);
   hub.roomChanged(id, null);
-  res.status(201).json(await afterJoin(await createPracticeRoom(req.user!.id, room.maxPlayers - 1, room.turnSeconds, room.gameType, req.ip)));
+  res.status(201).json(await afterJoin(await createPracticeRoom(req.user!.id, room.maxPlayers - 1, room.turnSeconds, room.gameType, req.ip, room.name)));
 });

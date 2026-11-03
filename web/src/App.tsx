@@ -1,5 +1,6 @@
 import { Link, Route, Routes, useParams } from 'react-router-dom';
 import { Page, RequireAuth } from './components/AppShell';
+import { ChallengeInbox } from './components/ChallengeInbox';
 import { AdminPage } from './pages/Admin';
 import { CashierPage } from './pages/Cashier';
 import { LoginPage, RegisterPage } from './pages/Auth';
@@ -8,6 +9,7 @@ import { HomePage } from './pages/Home';
 import { LandingPage } from './pages/Landing';
 import { useAuth } from './lib/auth';
 import { Loading } from './components/ui';
+import { PlayersPage } from './pages/Players';
 import { ProfilePage } from './pages/Profile';
 import { RulesPage } from './pages/Rules';
 import { TablesPage } from './pages/Tables';
@@ -28,18 +30,22 @@ function GameRoute() {
 
 export function App() {
   return (
-    <Routes>
-      <Route path="/" element={<Root />} />
-      <Route path="/tables" element={<TablesPage />} />
-      <Route path="/rules" element={<RulesPage />} />
-      <Route path="/wheel" element={<WheelPage />} />
-      <Route path="/login" element={<LoginPage />} />
-      <Route path="/register" element={<RegisterPage />} />
-      <Route path="/cashier" element={<RequireAuth><CashierPage /></RequireAuth>} />
-      <Route path="/profile" element={<RequireAuth><ProfilePage /></RequireAuth>} />
-      <Route path="/room/:roomId" element={<RequireAuth><GameRoute /></RequireAuth>} />
-      <Route path="/admin" element={<RequireAuth admin><AdminPage /></RequireAuth>} />
-      <Route path="*" element={<Page><h1>الصفحة غير موجودة</h1><Link to="/">العودة للرئيسية</Link></Page>} />
-    </Routes>
+    <>
+      <ChallengeInbox />
+      <Routes>
+        <Route path="/" element={<Root />} />
+        <Route path="/tables" element={<TablesPage />} />
+        <Route path="/rules" element={<RulesPage />} />
+        <Route path="/wheel" element={<WheelPage />} />
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/register" element={<RegisterPage />} />
+        <Route path="/cashier" element={<RequireAuth><CashierPage /></RequireAuth>} />
+        <Route path="/players" element={<RequireAuth><PlayersPage /></RequireAuth>} />
+        <Route path="/profile" element={<RequireAuth><ProfilePage /></RequireAuth>} />
+        <Route path="/room/:roomId" element={<RequireAuth><GameRoute /></RequireAuth>} />
+        <Route path="/admin" element={<RequireAuth admin><AdminPage /></RequireAuth>} />
+        <Route path="*" element={<Page><h1>الصفحة غير موجودة</h1><Link to="/">العودة للرئيسية</Link></Page>} />
+      </Routes>
+    </>
   );
 }

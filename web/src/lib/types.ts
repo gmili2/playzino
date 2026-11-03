@@ -112,7 +112,7 @@ export interface GameSnapshot {
 export type PaymentStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
 
 /** Moyen de paiement fixé par la plateforme ; `available` = compte de dépôt renseigné. */
-export interface Bank { id: string; name: string; logo: string; accountHolder: string; rib: string; available: boolean }
+export interface Bank { id: string; name: string; logo: string; kind: 'rib' | 'phone'; accountHolder: string; rib: string; available: boolean }
 
 export interface Deposit {
   id: string;
@@ -142,4 +142,18 @@ export interface Withdrawal {
   reviewedBy: string | null;
   reviewedAt: string | null;
   createdAt: string;
+}
+
+/** Joueur connecté (page « اللاعبون المتصلون »). */
+export interface OnlinePlayer { id: string; username: string; avatarColor: string; level: number; status: 'available' | 'playing'; acceptsChallenges: boolean }
+
+/** Défi reçu d'un autre joueur, valable jusqu'à `expiresAt`. */
+export interface IncomingChallenge {
+  id: string;
+  stake: number;
+  gameType: GameType;
+  /** Échéance sur l'horloge de CE navigateur (recalculée à la réception à partir de ttlMs). */
+  expiresAt: number;
+  ttlMs: number;
+  from: { id: string; username: string; avatarColor: string; level: number };
 }

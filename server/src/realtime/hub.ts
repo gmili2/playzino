@@ -17,6 +17,11 @@ class Hub implements Broadcaster {
     this.io?.to(`room:${roomId}`).emit(event, payload);
   }
 
+  /** Tous les écrans ouverts d'un joueur (salle personnelle `user:<id>`). */
+  emitUser(userId: string, event: string, payload: unknown) {
+    this.io?.to(`user:${userId}`).emit(event, payload);
+  }
+
   emitLobby() {
     this.io?.to('lobby').emit('lobby:update');
   }

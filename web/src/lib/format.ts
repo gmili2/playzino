@@ -27,4 +27,7 @@ export const TX_LABEL: Record<string, string> = {
 };
 
 /** RIB affiché par groupes (banque · ville · compte · clé) pour être recopié sans erreur. */
-export const fmtRib = (rib: string) => (rib.length === 24 ? `${rib.slice(0, 3)} ${rib.slice(3, 6)} ${rib.slice(6, 22)} ${rib.slice(22)}` : rib);
+/** RIB (24 chiffres) groupé comme sur une attestation ; numéro de téléphone (10 chiffres) au format 0632-586771. */
+export const fmtRib = (rib: string) =>
+  rib.length === 24 ? `${rib.slice(0, 3)} ${rib.slice(3, 6)} ${rib.slice(6, 22)} ${rib.slice(22)}`
+  : rib.length === 10 ? `${rib.slice(0, 4)}-${rib.slice(4)}` : rib;

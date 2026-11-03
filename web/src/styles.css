@@ -111,9 +111,17 @@ select.pb-input{appearance:auto}
 .pc-roll{height:62px;font-size:18px;border-radius:18px;width:100%}
 .pc-roll:not(:disabled):hover{transform:translateY(-1px)}
 .pc-roll:not(:disabled):active{transform:translateY(1px) scale(.99)}
-@keyframes pc-tumble{0%{transform:rotate(0) translateY(0)}25%{transform:rotate(-20deg) translateY(-12px) scale(1.05)}50%{transform:rotate(16deg) translateY(2px)}75%{transform:rotate(-9deg) translateY(-5px)}100%{transform:rotate(0) translateY(0)}}
-.pc-die{transition:transform .2s}
-.pc-rolling{animation:pc-tumble .32s ease-in-out infinite}
+/* Dé 3D : cube de 6 faces, la rotation est pilotée par le composant Die. */
+.pc-die3d-wrap{position:relative;flex:none;perspective:420px}
+.pc-die3d-hop{width:100%;height:100%;transform-style:preserve-3d}
+.pc-die3d{position:relative;width:100%;height:100%;transform-style:preserve-3d}
+.pc-die3d-face{position:absolute;inset:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));grid-template-rows:repeat(3,minmax(0,1fr));background:radial-gradient(circle at 30% 25%,#FFFFFF,#E9EEF7 60%,#CDD6E6);box-shadow:inset 0 0 0 1px rgba(0,0,0,.08),inset 0 -4px 8px rgba(0,0,0,.12);backface-visibility:hidden}
+.pc-pip{border-radius:50%;background:radial-gradient(circle at 40% 35%,#2A3550,#05070F 70%);box-shadow:inset 0 2px 2px rgba(0,0,0,.6),0 1px 0 rgba(255,255,255,.7)}
+.pc-die3d-shadow{position:absolute;left:12%;right:12%;bottom:-14%;height:16%;border-radius:50%;background:radial-gradient(closest-side,rgba(0,0,0,.55),transparent);filter:blur(2px)}
+@keyframes pc-die-hop-0{0%{transform:translateY(-38%) scale(.9)}35%{transform:translateY(0) scale(1)}55%{transform:translateY(-14%)}75%{transform:translateY(0)}88%{transform:translateY(-4%)}100%{transform:translateY(0)}}
+@keyframes pc-die-hop-1{0%{transform:translateY(-38%) scale(.9)}35%{transform:translateY(0) scale(1)}55%{transform:translateY(-14%)}75%{transform:translateY(0)}88%{transform:translateY(-4%)}100%{transform:translateY(0)}}
+@keyframes pc-die-shadow-0{0%{transform:scale(.55);opacity:.4}35%{transform:scale(1);opacity:1}55%{transform:scale(.8);opacity:.7}75%,100%{transform:scale(1);opacity:1}}
+@keyframes pc-die-shadow-1{0%{transform:scale(.55);opacity:.4}35%{transform:scale(1);opacity:1}55%{transform:scale(.8);opacity:.7}75%,100%{transform:scale(1);opacity:1}}
 @keyframes pc-pulse{0%,100%{opacity:1}50%{opacity:.3}}
 .pc-pulse{animation:pc-pulse 1.4s ease-in-out infinite}
 @keyframes pc-pop{from{transform:translate(-50%,-8px);opacity:0}to{transform:translate(-50%,0);opacity:1}}
@@ -128,7 +136,7 @@ select.pb-input{appearance:auto}
 /* Puissance 4 : chute du dernier jeton joué (hauteur passée par --c4-from) */
 @keyframes c4-drop{0%{transform:translateY(var(--c4-from))}70%{transform:translateY(0)}82%{transform:translateY(-9%)}100%{transform:translateY(0)}}
 .c4-drop{animation:c4-drop .45s cubic-bezier(.55,0,1,.45)}
-@media (prefers-reduced-motion:reduce){.pc-rolling,.pc-pulse,.pb-spin,.pc-toast,.c4-drop{animation:none}}
+@media (prefers-reduced-motion:reduce){.pc-die3d{transition:none!important}.pc-die3d-hop,.pc-die3d-shadow{animation:none!important}.pc-pulse,.pb-spin,.pc-toast,.c4-drop{animation:none}}
 
 /* ===== Page d'accueil visiteurs — « nuit orientale » ===== */
 .ld{--ld-bg:#0B0718;--ld-plum:#1C1033;--ld-gold:#FFC83D;--ld-gold-2:#FFE08A;--ld-gold-3:#B87400;background:var(--ld-bg);color:#F6F1FF;overflow-x:hidden}
@@ -521,3 +529,48 @@ footer{border-top-color:var(--royal-line)!important;background:linear-gradient(1
 .md-text small{font-size:clamp(11px,1.2vw,13px);color:rgba(255,255,255,.88);line-height:1.4;text-shadow:0 2px 4px rgba(0,0,0,.5)}
 .md-tag{position:absolute;top:14px;inset-inline-start:14px;z-index:1;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:800;background:linear-gradient(180deg,#FFDA6B,#F2B232);color:#3A2600}
 @media (prefers-reduced-motion:reduce){.md-card{transition:none}.md-card:hover{transform:none}}
+
+/* Stickers de partie : grille d'envoi sous le bouton, bulle au-dessus de l'avatar de l'expéditeur. */
+.lg-sticker-picker{position:absolute;top:calc(100% + 8px);right:0;z-index:60;width:min(300px,calc(100vw - 32px));padding:10px;border-radius:18px;background:linear-gradient(180deg,#14307F,#0A1A55);box-shadow:0 0 0 2px #4F8BFF,0 16px 40px rgba(0,0,0,.55);display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.lg-sticker-picker button{border:0;border-radius:12px;background:rgba(255,255,255,.08);color:#fff;cursor:pointer;font:inherit;transition:transform .12s,background .12s}
+.lg-sticker-picker button:hover,.lg-sticker-picker button:focus-visible{background:rgba(255,200,61,.25);transform:scale(1.06)}
+.lg-sticker-picker button.emoji{font-size:28px;height:52px}
+.lg-sticker-picker button.text{grid-column:span 2;height:40px;font-size:14px;font-weight:800}
+.lg-sticker{position:absolute;bottom:calc(100% + 6px);left:50%;z-index:20;transform-origin:50% 100%;white-space:nowrap;padding:6px 12px;border-radius:16px;border:2px solid;background:#fff;color:#1B1240;font-weight:900;font-size:15px;box-shadow:0 8px 20px rgba(0,0,0,.4);pointer-events:none;animation:lg-sticker 2.8s ease forwards}
+.lg-sticker.emoji{padding:2px 8px;font-size:38px;line-height:1.2;background:rgba(255,255,255,.92)}
+.lg-sticker::after{content:'';position:absolute;top:100%;left:50%;margin-left:-7px;border:7px solid transparent;border-top-color:inherit}
+@keyframes lg-sticker{0%{opacity:0;transform:translateX(-50%) scale(.3)}12%{opacity:1;transform:translateX(-50%) scale(1.15)}20%{transform:translateX(-50%) scale(1)}85%{opacity:1;transform:translateX(-50%) scale(1)}100%{opacity:0;transform:translateX(-50%) translateY(-10px) scale(.9)}}
+@media (prefers-reduced-motion:reduce){.lg-sticker{animation:none}}
+
+/* Choix de la mise avant une partie rapide. */
+.sp-backdrop{position:fixed;inset:0;z-index:80;background:rgba(5,4,10,.75);display:grid;place-items:center;padding:16px}
+.sp-dialog{width:100%;max-width:420px;padding:24px;border-radius:24px;background:linear-gradient(170deg,#241C5E,#1B1824 60%);border:1px solid rgba(255,200,61,.4);box-shadow:0 30px 80px rgba(0,0,0,.6);display:flex;flex-direction:column;align-items:stretch;gap:12px;text-align:center}
+.sp-title{font-weight:900;font-size:26px}
+.sp-sub{font-size:14px;color:#B8B2C4}
+.sp-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:6px 0}
+.sp-opt{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;min-height:86px;border-radius:16px;border:1px solid rgba(255,222,170,.25);background:#15121D;color:#fff;font:inherit;cursor:pointer;transition:transform .12s,border-color .12s,background .12s}
+.sp-opt b{font-size:20px;font-weight:900;color:#FFC83D}
+.sp-opt small{font-size:12px;color:#A9A3B5}
+.sp-opt.free b{color:#4ADE80}
+.sp-opt:not(:disabled):hover,.sp-opt:focus-visible{transform:translateY(-2px);border-color:#FFC83D;background:#221B33}
+.sp-opt:disabled{opacity:.4;cursor:not-allowed}
+.sp-balance{font-size:13px;color:#B8B2C4}
+.sp-balance a{color:#FFC83D;font-weight:800}
+
+/* Joueurs en ligne et défis. */
+.pl-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.pl-row{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:16px;background:#15121D;border:1px solid rgba(255,222,170,.12)}
+.pl-name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pl-dot{display:inline-block;width:10px;height:10px;border-radius:50%;background:#22C55E;box-shadow:0 0 0 3px rgba(34,197,94,.22)}
+.pl-dot.busy{background:#F59E0B;box-shadow:0 0 0 3px rgba(245,158,11,.22)}
+.pl-dot-av{position:absolute;bottom:0;inset-inline-end:0;border:2px solid #15121D;box-shadow:none}
+.ch-avatar{align-self:center}
+.ch-stake{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:6px 8px;padding:12px;border-radius:14px;background:#110E17}
+.ch-stake b{font-size:24px;font-weight:900;color:#FFC83D}
+.ch-stake b.free{color:#4ADE80;font-size:20px}
+.ch-stake small{flex-basis:100%;color:#A9A3B5;font-size:13px}
+.ch-stake small b{font-size:13px}
+.ch-left{display:inline-grid;place-items:center;min-width:28px;height:28px;margin-inline-start:6px;border-radius:50%;background:rgba(0,0,0,.2);font-size:13px}
+.ch-incoming{animation:ch-pop .35s cubic-bezier(.2,1.4,.4,1)}
+@keyframes ch-pop{from{transform:scale(.8);opacity:0}to{transform:scale(1);opacity:1}}
+@media (prefers-reduced-motion:reduce){.ch-incoming{animation:none}}

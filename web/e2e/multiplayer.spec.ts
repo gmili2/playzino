@@ -186,7 +186,7 @@ test('entraînement contre un robot : le robot joue seul, sans enjeu', async ({ 
   await page.goto('/tables');
   await page.getByTestId('practice').click();
   await expect(page).toHaveURL(/\/room\//);
-  await expect(page.getByTestId('panel-opp')).toContainText('روبوت');
+  await expect(page.getByTestId('panel-opp')).not.toContainText('روبوت'); // pseudo de joueur ordinaire
   await expect(page.getByTestId('waiting-overlay')).toHaveCount(0);
 
   // Le joueur joue ses tours ; entre deux, le robot doit jouer tout seul.

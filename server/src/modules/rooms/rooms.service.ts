@@ -171,7 +171,9 @@ async function startGame(tx: Tx, roomId: string) {
  * Entraînement contre 1 à 3 robots (1 au Puissance 4) : table privée sans mise, la partie démarre immédiatement.
  * Hors classement et sans XP (voir gameManager.finish et stats).
  */
-export async function createPracticeRoom(userId: string, bots: number, turnSeconds: number, gameType: GameType = 'PARCHEESI', ip?: string) {
+export async function createPracticeRoom(
+  userId: string, bots: number, turnSeconds: number, gameType: GameType = 'PARCHEESI', ip?: string, name = 'تدريب ضد الروبوت'
+) {
   bots = playersFor(gameType, bots + 1) - 1;
   const botIds = await ensureBots(bots);
   for (let attempt = 0; attempt < 5; attempt++) {
@@ -179,7 +181,7 @@ export async function createPracticeRoom(userId: string, bots: number, turnSecon
       const result = await prisma.$transaction(async (tx) => {
         await assertNotSeated(tx, userId);
         const room = await tx.room.create({
-          data: { name: 'تدريب ضد الروبوت', gameType, visibility: 'PRIVATE', stake: 0, turnSeconds, maxPlayers: bots + 1, isPractice: true, code: newCode(), hostId: userId }
+          data: { name, gameType, visibility: 'PRIVATE', stake: 0, turnSeconds, maxPlayers: bots + 1, isPractice: true, code: newCode(), hostId: userId }
         });
         await tx.roomPlayer.create({ data: { roomId: room.id, userId, seat: 0, color: seatColor(gameType, 0) } });
         for (let i = 0; i < botIds.length; i++) {

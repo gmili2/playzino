@@ -7,6 +7,7 @@ import { Gift, IconBolt, IconCrown, IconLock, IconTrophy, IconUsers, IconWheel }
 import { SHOWCASE_WHEEL, Wheel } from '../components/Wheel';
 import { ModeCard } from '../components/ModeCards';
 import { RoomCard } from '../components/RoomCard';
+import { StakePicker, type QuickChoice } from '../components/StakePicker';
 import { Avatar, Empty } from '../components/ui';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
@@ -32,6 +33,9 @@ const PERIODS = [
 
 const SLIDE_MS = 6000;
 
+const PARCHEESI_2: QuickChoice = { maxPlayers: 2, gameType: 'PARCHEESI', title: 'بارتشيزي · 1 ضد 1' };
+const CONNECT4: QuickChoice = { maxPlayers: 2, gameType: 'CONNECT4', title: 'أربعة على التوالي · 1 ضد 1' };
+
 /** Bannières défilantes façon Rolly : roue du jour, partie rapide, Puissance 4. */
 function HeroCarousel({ busy, onQuick, onC4 }: { busy: boolean; onQuick: () => void; onC4: () => void }) {
   const [i, setI] = useState(0);
@@ -40,7 +44,7 @@ function HeroCarousel({ busy, onQuick, onC4 }: { busy: boolean; onQuick: () => v
     <div key="wheel" className="rl-slide rl-slide-purple">
       <div>
         <h2>عجلة <em>الحظ</em></h2>
-        <p>دورة مجانية كل يوم. اربح حتى {fmt(Math.max(...SHOWCASE_WHEEL))} عملة لتلعب بها!</p>
+        <p>أدر العجلة واربح حتى {fmt(Math.max(...SHOWCASE_WHEEL))} عملة لتلعب بها!</p>
         <Link to="/wheel" className="pb-btn pb-gold pb-lg" data-testid="hero-wheel">أدر العجلة <IconWheel size={20} /></Link>
       </div>
       <div className="rl-slide-art" style={{ maxWidth: 230, marginInline: 'auto', width: '100%' }}><Wheel segments={SHOWCASE_WHEEL} rotation={-22} /></div>
@@ -77,15 +81,14 @@ function HeroCarousel({ busy, onQuick, onC4 }: { busy: boolean; onQuick: () => v
   );
 }
 
-const ROBOT_ART = (
-  <svg width="96" height="96" viewBox="0 0 24 24" fill="none" stroke="#9AD7FF" strokeWidth="1.4" aria-hidden="true"><rect width="16" height="12" x="4" y="8" rx="3" fill="rgba(80,160,255,.18)" /><path d="M12 8V4" /><circle cx="12" cy="3.5" r="1" fill="#9AD7FF" /><circle cx="9" cy="14" r="1.6" fill="#9AD7FF" /><circle cx="15" cy="14" r="1.6" fill="#9AD7FF" /></svg>
-);
-
 export function HomePage() {
   const { user } = useAuth();
   const [filter, setFilter] = useState('');
   const { rooms, online } = useLobby({ status: filter });
   const actions = useRoomActions();
+  const [pick, choose] = useState<QuickChoice | null>(null);
+  // Visiteur non connecté : pas de mise à choisir, la partie rapide le renvoie vers la connexion.
+  const setPick = (c: QuickChoice | null) => (c && !user ? actions.quick(0, c.maxPlayers, c.gameType) : choose(c));
   const [code, setCode] = useState('');
   const [codeMsg, setCodeMsg] = useState('');
   const [period, setPeriod] = useState('week');
@@ -119,29 +122,24 @@ export function HomePage() {
       <div style={{ maxWidth: 1500, margin: '0 auto', padding: 24, display: 'flex', flexWrap: 'wrap', gap: 24, alignItems: 'flex-start' }}>
 
         <main style={{ flex: '999 1 560px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 24 }}>
-          <HeroCarousel busy={actions.busy} onQuick={() => actions.quick(0)} onC4={() => actions.quick(0, 2, 'CONNECT4')} />
+          <HeroCarousel busy={actions.busy} onQuick={() => setPick(PARCHEESI_2)} onC4={() => setPick(CONNECT4)} />
           {actions.error && <div role="alert" className="alert alert-error">{actions.error}</div>}
 
           <section aria-label="بارتشيزي" className="md-grid">
             <ModeCard variant="friend" title="العب مع صديق" sub="أنشئ طاولة خاصة وادعُ أصدقاءك" to="/tables#create" testId="mode-friend" />
-            <ModeCard variant="duel" title="1 ضد 1" sub="مباراة كلاسيكية بين لاعبَين" onClick={() => actions.quick(0, 2)} disabled={actions.busy} testId="mode-duel" />
+            <ModeCard variant="duel" title="1 ضد 1" sub="مباراة كلاسيكية بين لاعبَين" onClick={() => setPick(PARCHEESI_2)} disabled={actions.busy} testId="mode-duel" />
             <ModeCard variant="team" title="فريق ضد فريق" sub="تحالف مع زميل واهزم الفريق الآخر" disabled tag="قريبًا" testId="mode-team" />
-            <ModeCard variant="four" title="4 لاعبين" sub="كل لاعب لنفسه — أول من يوصل بيادقه يفوز" onClick={() => actions.quick(0, 4)} disabled={actions.busy} testId="mode-four" />
+            <ModeCard variant="four" title="4 لاعبين" sub="كل لاعب لنفسه — أول من يوصل بيادقه يفوز" onClick={() => setPick({ maxPlayers: 4, gameType: 'PARCHEESI', title: 'بارتشيزي · 4 لاعبين' })} disabled={actions.busy} testId="mode-four" />
           </section>
 
           <section aria-label="أنماط اللعب" className="rl-modes">
-            <button type="button" className="rl-mode" style={{ background: 'radial-gradient(160px 120px at 50% 30%, rgba(80,170,255,.3), transparent), linear-gradient(180deg,#132B4A,#0E1220)' }} onClick={() => actions.quick(0, 2, 'CONNECT4')} disabled={actions.busy}>
+            <button type="button" className="rl-mode" style={{ background: 'radial-gradient(160px 120px at 50% 30%, rgba(80,170,255,.3), transparent), linear-gradient(180deg,#132B4A,#0E1220)' }} onClick={() => setPick(CONNECT4)} disabled={actions.busy}>
               <span className="rl-mode-art" style={{ inset: '12px 24% 48% 24%' }}><Connect4Board board={SHOWCASE_C4} label="" /></span>
               <b>أربعة على التوالي</b><small>1 ضد 1</small>
             </button>
-            <button type="button" className="rl-mode" style={{ background: 'radial-gradient(160px 120px at 50% 30%, rgba(60,200,255,.25), transparent), linear-gradient(180deg,#123040,#0D141C)' }} onClick={() => actions.practice(1)} disabled={actions.busy} data-testid="practice-home">
-              <span className="rl-mode-art">{ROBOT_ART}</span>
-              <b>ضد الروبوت</b><small>تدريب مجاني</small>
-            </button>
             <Link to="/wheel" className="rl-mode" style={{ background: 'radial-gradient(160px 120px at 50% 30%, rgba(242,178,50,.35), transparent), linear-gradient(180deg,#3A2410,#1A120A)' }}>
-              <span className="rl-mode-tag">مجانًا</span>
               <span className="rl-mode-art" style={{ inset: '12px 26% 48% 26%' }}><Wheel segments={SHOWCASE_WHEEL} /></span>
-              <b>عجلة الحظ</b><small>دورة كل يوم</small>
+              <b>عجلة الحظ</b><small>اربح حتى {fmt(Math.max(...SHOWCASE_WHEEL))} عملة</small>
             </Link>
           </section>
 
@@ -156,7 +154,7 @@ export function HomePage() {
             <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 12 }}>
               <h2 id="tables-title" style={{ fontWeight: 800, fontSize: 22 }}>الطاولات المتاحة</h2>
               <span style={{ marginInlineEnd: 'auto', display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#A9A3B5' }}><span style={{ width: 8, height: 8, borderRadius: '50%', background: '#22C55E', boxShadow: '0 0 0 4px rgba(34,197,94,0.2)' }} /><span dir="ltr">{fmt(online ?? stats?.online ?? 0)}</span> متصل الآن</span>
-              <button type="button" className="pb-btn pb-violet pb-sm" onClick={() => actions.quick(0)} disabled={actions.busy}><IconBolt size={16} />انضم لطاولة عامة</button>
+              <button type="button" className="pb-btn pb-violet pb-sm" onClick={() => setPick(PARCHEESI_2)} disabled={actions.busy}><IconBolt size={16} />انضم لطاولة عامة</button>
             </div>
             <div role="tablist" aria-label="تصفية الطاولات" style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
               {FILTERS.map((f) => (
@@ -246,11 +244,22 @@ export function HomePage() {
 
           <div style={{ padding: 18, borderRadius: 22, background: 'linear-gradient(120deg, #3B1F6E, #24124A)', border: '1px solid rgba(242,178,50,0.35)', display: 'flex', alignItems: 'center', gap: 14 }}>
             <Gift size={44} />
-            <span style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2 }}><span style={{ fontWeight: 800 }}>ادعُ أصدقاءك</span><span style={{ fontSize: 12, lineHeight: 1.6, color: '#DCD6FF' }}>العب معهم، وكل واحد يدير عجلة الحظ مجانًا كل يوم</span></span>
+            <span style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2 }}><span style={{ fontWeight: 800 }}>ادعُ أصدقاءك</span><span style={{ fontSize: 12, lineHeight: 1.6, color: '#DCD6FF' }}>العب معهم وتحدَّهم على الطاولات</span></span>
             <button type="button" className="pb-btn pb-gold pb-sm" onClick={copyInvite}>{copied ? 'تم النسخ ✓' : 'نسخ الرابط'}</button>
           </div>
         </aside>
       </div>
+      <StakePicker
+        choice={pick}
+        balance={user?.balance ?? 0}
+        busy={actions.busy}
+        onClose={() => choose(null)}
+        onPick={(stake) => {
+          if (!pick) return;
+          choose(null); // une erreur éventuelle (solde, table déjà rejointe) s'affiche sur la page
+          actions.quick(stake, pick.maxPlayers, pick.gameType);
+        }}
+      />
       <Footer />
     </>
   );
