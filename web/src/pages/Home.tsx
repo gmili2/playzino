@@ -1,15 +1,15 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { Board, SHOWCASE_PAWNS } from '../components/Board';
 import { Connect4Board, SHOWCASE_C4 } from '../components/Connect4Board';
 import { Footer, Header } from '../components/AppShell';
-import { IconBolt, IconCrown, IconLock, IconTrophy, IconUsers, IconWheel } from '../components/Icons';
-import { SHOWCASE_WHEEL, Wheel } from '../components/Wheel';
+import { IconBolt, IconCrown, IconLock, IconTrophy, IconUsers } from '../components/Icons';
+import { SHOWCASE_WHEEL } from '../components/Wheel';
 import { ModeCard } from '../components/ModeCards';
 import { RoomCard } from '../components/RoomCard';
 import { StakePicker, type QuickChoice } from '../components/StakePicker';
 import { TaskCard } from '../components/TaskCard';
-import { FloatingCoins, Sparkles, StageLights } from '../components/Casino';
+import { FloatingCoins, Sparkles } from '../components/Casino';
 import { Avatar, Empty } from '../components/ui';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
@@ -38,46 +38,65 @@ const SLIDE_MS = 6000;
 const PARCHEESI_2: QuickChoice = { maxPlayers: 2, gameType: 'PARCHEESI', title: 'بارتشيزي · 1 ضد 1' };
 const CONNECT4: QuickChoice = { maxPlayers: 2, gameType: 'CONNECT4', title: 'أربعة على التوالي · 1 ضد 1' };
 
-/** Bannières défilantes façon Rolly : roue du jour, partie rapide, Puissance 4. */
+/** Jeux présentés en carrousel 3D : la carte centrale est jouable, les voisines s'inclinent sur les côtés. */
 function HeroCarousel({ busy, onQuick, onC4 }: { busy: boolean; onQuick: () => void; onC4: () => void }) {
-  const [i, setI] = useState(0);
-  const [paused, setPaused] = useState(false);
-  const slides = [
-    <div key="wheel" className="rl-slide rl-slide-purple">
-      <div>
-        <h2>عجلة <em>الحظ</em></h2>
-        <p>أدر العجلة واربح حتى {fmt(Math.max(...SHOWCASE_WHEEL))} عملة لتلعب بها!</p>
-        <Link to="/wheel" className="pb-btn pb-gold pb-lg" data-testid="hero-wheel">أدر العجلة <IconWheel size={20} /></Link>
-      </div>
-      <div className="rl-slide-art" style={{ maxWidth: 230, marginInline: 'auto', width: '100%' }}><Wheel segments={SHOWCASE_WHEEL} rotation={-22} /></div>
-    </div>,
-    <div key="quick" className="rl-slide rl-slide-gold">
-      <div>
-        <h2>تحدَّ <em>الجميع</em></h2>
-        <p>بارتشيزي مباشرة من المتصفح: ارمِ النرد وأوصل بيادقك الأربعة إلى البيت قبل الخصوم.</p>
-        <button type="button" className="pb-btn pb-gold pb-lg" onClick={onQuick} disabled={busy} data-testid="play-now">العب الآن</button>
-      </div>
-      <div className="rl-slide-art" style={{ maxWidth: 240, marginInline: 'auto', width: '100%', transform: 'rotate(4deg)' }}><Board pawns={SHOWCASE_PAWNS} label="لوحة توضيحية" /></div>
-    </div>,
-    <div key="c4" className="rl-slide rl-slide-blue">
-      <div>
-        <h2>أربعة على <em>التوالي</em></h2>
-        <p>أسقط قطعك وصُفّ أربعًا أفقيًا أو عموديًا أو قطريًا قبل خصمك.</p>
-        <button type="button" className="pb-btn pb-gold pb-lg" onClick={onC4} disabled={busy}>العب الآن</button>
-      </div>
-      <div className="rl-slide-art" style={{ maxWidth: 240, marginInline: 'auto', width: '100%' }}><Connect4Board board={SHOWCASE_C4} label="لوحة توضيحية" /></div>
-    </div>
+  const cards = [
+    {
+      key: 'wheel', title: 'عجلة الحظ', text: `أدر العجلة واربح حتى ${fmt(Math.max(...SHOWCASE_WHEEL))} عملة لتلعب بها!`,
+      art: <img src="/img/wheel-art.webp" alt="" className="cf-wheel" width={828} height={756} />,
+      action: <Link to="/wheel" className="gem-btn" data-testid="hero-wheel"><span>أدر العجلة</span></Link>
+    },
+    {
+      key: 'c4', title: 'أربعة على التوالي', text: 'أسقط قطعك وصُفّ أربعًا أفقيًا أو عموديًا أو قطريًا قبل خصمك.',
+      art: <Connect4Board board={SHOWCASE_C4} label="لوحة توضيحية" />,
+      action: <button type="button" className="gem-btn" onClick={onC4} disabled={busy}><span>العب الآن</span></button>
+    },
+    {
+      key: 'parcheesi', title: 'تحدَّ الجميع', text: 'بارتشيزي: ارمِ النرد وأوصل بيادقك الأربعة إلى البيت قبل الخصوم.',
+      art: <Board pawns={SHOWCASE_PAWNS} label="لوحة توضيحية" />,
+      action: <button type="button" className="gem-btn" onClick={onQuick} disabled={busy} data-testid="play-now"><span>العب الآن</span></button>
+    }
   ];
+  const n = cards.length;
+  const [i, setI] = useState(1);
+  const [paused, setPaused] = useState(false);
+  const drag = useRef<number | null>(null);
+  const go = (to: number) => setI(((to % n) + n) % n);
   useEffect(() => {
     if (paused) return;
-    const t = setInterval(() => setI((x) => (x + 1) % slides.length), SLIDE_MS);
+    const t = setInterval(() => setI((x) => (x + 1) % n), SLIDE_MS);
     return () => clearInterval(t);
-  }, [paused, slides.length]);
+  }, [paused, n]);
   return (
-    <section aria-roledescription="carrousel" aria-label="العروض" onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)}>
-      <div className="rl-hero"><StageLights beams={3} />{slides[i]}<FloatingCoins count={5} /><Sparkles count={10} /></div>
-      <div className="rl-dots">
-        {slides.map((_, k) => <button key={k} type="button" aria-label={`العرض ${k + 1}`} aria-current={i === k} onClick={() => { setI(k); setPaused(true); }} />)}
+    <section aria-roledescription="carrousel" aria-label="الألعاب" className="cf" onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)}
+      onPointerDown={(e) => { drag.current = e.clientX; }}
+      onPointerUp={(e) => {
+        if (drag.current === null) return;
+        const dx = e.clientX - drag.current;
+        drag.current = null;
+        if (Math.abs(dx) > 40) { go(i + (dx < 0 ? 1 : -1)); setPaused(true); }
+      }}>
+      <div className="cf-stage">
+        <span className="cf-stars" aria-hidden="true" />
+        <FloatingCoins count={5} />
+        <div className="cf-track" dir="ltr">
+          {cards.map((c, k) => {
+            const off = ((k - i + n + 1) % n) - 1; // -1 gauche, 0 centre, 1 droite
+            return (
+              <article key={c.key} dir="rtl" className={'cf-card' + (off === 0 ? ' active' : '')} style={{ '--off': off } as CSSProperties}
+                aria-hidden={off !== 0} onClick={off !== 0 ? () => { go(k); setPaused(true); } : undefined}>
+                <div className="cf-art">{c.art}</div>
+                <h2>{c.title}</h2>
+                <p>{c.text}</p>
+                <div className="cf-action" {...({ inert: off !== 0 ? "" : undefined } as object)}>{c.action}</div>
+              </article>
+            );
+          })}
+        </div>
+        <Sparkles count={10} />
+      </div>
+      <div className="cf-dots">
+        {cards.map((c, k) => <button key={c.key} type="button" aria-label={c.title} aria-current={i === k} onClick={() => { go(k); setPaused(true); }} />)}
       </div>
     </section>
   );
@@ -130,7 +149,7 @@ export function HomePage() {
               <b>أربعة على التوالي</b><small>1 ضد 1</small>
             </button>
             <Link to="/wheel" className="rl-mode" style={{ background: 'radial-gradient(160px 120px at 50% 30%, rgba(242,178,50,.35), transparent), linear-gradient(180deg,#3A2410,#1A120A)' }}>
-              <span className="rl-mode-art" style={{ inset: '12px 26% 48% 26%' }}><Wheel segments={SHOWCASE_WHEEL} /></span>
+              <span className="rl-mode-art" style={{ inset: '10px 18% 44% 18%' }}><img src="/img/wheel-art.webp" alt="" style={{ width: '100%', height: '100%', objectFit: 'contain' }} /></span>
               <b>عجلة الحظ</b><small>اربح حتى {fmt(Math.max(...SHOWCASE_WHEEL))} عملة</small>
             </Link>
           </section>

@@ -16,6 +16,15 @@
   unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
 
+@font-face {
+  font-family: 'Playfair Display';
+  font-style: normal;
+  font-weight: 400 900;
+  font-display: swap;
+  src: url('/fonts/playfair-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF;
+}
+
 :root {
   --bg: #0E0C14;
   --bg-header: #13101B;
@@ -682,3 +691,69 @@ body::after{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;opa
 .rl-tabbar{background:linear-gradient(180deg,rgba(27,34,144,.97),rgba(10,12,52,.98));border-top:1px solid rgba(255,210,63,.55);box-shadow:0 -1px 0 rgba(122,74,0,.6),0 -8px 30px rgba(255,200,61,.12)}
 .rl-tab.active{color:#FFD23F}
 .rl-tab-home-btn{background:radial-gradient(circle at 50% 30%,#5C86FF,#1B2FC0 60%,#0F1A7A);border:3px solid #FFD23F;box-shadow:0 0 0 3px rgba(122,74,0,.8),0 0 24px rgba(255,210,63,.55)}
+
+/* ======================= Accueil façon « salon royal » : bleu nuit, or fin, carrousel 3D ======================= */
+/* Logo : Playzino en romain doré (Playfair Display), couronne d'or sans pastille. */
+.rl-brand-name{font-family:'Playfair Display',Georgia,'Times New Roman',serif;font-weight:800;letter-spacing:.005em;font-size:30px;background:linear-gradient(180deg,#FFF4C9 0%,#F2D27A 35%,#C8923A 60%,#F7DE92 100%);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 2px 0 rgba(90,55,0,.6)) drop-shadow(0 0 10px rgba(255,210,120,.25));animation:none}
+.rl-brand-mark{width:auto;height:auto;background:none;box-shadow:none;color:#F2C14E;filter:drop-shadow(0 2px 0 #7A4E00) drop-shadow(0 0 10px rgba(255,200,80,.45))}
+.rl-brand-mark svg{width:34px;height:34px}
+@media (max-width:900px){.rl-brand-name{font-size:24px}.rl-brand-mark svg{width:30px;height:30px}}
+.rl-top{background:linear-gradient(180deg,#1A2380 0%,#121A63 100%);border-bottom:0;box-shadow:inset 0 -1px 0 #E6C26A,inset 0 -3px 0 rgba(122,78,0,.9),inset 0 -4px 0 rgba(255,226,150,.35),0 10px 30px rgba(0,0,30,.45)}
+/* Avatar en pièce d'or, solde dans un écrin bleu cerclé d'or. */
+.rl-avatar{padding:0;border:0;border-radius:50%;box-shadow:0 0 0 2px #FFF0B8,0 0 0 4px #A5741E,0 4px 12px rgba(0,0,0,.45)}
+.rl-avatar>span{background:radial-gradient(circle at 35% 30%,#FFF1BE,#E8BE5C 45%,#A5741E 100%)!important;color:#3A2600!important;text-shadow:0 1px 0 rgba(255,255,255,.5)}
+.rl-pill{background:linear-gradient(180deg,#121A5C,#0B1140);border:1.5px solid #D8B25A;box-shadow:inset 0 1px 0 rgba(255,255,255,.12),0 0 14px rgba(216,178,90,.25);color:#FFF1C2}
+.rl-pill-plus{background:radial-gradient(circle at 35% 30%,#FFF1BE,#E8BE5C 45%,#A5741E 100%);box-shadow:0 0 0 1px #7A4E00;color:#2B1A00}
+
+/* Carrousel des jeux. */
+.cf{display:flex;flex-direction:column;gap:12px}
+.cf-stage{position:relative;overflow:hidden;border-radius:28px;padding:26px 0 30px;touch-action:pan-y;
+  background:radial-gradient(70% 55% at 50% 40%,rgba(70,90,220,.35),transparent 70%),linear-gradient(180deg,#0E1450,#080B33);box-shadow:inset 0 0 0 1px rgba(216,178,90,.35),0 18px 40px rgba(0,0,0,.4)}
+.cf-stars{position:absolute;inset:0;pointer-events:none;opacity:.8;background-image:radial-gradient(1px 1px at 10% 20%,#fff,transparent),radial-gradient(1px 1px at 30% 70%,#C9D4FF,transparent),radial-gradient(1.5px 1.5px at 55% 15%,#fff,transparent),radial-gradient(1px 1px at 75% 55%,#fff,transparent),radial-gradient(1px 1px at 90% 85%,#C9D4FF,transparent),radial-gradient(1.5px 1.5px at 20% 92%,#fff,transparent),radial-gradient(1px 1px at 65% 88%,#fff,transparent),radial-gradient(1px 1px at 42% 42%,#C9D4FF,transparent);background-size:240px 240px}
+.cf-track{position:relative;z-index:1;display:grid;place-items:center;perspective:1300px}
+.cf-card{grid-area:1/1;width:min(64%,380px);display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center;padding:14px 16px 18px;border-radius:22px;cursor:pointer;user-select:none;
+  background:linear-gradient(160deg,rgba(255,255,255,.14),rgba(255,255,255,0) 35%),linear-gradient(180deg,#1E2C8F,#101862 60%,#0B1146);
+  box-shadow:0 0 0 2px #EBCB7A,0 0 0 4px #7A4E00,0 0 0 5px rgba(255,226,150,.55),0 0 28px rgba(235,203,122,.25),0 24px 40px rgba(0,0,20,.6);
+  transform:translateX(calc(var(--off) * 78%)) rotateY(calc(var(--off) * -32deg)) scale(calc(1 - var(--off) * var(--off) * .2));z-index:calc(3 - var(--off) * var(--off) * 2);
+  filter:brightness(calc(1 - var(--off) * var(--off) * .35));transition:transform .55s cubic-bezier(.2,.8,.2,1),filter .55s}
+.cf-card.active{cursor:default}
+.cf-art{width:100%;height:clamp(120px,32vw,190px);display:grid;place-items:center;padding:6px;border-radius:14px;background:radial-gradient(closest-side,rgba(120,150,255,.3),transparent);overflow:hidden}
+.cf-art>*{height:100%!important;width:auto!important;max-width:100%;aspect-ratio:1}
+.cf-art>.cf-wheel{aspect-ratio:828/756}
+.cf-wheel{height:100%;width:auto;filter:drop-shadow(0 0 14px rgba(255,190,60,.45))}
+.cf-card h2{margin:4px 0 0;font-size:clamp(20px,5.4vw,30px);font-weight:900;line-height:1.25;background:linear-gradient(180deg,#FFF4C9,#E8C06A 55%,#B9852F);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 2px 0 rgba(40,20,0,.5))}
+.cf-card p{margin:0;font-size:clamp(12px,3.3vw,15px);line-height:1.7;color:#DCE3FF;max-width:30ch}
+.cf-action{margin-top:8px;filter:drop-shadow(0 0 1.5px #FFE7A6) drop-shadow(0 6px 10px rgba(0,0,0,.5)) drop-shadow(0 0 12px rgba(255,210,120,.35))}
+.cf-card:not(.active) .cf-action{pointer-events:none}
+.cf-dots{display:flex;justify-content:center;align-items:center;gap:12px}
+.cf-dots button{width:11px;height:11px;padding:0;border:1.5px solid #E8C06A;background:linear-gradient(135deg,#FFF1BE,#B9852F);transform:rotate(45deg);cursor:pointer;opacity:.65;transition:all .25s}
+.cf-dots button[aria-current=true]{width:46px;height:12px;transform:none;border-radius:999px;opacity:1;box-shadow:0 0 12px rgba(232,192,106,.6)}
+@media (min-width:901px){.cf-card{width:min(42%,420px)}.cf-card{transform:translateX(calc(var(--off) * 92%)) rotateY(calc(var(--off) * -28deg)) scale(calc(1 - var(--off) * var(--off) * .18))}}
+
+/* Bouton « gemme » : hexagone d'or serti d'améthyste. */
+.gem-btn{display:inline-grid;min-width:190px;height:56px;padding:4px 12px;border:0;cursor:pointer;text-decoration:none;
+  clip-path:polygon(9% 0,91% 0,100% 50%,91% 100%,9% 100%,0 50%);
+  background:linear-gradient(180deg,#E2C8FF 0%,#8B4FD8 30%,#4A1F8C 55%,#7A3FC8 80%,#C9A8FF 100%)}
+.gem-btn span{display:grid;place-items:center;padding:0 22px;font:900 19px/1 Cairo,system-ui,sans-serif;color:#3A2400;text-shadow:0 1px 0 rgba(255,250,220,.7);
+  clip-path:polygon(7% 0,93% 0,100% 50%,93% 100%,7% 100%,0 50%);
+  background:linear-gradient(180deg,#FFF6D2 0%,#F3D27C 38%,#C99234 62%,#F6DC94 100%);box-shadow:inset 0 2px 0 rgba(255,255,255,.7)}
+.gem-btn:hover span{filter:brightness(1.08)}
+.gem-btn:focus-visible{outline:3px solid #FFE7A6;outline-offset:3px}
+.gem-btn:disabled{filter:grayscale(.4) brightness(.8);cursor:not-allowed}
+
+/* Barre du bas : motif art déco doré, bouton Accueil serti. */
+.rl-tabbar{background:
+  repeating-linear-gradient(45deg,rgba(216,178,90,.12) 0 1px,transparent 1px 26px),repeating-linear-gradient(-45deg,rgba(216,178,90,.12) 0 1px,transparent 1px 26px),
+  linear-gradient(180deg,#1A2380,#0E1452);border-top:0;box-shadow:inset 0 1px 0 #E6C26A,inset 0 3px 0 rgba(122,78,0,.9),inset 0 4px 0 rgba(255,226,150,.35),0 -10px 30px rgba(0,0,30,.45)}
+.rl-tab{color:#AEB8E8}
+.rl-tab.active{color:#F2C14E}
+.rl-tab-home-btn{color:#F2C14E;border:0;background:
+  repeating-linear-gradient(45deg,rgba(242,193,78,.18) 0 1px,transparent 1px 10px),repeating-linear-gradient(-45deg,rgba(242,193,78,.18) 0 1px,transparent 1px 10px),
+  radial-gradient(circle at 50% 35%,#2A3BB0,#121A63 70%);box-shadow:0 0 0 3px #EBCB7A,0 0 0 5px #7A4E00,0 0 0 6px rgba(255,226,150,.55),0 0 26px rgba(235,203,122,.45),0 -6px 20px rgba(0,0,30,.5)}
+.rl-tab-home-btn svg{filter:drop-shadow(0 2px 0 #7A4E00)}
+.rl-tab-home.active .rl-tab-home-btn{background:repeating-linear-gradient(45deg,rgba(242,193,78,.2) 0 1px,transparent 1px 10px),repeating-linear-gradient(-45deg,rgba(242,193,78,.2) 0 1px,transparent 1px 10px),radial-gradient(circle at 50% 35%,#3346C8,#121A63 70%);color:#FFE08A;box-shadow:0 0 0 3px #FFE7A6,0 0 0 5px #7A4E00,0 0 0 6px rgba(255,226,150,.7),0 0 34px rgba(255,214,120,.7),0 -6px 20px rgba(0,0,30,.5)}
+
+/* Cartes des modes : velours et filet d'or. */
+.md-card{border-color:#C9A24E;box-shadow:0 0 0 1px #6B4A12,0 0 18px rgba(201,162,78,.2),0 14px 34px rgba(0,0,0,.45)}
+.md-card::after{border-color:rgba(242,208,128,.9);box-shadow:inset 0 0 0 1px rgba(107,74,18,.6)}
+@media (prefers-reduced-motion:reduce){.cf-card{transition:none}}
