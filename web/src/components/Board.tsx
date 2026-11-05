@@ -71,6 +71,26 @@ const rect = (r: number, c: number, h = 1, w = 1): CSSProperties => ({
   position: 'absolute', left: `${G(c)}%`, top: `${G(r)}%`, width: `${G(c + w) - G(c)}%`, height: `${G(r + h) - G(r)}%`, boxSizing: 'border-box'
 });
 
+/**
+ * Rotation du plateau (quarts de tour dans le sens horaire) pour que chaque joueur voie son camp en bas à gauche.
+ * On fait tourner les coordonnées de grille, pas l'image : numéros et noms restent à l'endroit.
+ */
+export type Quarter = 0 | 1 | 2 | 3;
+/** Couleur du joueur → rotation qui amène son camp en bas à gauche (place du bleu sur le plateau classique). */
+export const QUARTER_FOR: Record<Color, Quarter> = { blue: 0, red: 1, green: 2, yellow: 3 };
+const N = 19;
+/** Point de grille (ligne, colonne) après q quarts de tour horaires. */
+function rotPt(r: number, c: number, q: Quarter): [number, number] {
+  for (let k = 0; k < q; k++) [r, c] = [c, N - r];
+  return [r, c];
+}
+/** Rectangle de grille après rotation (coins tournés, puis remis en ordre). */
+function rotRect(r: number, c: number, h: number, w: number, q: Quarter): [number, number, number, number] {
+  const [r1, c1] = rotPt(r, c, q);
+  const [r2, c2] = rotPt(r + h, c + w, q);
+  return [Math.min(r1, r2), Math.min(c1, c2), Math.abs(r2 - r1), Math.abs(c2 - c1)];
+}
+
 const cellBase: CSSProperties = { border: `0.5px solid ${LINE}`, display: 'flex', alignItems: 'center', justifyContent: 'center' };
 
 // La partie statique du plateau est calculée une seule fois.
@@ -101,7 +121,7 @@ export interface BoardTarget {
 }
 
 export function Board({
-  pawns, targets = [], label = 'لوحة البارتشيزي', names = {}, turn = null, die = null
+  pawns, targets = [], label = 'لوحة البارتشيزي', names = {}, turn = null, die = null, quarter = 0
 }: {
   pawns: BoardPawn[];
   targets?: BoardTarget[];
@@ -111,10 +131,20 @@ export function Board({
   /** Couleur qui a la main : son camp est mis en avant et reçoit le dé. */
   turn?: Color | null;
   die?: number | null;
+  /** Rotation d'affichage (voir QUARTER_FOR) : 0 = disposition classique, bleu en bas à gauche. */
+  quarter?: Quarter;
 }) {
+  const q = quarter;
+  const R = (r: number, c: number, h = 1, w = 1) => rect(...rotRect(r, c, h, w, q));
+  /** Centre à l'écran : point tourné ; au quart de tour, une case allongée change de sens. */
+  const at = (ctr: { r: number; c: number; wide: boolean }) => {
+    const [r, c] = rotPt(ctr.r, ctr.c, q);
+    return { r, c, wide: q % 2 ? !ctr.wide : ctr.wide };
+  };
   const groups: Record<string, number> = {};
   const placed = pawns.map((pw) => {
-    const ctr = center(pw.color, pw.p, pw.slot);
+    const raw = center(pw.color, pw.p, pw.slot);
+    const ctr = { ...raw, ...at(raw) };
     groups[ctr.key] = (groups[ctr.key] || 0) + 1;
     return { pw, ctr };
   });
@@ -133,7 +163,8 @@ export function Board({
       <div style={{ position: 'relative', width: '100%', height: '100%', containerType: 'inline-size', background: '#FFFFFF', borderRadius: 10, overflow: 'hidden', boxShadow: `0 0 0 1px ${LINE}`, color: '#3B4252' }}>
         {COLORS.map((k) => {
           const C = PAL[k];
-          const [r, c] = C.nest;
+          // Position du camp à l'écran (après rotation) : nom sur le bord extérieur, dé dans le coin intérieur.
+          const [r, c] = rotRect(C.nest[0], C.nest[1], 8, 8, q);
           const top = r === 0;
           const active = turn === k;
           return (
@@ -165,7 +196,7 @@ export function Board({
         })}
         {COLORS.flatMap((k) =>
           [0, 1, 2, 3].map((s) => {
-            const ctr = center(k, -1, s);
+            const ctr = at(center(k, -1, s));
             return (
               <div
                 key={'sock' + k + s}
@@ -177,7 +208,7 @@ export function Board({
         {TRACK_CELLS.map(({ i, r, c, sc, safe }) => (
           <div
             key={'t' + i}
-            style={{ ...rect(r, c), ...cellBase, background: sc ? PAL[sc].tint : safe ? '#CDD2DB' : '#FFFFFF', fontSize: '1.65cqw', fontWeight: 600, color: sc ? PAL[sc].deep : '#5B6475' }}
+            style={{ ...R(r, c), ...cellBase, background: sc ? PAL[sc].tint : safe ? '#CDD2DB' : '#FFFFFF', fontSize: '1.65cqw', fontWeight: 600, color: sc ? PAL[sc].deep : '#5B6475' }}
           >
             {sc ? (
               <svg viewBox="0 0 24 24" aria-hidden="true" style={{ width: '2.6cqw', height: '2.6cqw' }}><path d="M12 2l2.9 6.6 7.1.6-5.4 4.7 1.6 7L12 17.3 5.8 21l1.6-7L2 9.2l7.1-.6Z" fill={PAL[sc].fill} stroke={PAL[sc].deep} strokeWidth="1.2" /></svg>
@@ -189,10 +220,10 @@ export function Board({
         {COLORS.flatMap((k) =>
           [1, 2, 3, 4, 5, 6, 7].map((j) => {
             const [r, c] = PAL[k].home(j);
-            return <div key={'h' + k + j} style={{ ...rect(r, c), ...cellBase, background: PAL[k].fill, borderColor: PAL[k].deep }} />;
+            return <div key={'h' + k + j} style={{ ...R(r, c), ...cellBase, background: PAL[k].fill, borderColor: PAL[k].deep }} />;
           })
         )}
-        <svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true" style={{ ...rect(8, 8, 3, 3), display: 'block' }}>
+        <svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true" style={{ ...rect(8, 8, 3, 3), display: 'block', transform: `rotate(${q * 90}deg)` }}>
           <polygon points="0,0 100,0 50,50" fill={PAL.yellow.fill} />
           <polygon points="100,0 100,100 50,50" fill={PAL.green.fill} />
           <polygon points="0,100 100,100 50,50" fill={PAL.red.fill} />
@@ -202,7 +233,8 @@ export function Board({
           <circle cx="50" cy="50" r="7" fill="#FFFFFF" stroke={LINE} strokeWidth="1" />
         </svg>
         {targets.map((t, idx) => {
-          const ctr = center(t.color, t.p, t.slot || 0);
+          const raw = center(t.color, t.p, t.slot || 0);
+          const ctr = { ...raw, ...at(raw) };
           const s = ctr.size + 0.6;
           return (
             <div

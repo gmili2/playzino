@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { MarqueeBulbs, Sparkles, StageLights } from '../components/Casino';
-import { Board, type BoardPawn, type BoardTarget } from '../components/Board';
+import { Board, QUARTER_FOR, type BoardPawn, type BoardTarget } from '../components/Board';
 import { C4_COLS, C4_ROWS, Connect4Board } from '../components/Connect4Board';
 import { IconArrowBack, IconCrown, IconLogout, IconMute, IconSmile, IconVolume, IconWifiOff } from '../components/Icons';
 import { Avatar, Coin, Die, Loading, Spinner } from '../components/ui';
@@ -444,8 +444,13 @@ export function GamePage() {
         return { key: color, color, name: rp ? rp.username : 'مكان شاغر', isMe: rp?.userId === user?.id, vacant: !rp, isBot: !!rp?.isBot, level: rp?.level ?? null, avatarColor: rp?.avatarColor ?? '#3B4A8C', avatarUrl: rp?.avatarUrl ?? null, p: null };
       });
   // Chaque joueur est affiché près de son camp sur le plateau ; Puissance 4 : moi en bas, l'adversaire en haut.
+  // Parchís : le plateau tourne pour que MON camp soit en bas à gauche ; les cartes des joueurs suivent la rotation.
   const PARCHIS_CORNER: Record<Color, 'tl' | 'tr' | 'bl' | 'br'> = { yellow: 'tl', green: 'tr', blue: 'bl', red: 'br' };
-  const cornerOf = (st: Seat) => (c4 ? (st.isMe ? 'bl' : 'tr') : PARCHIS_CORNER[st.color]);
+  const CLOCKWISE = ['tl', 'tr', 'br', 'bl'] as const;
+  const myColor = me?.color ?? room.players.find((p) => p.userId === user?.id)?.color;
+  const quarter = myColor ? QUARTER_FOR[myColor] : 0;
+  const cornerOf = (st: Seat) =>
+    c4 ? (st.isMe ? 'bl' : 'tr') : CLOCKWISE[(CLOCKWISE.indexOf(PARCHIS_CORNER[st.color]) + quarter) % 4];
 
   const seatCard = (corner: 'tl' | 'tr' | 'bl' | 'br') => {
     const st = seats.find((x) => cornerOf(x) === corner);
@@ -558,6 +563,7 @@ export function GamePage() {
               names={Object.fromEntries((snap?.players ?? room.players).map((p) => [p.color, p.userId === user?.id ? 'أنت' : p.username]))}
               turn={view?.active ? snap?.turnColor : null}
               die={snap?.state.die}
+              quarter={quarter}
             />
           )}
           {(toast || gain !== null) && (
