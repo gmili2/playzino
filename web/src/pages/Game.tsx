@@ -9,7 +9,7 @@ import { api, ApiError, errorText } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { COLOR_HEX, COLOR_NAME, fmt } from '../lib/format';
 import { useRoomActions } from '../lib/hooks';
-import { diceShake, preloadSfx, sfx, type Sfx } from '../lib/sounds';
+import { diceShake, preloadSfx, setMuted, sfx, type Sfx } from '../lib/sounds';
 import { STICKER_BY_ID, STICKER_COOLDOWN_MS, STICKERS, type StickerId } from '../lib/stickers';
 import { emitAck, getSocket } from '../lib/socket';
 import type { Color, GameEvent, GameSnapshot, Move, Room } from '../lib/types';
@@ -89,6 +89,9 @@ export function GamePage() {
   const [skew, setSkew] = useState(0);
   const lastSeq = useRef(-1);
   const play = useSound(sound);
+  // Le haut-parleur de la partie coupe aussi les clics des boutons ; réglage du profil rétabli en quittant.
+  const profileSound = user?.profile.soundEnabled ?? true;
+  useEffect(() => { setMuted(!sound); return () => setMuted(!profileSound); }, [sound, profileSound]);
   /** Sticker affiché au-dessus de l'avatar de chaque joueur (userId → sticker), effacé après quelques secondes. */
   const [bubbles, setBubbles] = useState<Record<string, { sticker: StickerId; at: number }>>({});
   const [picker, setPicker] = useState(false);
@@ -177,8 +180,16 @@ export function GamePage() {
       if (statusRef.current === 'ACTIVE' && s.status === 'FINISHED' && s.winnerId) {
         setTimeout(() => play(s.winnerId === userIdRef.current ? 'win' : 'lose'), 500);
         const won = userIdRef.current ? s.payouts[userIdRef.current] ?? 0 : 0;
-        if (s.winnerId === userIdRef.current && won > 0) setGain(won);
+        if (s.winnerId === userIdRef.current && won > 0) {
+          setGain(won);
+          setTimeout(() => play('coins'), 1900); // après le jingle de victoire
+        }
       }
+      // Le tour vient de passer à moi : petit signal (pas pendant une pause, ni quand je rejoue après un 6).
+      if (s.status === 'ACTIVE' && !s.paused && s.turnColor && s.turnColor === myColorRef.current && turnRef.current !== s.turnColor) {
+        setTimeout(() => play('turn'), lastSeq.current >= 0 ? 700 : 0);
+      }
+      turnRef.current = s.status === 'ACTIVE' ? s.turnColor : null;
       statusRef.current = s.status;
       lastSeq.current = Math.max(lastSeq.current, s.state.seq);
       if (s.status !== 'ACTIVE') refresh();
@@ -188,6 +199,7 @@ export function GamePage() {
   const nameOfRef = useRef(nameOf);
   nameOfRef.current = nameOf;
   const statusRef = useRef<GameSnapshot['status'] | null>(null);
+  const turnRef = useRef<Color | null>(null);
   const userIdRef = useRef(user?.id);
   userIdRef.current = user?.id;
   const myColorRef = useRef<Color | undefined>(me?.color);
@@ -335,6 +347,7 @@ export function GamePage() {
 
   const move = async (pawn: number) => {
     if (!gameId || busy) return;
+    play('select');
     setBusy(true);
     try {
       applySnap(await emitAck<GameSnapshot>('game:move', { gameId, pawn }));
@@ -620,7 +633,7 @@ export function GamePage() {
               <span style={{ width: '62%', aspectRatio: '1', borderRadius: '50%', background: COLOR_HEX[me?.color ?? 'red'], boxShadow: 'inset 0 -6px 0 rgba(0,0,0,.25), inset 0 4px 0 rgba(255,255,255,.35)', opacity: view?.myTurn ? 1 : 0.45 }} />
             </div>
           ) : (
-            <button type="button" data-testid="roll" className={'lg-tray' + (canRoll ? ' ready' : '')} disabled={!canRoll} onClick={roll} aria-label={rolling ? 'جارٍ الرمي…' : view?.myTurn ? 'ارمِ النرد' : 'دور الخصم'}>
+            <button type="button" data-testid="roll" data-nosfx className={'lg-tray' + (canRoll ? ' ready' : '')} disabled={!canRoll} onClick={roll} aria-label={rolling ? 'جارٍ الرمي…' : view?.myTurn ? 'ارمِ النرد' : 'دور الخصم'}>
               <Die face={face} rolling={rolling} rollId={rollId} size={64} />
             </button>
           )}

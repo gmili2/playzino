@@ -1,2 +1,9 @@
-Effets sonores : Kenney (www.kenney.nl) — packs « Casino Audio » et « Interface Sounds ».
-Licence Creative Commons Zero (CC0) : http://creativecommons.org/publicdomain/zero/1.0/
+Effets sonores, tous sous licence Creative Commons Zero (CC0, domaine public) :
+http://creativecommons.org/publicdomain/zero/1.0/
+
+- Kenney (www.kenney.nl), pack « Casino Audio » : dés, déplacements, sorties, prises, Puissance 4, stickers.
+- Kenney, pack « Interface Sounds » (opengameart.org/content/interface-sounds) :
+  click-* (click_002-004), select-* (select_001-002), turn-1 (open_002), turn-2 (maximize_006).
+- Kenney, « 85 Short music jingles » (opengameart.org/content/85-short-music-jingles) :
+  win-1 (jingles_STEEL02), lose-1 (jingles_STEEL01).
+- lordtomorrow, « Coin Splash » (opengameart.org/content/coin-splash) : coins-1.

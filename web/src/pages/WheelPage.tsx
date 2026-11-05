@@ -81,7 +81,11 @@ export function WheelPage() {
     if (soundOn) stopTicks.current = tickWhileSpinning(rotation, rotation + 6 * 360 + delta, state.segments.length);
     timer.current = setTimeout(async () => {
       stopTicks.current();
-      if (soundOn) sfx.jackpot();
+      if (soundOn) {
+        sfx.jackpot();
+        // Pièces seulement si la case tirée rapporte quelque chose.
+        if ((state.segments[index] ?? 0) > 0) setTimeout(sfx.coins, 350);
+      }
       setSpinning(false);
       done();
       await refresh();

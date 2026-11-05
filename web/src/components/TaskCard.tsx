@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api, errorText } from '../lib/api';
 import { useAuth } from '../lib/auth';
+import { sfx } from '../lib/sounds';
 import { Gift } from './Icons';
 
 interface TaskState { played: number; goal: number; reward: number; claimed: boolean }
@@ -23,6 +24,7 @@ export function TaskCard() {
     setMsg('');
     try {
       setTask(await api.post<TaskState>('/api/tasks/claim'));
+      if (user?.profile.soundEnabled ?? true) sfx.coins();
       await refresh();
     } catch (e) {
       setMsg(errorText(e));

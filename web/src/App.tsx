@@ -8,6 +8,8 @@ import { GamePage } from './pages/Game';
 import { HomePage } from './pages/Home';
 import { LandingPage } from './pages/Landing';
 import { useAuth } from './lib/auth';
+import { installClickSound, setMuted } from './lib/sounds';
+import { useEffect } from 'react';
 import { Loading } from './components/ui';
 import { PlayersPage } from './pages/Players';
 import { ProfilePage } from './pages/Profile';
@@ -29,6 +31,10 @@ function GameRoute() {
 }
 
 export function App() {
+  const { user } = useAuth();
+  useEffect(() => installClickSound(), []);
+  // Réglage « son » du profil (le bouton haut-parleur d'une partie le modifie le temps de la partie).
+  useEffect(() => setMuted(user ? !user.profile.soundEnabled : false), [user]);
   return (
     <>
       <ChallengeInbox />

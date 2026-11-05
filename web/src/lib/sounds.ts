@@ -18,7 +18,7 @@ function audio(): AudioContext | null {
 }
 
 /** Nombre de prises par son : public/sfx/<nom>-1.ogg … <nom>-N.ogg. */
-const SAMPLES = { shake: 3, dice: 4, move: 3, exit: 2, capture: 4, drop: 3, home: 1, sticker: 2 } as const;
+const SAMPLES = { shake: 3, dice: 4, move: 3, exit: 2, capture: 4, drop: 3, home: 1, sticker: 2, click: 3, select: 2, turn: 2, coins: 1, win: 1, lose: 1 } as const;
 type Sample = keyof typeof SAMPLES;
 const buffers = new Map<Sample, AudioBuffer[]>();
 let samplesRequested = false;
@@ -42,13 +42,14 @@ export function preloadSfx() {
 }
 
 /** Joue une prise au hasard, légèrement variée en hauteur ; false si l'enregistrement n'est pas disponible. */
-function sample(name: Sample, { gain = 0.9, at = 0 } = {}): boolean {
+function sample(name: Sample, { gain = 0.9, at = 0, vary = true } = {}): boolean {
   const a = audio();
   const list = buffers.get(name);
   if (!a || !list?.length) return false;
   const src = a.createBufferSource();
   src.buffer = list[Math.floor(Math.random() * list.length)];
-  src.playbackRate.value = 0.94 + Math.random() * 0.12;
+  // Bruitages légèrement variés en hauteur ; les jingles (mélodies) gardent leur tonalité.
+  src.playbackRate.value = vary ? 0.94 + Math.random() * 0.12 : 1;
   const g = a.createGain();
   g.gain.value = gain;
   src.connect(g).connect(a.destination);
@@ -196,20 +197,43 @@ export const sfx = {
     tone(500, 140, { type: 'sine', gain: 0.07, slideTo: 220 });
     knock(35, { at: 0.12, freq: 700, q: 2, gain: 0.3 });
   },
-  /** Fanfare de victoire. */
+  /** Fanfare de victoire (jingle Kenney « steel drums », mélodie montante). */
   win() {
+    if (sample('win', { gain: 0.8, vary: false })) return;
     [523, 659, 784].forEach((f, i) => tone(f, 160, { type: 'square', gain: 0.045, at: i * 0.12 }));
     tone(1047, 600, { type: 'square', gain: 0.05, at: 0.36 });
     tone(784, 600, { type: 'triangle', gain: 0.05, at: 0.36 });
   },
-  /** Défaite : trois notes descendantes. */
+  /** Défaite (même jingle, mélodie descendante). */
   lose() {
+    if (sample('lose', { gain: 0.8, vary: false })) return;
     [392, 330, 262].forEach((f, i) => tone(f, i === 2 ? 520 : 220, { type: 'triangle', gain: 0.07, at: i * 0.22 }));
   },
   /** Sticker reçu ou envoyé : petit « pop ». */
   sticker() {
     if (sample('sticker', { gain: 0.7 })) return;
     tone(660, 120, { type: 'sine', gain: 0.07, slideTo: 990 });
+  },
+  /** Clic d'un bouton de l'interface (discret). */
+  click() {
+    if (sample('click', { gain: 0.35 })) return;
+    knock(12, { freq: 2400, q: 3, gain: 0.15 });
+  },
+  /** Pion choisi : petit « pop ». */
+  select() {
+    if (sample('select', { gain: 0.7 })) return;
+    tone(880, 60, { type: 'sine', gain: 0.06, slideTo: 1320 });
+  },
+  /** C'est à mon tour de jouer. */
+  turn() {
+    if (sample('turn', { gain: 0.6 })) return;
+    tone(660, 120, { type: 'sine', gain: 0.06 });
+    tone(990, 160, { type: 'sine', gain: 0.06, at: 0.1 });
+  },
+  /** Pièces reçues (gain d'une partie, roue, mission). */
+  coins() {
+    if (sample('coins', { gain: 0.8 })) return;
+    [1568, 2093, 2637].forEach((f, i) => tone(f, 90, { type: 'sine', gain: 0.05, at: i * 0.06 }));
   },
   /** Cliquet de la roue quand une case passe sous l'aiguille. */
   tick() {
@@ -222,3 +246,27 @@ export const sfx = {
 };
 
 export type Sfx = keyof typeof sfx;
+
+/* ---------- Clics de l'interface ---------- */
+
+let muted = false;
+/** Son coupé par le joueur (réglage du profil, ou bouton haut-parleur pendant une partie). */
+export function setMuted(m: boolean) {
+  muted = m;
+}
+
+const CLICKABLE = 'button, a.pb-btn, a.rl-pill, a.rl-menu-item, [role="tab"]';
+/**
+ * Un « clic » discret sur chaque bouton du site, posé une seule fois sur le document.
+ * Exclus : boutons désactivés, pions et dé (ils ont leurs propres sons) et tout élément marqué data-nosfx.
+ */
+export function installClickSound() {
+  const onClick = (e: MouseEvent) => {
+    if (muted) return;
+    const el = (e.target as Element | null)?.closest?.(CLICKABLE);
+    if (!el || (el as HTMLButtonElement).disabled || el.closest('[data-nosfx], [data-testid^="pawn-"]')) return;
+    sfx.click();
+  };
+  document.addEventListener('click', onClick, true);
+  return () => document.removeEventListener('click', onClick, true);
+}
