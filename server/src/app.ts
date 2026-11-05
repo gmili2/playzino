@@ -19,11 +19,12 @@ import { meRouter } from './modules/users/users.routes.js';
 import { walletRouter } from './modules/wallet/wallet.routes.js';
 import { wheelRouter } from './modules/wheel/wheel.routes.js';
 import { prisma } from './lib/prisma.js';
+import { trustProxy } from './lib/proxy.js';
 
 export function createApp() {
   const app = express();
   app.disable('x-powered-by');
-  app.set('trust proxy', 1);
+  app.set('trust proxy', trustProxy);
   app.use(
     helmet({
       contentSecurityPolicy: {

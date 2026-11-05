@@ -12,6 +12,8 @@ const schema = z.object({
     .transform((v) => v === 'true'),
   /** Délai accordé à un joueur déconnecté avant défaite par abandon. */
   RECONNECT_GRACE_SECONDS: z.coerce.number().int().positive().default(60),
+  /** Temps de déconnexion cumulé autorisé par joueur et par partie : au-delà, défaite (ou annulation). */
+  OFFLINE_BUDGET_SECONDS: z.coerce.number().int().positive().default(120),
   WEB_DIST: z.string().optional(),
   /** Reçus de virement envoyés par les joueurs (hors du dossier déployé, jamais servis en statique). */
   UPLOAD_DIR: z.string().optional()

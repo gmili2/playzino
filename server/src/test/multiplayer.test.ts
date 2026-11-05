@@ -4,6 +4,8 @@ import { GOAL } from '../game/engine.js';
 
 // Délai de reconnexion court pour tester l'abandon par déconnexion (lu au chargement de la config).
 process.env.RECONNECT_GRACE_SECONDS = '2';
+// Temps de déconnexion cumulé par partie : 3 s, soit moins de deux délais complets.
+process.env.OFFLINE_BUDGET_SECONDS = '3';
 // Robots rapides pendant les tests.
 process.env.BOT_DELAY_MS = '15';
 
@@ -240,6 +242,31 @@ describe('multijoueur temps réel', () => {
     expect(end.endReason).toBe('DISCONNECT');
     expect(await balance(a.user.id)).toBe(1050);
     expect(await balance(b.user.id)).toBe(950);
+  });
+
+  it('déconnexions répétées : le temps de déconnexion se cumule, la partie ne peut pas être bloquée sans fin', async () => {
+    const { a, b, room } = await seatedPair(0);
+    const joined = await b.post('/api/rooms/join-code', { code: room.code });
+    const gameId = joined.body.room.gameId;
+    const sa = await sock(a.cookie);
+    let sb = await sock(b.cookie);
+    await emit(sa, 'game:join', gameId);
+    await emit(sb, 'game:join', gameId);
+
+    // 1re coupure de 1,6 s (sur 3 s autorisées), puis retour.
+    sb.close();
+    await new Promise((r) => setTimeout(r, 1600));
+    sb = await sock(b.cookie);
+    expect((await emit<Snapshot>(sb, 'game:join', gameId)).data!.status).toBe('ACTIVE');
+
+    // 2e coupure : il ne reste qu'environ 1,4 s, moins que le délai de reconnexion de 2 s.
+    const over = new Promise<Snapshot>((r) => sa.on('game:state', (s: Snapshot) => s.status === 'FINISHED' && r(s)));
+    const t0 = Date.now();
+    sb.close();
+    const end = await over;
+    expect(end.winnerId).toBe(a.user.id);
+    expect(end.endReason).toBe('DISCONNECT');
+    expect(Date.now() - t0).toBeLessThan(1900);
   });
 
   it('quitter l’écran de la partie sans fermer le site : l’adversaire gagne après le délai', async () => {

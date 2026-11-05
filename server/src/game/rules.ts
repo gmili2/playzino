@@ -2,6 +2,7 @@ import type { GameType } from '@prisma/client';
 import {
   c4Active, c4BotColumn, c4Current, c4Drop, c4Eliminate, c4LegalMoves, createConnect4, type C4Event, type C4State
 } from './connect4.js';
+import { c4BotColumnAsync } from './c4bot.js';
 import {
   activeColors, applyMove, applyRoll, autoMovePawn, botChooseMove, createGame, currentColor, eliminate, legalMoves, RuleError, turnOrder,
   type BotLevel, type Color, type GameEvent, type GameState
@@ -30,6 +31,8 @@ export interface GameRules {
   eliminate(s: AnyState, color: Color): Step;
   /** Une action du robot (validée par les mêmes règles qu'un humain). */
   bot(s: AnyState, level: BotLevel, rollDie: () => number): Step;
+  /** Variante asynchrone du coup de robot (calcul long hors du fil principal), utilisée si elle existe. */
+  botAsync?(s: AnyState, level: BotLevel, rollDie: () => number): Promise<Step>;
   /** Temps écoulé : le serveur joue tout le tour à la place du joueur (null si rien à jouer). */
   auto(s: AnyState, rollDie: () => number): Step | null;
 }
@@ -95,6 +98,7 @@ const connect4: GameRules = {
   apply: (s, a) => (a.type === 'drop' ? c4Drop(s as C4State, a.column) : unsupported()),
   eliminate: (s, color) => c4Eliminate(s as C4State, color),
   bot: (s, level) => c4Drop(s as C4State, c4BotColumn(s as C4State, level)!),
+  botAsync: async (s, level) => c4Drop(s as C4State, (await c4BotColumnAsync(s as C4State, level))!),
   // Temps écoulé : coup prudent (gagner, bloquer, sinon centre).
   auto: (s) => (s.phase === 'finished' ? null : c4Drop(s as C4State, c4BotColumn(s as C4State, 'MEDIUM')!))
 };

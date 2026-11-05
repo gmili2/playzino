@@ -39,7 +39,11 @@ interface LiveGame {
   deadline: number | null;
   turnTimer: NodeJS.Timeout | null;
   /** userId → horodatage limite de reconnexion. */
-  offline: Map<string, { until: number; timer: NodeJS.Timeout }>;
+  offline: Map<string, { until: number; since: number; timer: NodeJS.Timeout }>;
+  /** userId → temps de déconnexion déjà consommé dans cette partie (ms). */
+  offlineUsed: Map<string, number>;
+  /** Tour mis en pause par une déconnexion : temps qu'il restait, repris au retour (pas de tour neuf à chaque reconnexion). */
+  paused: { seq: number; ms: number } | null;
   /** File d'attente : les actions d'une partie sont traitées strictement une par une. */
   queue: Promise<unknown>;
   lastEvents: AnyEvent[];
@@ -119,6 +123,8 @@ export class GameManager {
       deadline: null,
       turnTimer: null,
       offline: new Map(),
+      offlineUsed: new Map(),
+      paused: null,
       queue: Promise.resolve(),
       lastEvents: []
     };
@@ -396,9 +402,15 @@ export class GameManager {
     if (live.turnTimer) clearTimeout(live.turnTimer);
     live.turnTimer = null;
     if (live.status !== 'ACTIVE' || live.offline.size > 0) {
+      // Pause : on garde le temps restant du tour en cours pour le reprendre au retour du joueur.
+      if (live.status === 'ACTIVE' && live.deadline && !live.paused) {
+        live.paused = { seq: live.state.seq, ms: Math.max(0, live.deadline - Date.now()) };
+      }
       live.deadline = null;
       return;
     }
+    const resume = live.paused?.seq === live.state.seq ? live.paused.ms : null;
+    live.paused = null;
     const turnPlayer = live.players.find((p) => p.color === live.rules.current(live.state));
     // Le coup automatique ne vaut que pour l'état où il a été programmé : si quelqu'un a joué entre-temps
     // (action déjà dans la file au moment où la minuterie expire), il est ignoré.
@@ -414,7 +426,8 @@ export class GameManager {
       live.turnTimer.unref();
       return;
     }
-    const ms = live.room.turnSeconds * 1000;
+    // Reprise après une pause : le temps restant (au moins 5 s pour se réorienter), pas un tour complet.
+    const ms = resume !== null ? Math.max(5000, resume) : live.room.turnSeconds * 1000;
     live.deadline = Date.now() + ms;
     live.turnTimer = setTimeout(() => run('[autoplay]', () => this.autoPlay(live)), ms);
     live.turnTimer.unref();
@@ -432,7 +445,8 @@ export class GameManager {
     if (live.status !== 'ACTIVE' || live.offline.size > 0) return;
     const player = live.players.find((p) => p.color === live.rules.current(live.state));
     if (!player?.isBot) return;
-    const r = live.rules.bot(live.state, await getBotLevel(), this.rollDie);
+    const level = await getBotLevel();
+    const r = live.rules.botAsync ? await live.rules.botAsync(live.state, level, this.rollDie) : live.rules.bot(live.state, level, this.rollDie);
     await this.commit(live, r.state, r.events, player.userId, 'BOT');
   }
 
@@ -449,10 +463,14 @@ export class GameManager {
 
   private markOffline(live: LiveGame, userId: string) {
     if (live.offline.has(userId)) return;
-    const until = Date.now() + config.RECONNECT_GRACE_SECONDS * 1000;
-    const timer = setTimeout(() => this.onGraceExpired(live, userId), config.RECONNECT_GRACE_SECONDS * 1000);
+    // Délai de reconnexion limité par le temps de déconnexion qui reste au joueur dans cette partie :
+    // se déconnecter puis revenir en boucle ne bloque pas la partie indéfiniment.
+    const left = config.OFFLINE_BUDGET_SECONDS * 1000 - (live.offlineUsed.get(userId) ?? 0);
+    const ms = Math.max(0, Math.min(config.RECONNECT_GRACE_SECONDS * 1000, left));
+    const now = Date.now();
+    const timer = setTimeout(() => this.onGraceExpired(live, userId), ms);
     timer.unref();
-    live.offline.set(userId, { until, timer });
+    live.offline.set(userId, { until: now + ms, since: now, timer });
     this.scheduleTurn(live); // met la minuterie en pause
   }
 
@@ -480,6 +498,7 @@ export class GameManager {
       if (!entry) return;
       clearTimeout(entry.timer);
       live.offline.delete(userId);
+      live.offlineUsed.set(userId, (live.offlineUsed.get(userId) ?? 0) + (Date.now() - entry.since));
       this.scheduleTurn(live);
     } else {
       this.markOffline(live, userId);

@@ -115,3 +115,17 @@ describe('authentification', () => {
     expect(r.status).toBe(403);
   });
 });
+
+describe('adresse IP derrière Cloudflare', () => {
+  it('req.ip est l’adresse du joueur, pas celle de Cloudflare ; un X-Forwarded-For falsifié ne la remplace pas', async () => {
+    const u = await registered();
+    const viaCf = client();
+    const login = () => viaCf.agent.post('/api/auth/login').set({ 'X-Requested-With': 'parcheesi' });
+    // Chaîne réelle : joueur → Cloudflare → serveur web local.
+    expect((await login().set('X-Forwarded-For', '203.0.113.7, 172.64.10.20').send({ login: u.user.username, password: 'motdepasse-123' })).status).toBe(200);
+    // Client qui ajoute une fausse adresse avant la sienne (non Cloudflare) : c'est la sienne qui est retenue.
+    expect((await login().set('X-Forwarded-For', '1.2.3.4, 198.51.100.9').send({ login: u.user.username, password: 'motdepasse-123' })).status).toBe(200);
+    const ips = (await prisma.auditLog.findMany({ where: { action: 'auth.login', actorId: u.user.id }, orderBy: { createdAt: 'asc' } })).map((l) => l.ip);
+    expect(ips.slice(-2)).toEqual(['203.0.113.7', '198.51.100.9']);
+  });
+});
