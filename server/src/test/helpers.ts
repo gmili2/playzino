@@ -18,7 +18,8 @@ export function client(target: Parameters<typeof request.agent>[0] = app) {
     agent,
     get: (url: string) => agent.get(url).set(h),
     post: (url: string, body?: object) => agent.post(url).set(h).send(body ?? {}),
-    patch: (url: string, body?: object) => agent.patch(url).set(h).send(body ?? {})
+    patch: (url: string, body?: object) => agent.patch(url).set(h).send(body ?? {}),
+    put: (url: string, body?: object) => agent.put(url).set(h).send(body ?? {})
   };
 }
 

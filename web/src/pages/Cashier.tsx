@@ -84,7 +84,7 @@ export function CashierPage() {
         <section className="panel" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 16, background: 'radial-gradient(500px 220px at 100% 0%, rgba(242,178,50,0.18), transparent 70%), linear-gradient(180deg,#1E1A28,#17141F)' }}>
           <span style={{ display: 'flex', flexDirection: 'column', marginInlineEnd: 'auto' }}>
             <h1 style={{ fontWeight: 900, fontSize: 28 }}>الإيداع والسحب</h1>
-            <span className="hint" style={{ fontSize: 14 }}>بالتحويل البنكي أو تحويل الأموال · 1 درهم = 1 عملة · كل عملية تراجعها الإدارة</span>
+            <span className="hint" style={{ fontSize: 14 }}>عبر وفاكاش أو كاش بلوس · 1 درهم = 1 عملة · كل عملية تراجعها الإدارة</span>
           </span>
           <span style={{ flex: '1 1 300px', maxWidth: 460 }}><WalletCard userId={user.id} balance={user.balance} /></span>
         </section>

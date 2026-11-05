@@ -14,6 +14,7 @@ import { roomsRouter } from './modules/rooms/rooms.routes.js';
 import { statsRouter } from './modules/stats/stats.routes.js';
 import { tasksRouter } from './modules/tasks/tasks.routes.js';
 import { paymentsAdminRouter, paymentsRouter } from './modules/payments/payments.routes.js';
+import { supportRouter } from './modules/support/support.routes.js';
 import { meRouter } from './modules/users/users.routes.js';
 import { walletRouter } from './modules/wallet/wallet.routes.js';
 import { wheelRouter } from './modules/wheel/wheel.routes.js';
@@ -72,6 +73,7 @@ export function createApp() {
   app.use('/api/games', gamesRouter);
   app.use('/api/stats', statsRouter);
   app.use('/api/payments', paymentsRouter);
+  app.use('/api/support', supportRouter);
   app.use('/api/admin/payments', paymentsAdminRouter);
   app.use('/api/admin', adminRouter);
   app.use('/api', notFoundHandler);

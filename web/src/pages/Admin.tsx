@@ -501,7 +501,7 @@ export function AdminPage() {
 
           {view === 'wheel' && <WheelControl />}
 
-          {view === 'settings' && <div style={{ maxWidth: 520 }}><BotLevelControl onDone={load} /></div>}
+          {view === 'settings' && <div style={{ maxWidth: 520, display: 'flex', flexDirection: 'column', gap: 16 }}><BotLevelControl onDone={load} /><SupportControl /></div>}
 
           {view === 'audit' && (
             <section className="panel">
@@ -573,6 +573,50 @@ function BotLevelControl({ onDone }: { onDone: () => void }) {
       {level && <span className="hint">{BOT_LEVEL_HINT[level]} يُطبَّق على مباريات التدريب، بما فيها الجارية، من الحركة التالية.</span>}
       {msg && <div role="status" className={'alert ' + (msg.ok ? 'alert-ok' : 'alert-error')}>{msg.text}</div>}
     </section>
+  );
+}
+
+/** Contact du support (téléphone/WhatsApp et e-mail) affiché aux joueurs par le bouton « الدعم ». */
+function SupportControl() {
+  const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState('');
+  const [ready, setReady] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+
+  useEffect(() => {
+    api.get<{ phone: string; email: string }>('/api/admin/settings/support').then((r) => { setPhone(r.phone); setEmail(r.email); setReady(true); }, (e) => setMsg({ ok: false, text: errorText(e) }));
+  }, []);
+
+  const save = async (e: FormEvent) => {
+    e.preventDefault();
+    setBusy(true);
+    setMsg(null);
+    try {
+      const r = await api.put<{ phone: string; email: string }>('/api/admin/settings/support', { phone, email });
+      setPhone(r.phone);
+      setEmail(r.email);
+      setMsg({ ok: true, text: r.phone || r.email ? 'تم: زر الدعم يعرض هذه المعلومات للاعبين' : 'تم: زر الدعم مخفي (لا توجد معلومات)' });
+    } catch (err) {
+      setMsg({ ok: false, text: errorText(err) });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <form className="panel" onSubmit={save} style={{ display: 'flex', flexDirection: 'column', gap: 14 }} data-testid="support-settings">
+      <h2 className="panel-title"><IconActivity size={22} style={{ color: '#25D366' }} />الدعم</h2>
+      <label className="field"><span>رقم الهاتف / واتساب</span>
+        <input className="pb-input" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="0612345678" dir="ltr" inputMode="tel" disabled={!ready} />
+      </label>
+      <label className="field"><span>البريد الإلكتروني</span>
+        <input className="pb-input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="support@exemple.com" dir="ltr" disabled={!ready} />
+      </label>
+      <span className="hint">يظهر زر « الدعم » للاعبين مع واتساب والاتصال والبريد. اترك الحقلين فارغين لإخفائه.</span>
+      {msg && <div role="status" className={'alert ' + (msg.ok ? 'alert-ok' : 'alert-error')}>{msg.text}</div>}
+      <button type="submit" className="pb-btn pb-violet" disabled={busy || !ready}>حفظ</button>
+    </form>
   );
 }
 

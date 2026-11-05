@@ -27,3 +27,21 @@ describe('niveau des robots', () => {
     expect(logs).toHaveLength(4);
   });
 });
+
+describe('contact du support', () => {
+  it('réglé par l’admin (numéro marocain, e-mail), lu par tous les joueurs, journalisé', async () => {
+    const player = await registered();
+    expect((await player.put('/api/admin/settings/support', { phone: '0612345678', email: '' })).status).toBe(403);
+    const admin = await registered();
+    await makeAdmin(admin.user.id);
+    expect((await admin.put('/api/admin/settings/support', { phone: '12345', email: '' })).status).toBe(400);
+    expect((await admin.put('/api/admin/settings/support', { phone: '', email: 'pas-un-email' })).status).toBe(400);
+    const r = await admin.put('/api/admin/settings/support', { phone: '06 14 36 63 00', email: 'support@playzino.ma' });
+    expect(r.body).toEqual({ phone: '0614366300', email: 'support@playzino.ma' });
+    expect((await player.get('/api/support')).body).toEqual({ phone: '0614366300', email: 'support@playzino.ma' });
+    expect(await prisma.auditLog.count({ where: { action: 'admin.support', actorId: admin.user.id } })).toBe(1);
+    // Champs vides : le bouton « الدعم » disparaît côté joueur.
+    await admin.put('/api/admin/settings/support', { phone: '', email: '' });
+    expect((await player.get('/api/support')).body).toEqual({ phone: '', email: '' });
+  });
+});

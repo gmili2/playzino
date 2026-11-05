@@ -3,6 +3,7 @@ import { Link, NavLink, Navigate, useLocation, useNavigate } from 'react-router-
 import { useAuth } from '../lib/auth';
 import { fmt } from '../lib/format';
 import { IconArrowDown, IconArrowUp, IconBook, IconChevron, IconCrown, IconGrid, IconHome, IconLogout, IconShield, IconUser, IconUsers, IconWheel } from './Icons';
+import { SupportButton } from './Support';
 import { Avatar, Coin, Loading } from './ui';
 
 /** Logo façon Rolly : couronne dorée dans un rond, nom en or. */
@@ -138,7 +139,7 @@ export function Footer() {
     <footer style={{ borderTop: '1px solid rgba(255,222,170,0.12)', marginTop: 16 }}>
       <div style={{ maxWidth: 1500, margin: '0 auto', padding: '16px 20px', display: 'flex', flexWrap: 'wrap', gap: '10px 24px', alignItems: 'center', fontSize: 13, color: '#8C8698' }}>
         <span style={{ fontWeight: 800, color: '#FFC83D' }}>أكثر من مجرد لعبة… مجتمع!</span>
-        <span style={{ flex: '1 1 320px' }}>1 عملة = 1 درهم. الإيداع والسحب بالتحويل البنكي فقط، وكل عملية تراجعها الإدارة.</span>
+        <span style={{ flex: '1 1 320px' }}>1 عملة = 1 درهم. الإيداع والسحب عبر وفاكاش وكاش بلوس فقط، وكل عملية تراجعها الإدارة.</span>
         <Link to="/cashier" style={{ color: '#A9A3B5' }}>الإيداع والسحب</Link>
         <Link to="/rules" style={{ color: '#A9A3B5' }}>القواعد</Link>
       </div>
@@ -152,6 +153,7 @@ export function Page({ children, width = 1500 }: { children: ReactNode; width?: 
       <Header />
       <main style={{ maxWidth: width, margin: '0 auto', padding: '16px clamp(12px, 3vw, 20px)' }}>{children}</main>
       <Footer />
+      <SupportButton />
     </>
   );
 }

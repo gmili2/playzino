@@ -8,11 +8,9 @@ import { prisma } from '../../lib/prisma.js';
  * Pour compléter ou changer un compte : modifier cette liste puis redéployer.
  */
 export const PAYMENT_METHODS = [
-  { id: 'saham', name: 'Saham Bank', logo: '/payments/saham.png', kind: 'rib', accountHolder: 'Alaedin', rib: '022640000304002870728921' },
-  { id: 'wafacash', name: 'Wafacash', logo: '/payments/wafacash.png', kind: 'rib', accountHolder: 'AHMED', rib: '820780261705426339117470' },
-  { id: 'cashplus', name: 'Cash Plus', logo: '/payments/cashplus.png', kind: 'phone', accountHolder: '', rib: '0632586771' },
-  { id: 'simple', name: 'Simple', logo: '/payments/simple.png', kind: 'rib', accountHolder: '', rib: '' },
-  { id: 'orange-money', name: 'Orange Money', logo: '/payments/orange-money.png', kind: 'rib', accountHolder: '', rib: '' }
+  // Seuls Wafacash et Cash Plus sont proposés : Saham Bank, Simple et Orange Money ont été retirés (désactivés en base au démarrage).
+  { id: 'wafacash', name: 'Wafacash', logo: '/payments/wafacash.png', kind: 'rib', accountHolder: 'احمد', rib: '820780261705426339117470' },
+  { id: 'cashplus', name: 'Cash Plus', logo: '/payments/cashplus.png', kind: 'phone', accountHolder: '', rib: '0632586771' }
 ] as const;
 
 export const METHOD_NAMES = PAYMENT_METHODS.map((m) => m.name) as [string, ...string[]];

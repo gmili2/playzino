@@ -17,6 +17,8 @@ const bankId = 'wafacash';
 beforeAll(async () => {
   admin = await registered();
   await makeAdmin(admin.user.id);
+  // Un ancien moyen (retiré du code depuis) encore actif en base : la synchronisation doit le désactiver.
+  await prisma.paymentBank.upsert({ where: { id: 'saham' }, create: { id: 'saham', name: 'Saham Bank', accountHolder: 'Alaedin', rib: '022640000304002870728921', active: true }, update: { active: true } });
   await syncPaymentMethods();
 });
 
@@ -28,9 +30,10 @@ describe('dépôts par virement', () => {
     const a = await registered(undefined, 0);
     const r = await a.get('/api/payments');
     expect(r.status).toBe(200);
-    expect(r.body.banks.find((b: { id: string }) => b.id === bankId)).toMatchObject({ name: 'Wafacash', accountHolder: 'AHMED', rib: '820780261705426339117470', available: true });
+    expect(r.body.banks.find((b: { id: string }) => b.id === bankId)).toMatchObject({ name: 'Wafacash', accountHolder: 'احمد', rib: '820780261705426339117470', available: true });
     expect(r.body.banks.find((b: { id: string }) => b.id === 'cashplus')).toMatchObject({ kind: 'phone', available: true, rib: '0632586771' });
-    expect(r.body.banks.find((b: { id: string }) => b.id === 'simple')).toMatchObject({ available: false, rib: '' });
+    // Seuls Wafacash et Cash Plus sont proposés.
+    expect(r.body.banks.map((b: { id: string }) => b.id)).toEqual(['wafacash', 'cashplus']);
   });
 
   it('dépôt en attente : rien n’est crédité avant la validation de l’admin', async () => {
@@ -97,9 +100,10 @@ describe('dépôts par virement', () => {
     expect((await a.post(`/api/admin/payments/deposits/${body.deposit.id}/approve`)).status).toBe(403);
   });
 
-  it('moyen sans compte renseigné : pas de dépôt possible', async () => {
+  it('moyen retiré (Saham Bank) : désactivé en base, plus de dépôt possible', async () => {
+    expect((await prisma.paymentBank.findUniqueOrThrow({ where: { id: 'saham' } })).active).toBe(false);
     const a = await registered(undefined, 0);
-    const r = await a.post('/api/payments/deposits', { bankId: 'simple', amount: 200, receipt: PNG, requestId: randomUUID() });
+    const r = await a.post('/api/payments/deposits', { bankId: 'saham', amount: 200, receipt: PNG, requestId: randomUUID() });
     expect(r.body.error.code).toBe('BANK_UNAVAILABLE');
   });
 
@@ -112,7 +116,7 @@ describe('dépôts par virement', () => {
 
 describe('retraits', () => {
   const withdraw = (c: Awaited<ReturnType<typeof registered>>, amount: number, requestId = randomUUID()) =>
-    c.post('/api/payments/withdrawals', { amount, bankName: 'Orange Money', accountHolder: 'Karim Test', rib: '007780000012345678901234', requestId });
+    c.post('/api/payments/withdrawals', { amount, bankName: 'Cash Plus', accountHolder: 'Karim Test', rib: '007780000012345678901234', requestId });
 
   it('le montant est bloqué dès la demande, puis le virement est marqué exécuté', async () => {
     const a = await registered();

@@ -5,7 +5,7 @@ import { BOT_LEVELS } from '../../game/engine.js';
 import { audit } from '../../lib/audit.js';
 import { badRequest, conflict, notFound } from '../../lib/errors.js';
 import { prisma } from '../../lib/prisma.js';
-import { getBotLevel, setBotLevel } from '../../lib/settings.js';
+import { getBotLevel, getSupport, setBotLevel, setSupport } from '../../lib/settings.js';
 import { parse } from '../../lib/validate.js';
 import { requireAdmin } from '../../middleware/auth.js';
 import { gameManager } from '../../realtime/gameManager.js';
@@ -191,6 +191,23 @@ adminRouter.patch('/settings/bot-level', async (req, res) => {
   const { level } = parse(z.object({ level: z.enum(BOT_LEVELS) }), req.body);
   await setBotLevel(level, req.user!.id, req.ip);
   res.json({ level });
+});
+
+adminRouter.get('/settings/support', async (_req, res) => {
+  res.json(await getSupport());
+});
+
+adminRouter.put('/settings/support', async (req, res) => {
+  const support = parse(
+    z.object({
+      // Mobile marocain (06/07…, ou +212), ou vide pour ne pas l'afficher.
+      phone: z.string().trim().transform((v) => v.replace(/[\s.-]/g, '')).refine((v) => v === '' || /^(0[5-7]\d{8}|\+212[5-7]\d{8})$/.test(v), 'رقم هاتف مغربي غير صالح'),
+      email: z.string().trim().max(120).refine((v) => v === '' || z.string().email().safeParse(v).success, 'بريد إلكتروني غير صالح')
+    }),
+    req.body
+  );
+  await setSupport(support, req.user!.id, req.ip);
+  res.json(support);
 });
 
 adminRouter.get('/settings/wheel', async (_req, res) => {

@@ -24,3 +24,29 @@ export async function setBotLevel(level: BotLevel, actorId: string, ip?: string)
   });
   botLevelCache = level;
 }
+
+/* ---------- Contact du support (bouton « الدعم » des joueurs), réglé par l'admin ---------- */
+
+const SUPPORT_KEY = 'support';
+export type Support = { phone: string; email: string };
+const EMPTY_SUPPORT: Support = { phone: '', email: '' };
+
+export async function getSupport(): Promise<Support> {
+  const row = await prisma.setting.findUnique({ where: { key: SUPPORT_KEY } });
+  if (!row) return EMPTY_SUPPORT;
+  try {
+    const v = JSON.parse(row.value) as Partial<Support>;
+    return { phone: typeof v.phone === 'string' ? v.phone : '', email: typeof v.email === 'string' ? v.email : '' };
+  } catch {
+    return EMPTY_SUPPORT;
+  }
+}
+
+export async function setSupport(next: Support, actorId: string, ip?: string) {
+  const previous = await getSupport();
+  const value = JSON.stringify(next);
+  await prisma.$transaction(async (tx) => {
+    await tx.setting.upsert({ where: { key: SUPPORT_KEY }, create: { key: SUPPORT_KEY, value }, update: { value } });
+    await audit({ actorId, action: 'admin.support', targetType: 'setting', targetId: SUPPORT_KEY, details: { from: previous, to: next }, ip }, tx);
+  });
+}
