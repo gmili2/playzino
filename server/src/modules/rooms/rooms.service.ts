@@ -7,6 +7,7 @@ import type { Color } from '../../game/engine.js';
 import { GAME_RULES } from '../../game/rules.js';
 import { applyWalletOp } from '../wallet/wallet.service.js';
 import { ensureBots } from './bots.service.js';
+import { avatarUrl } from '../../lib/avatars.js';
 
 /** Couleur d'un siège selon le jeu (Parchís : les deux premiers joueurs occupent des coins opposés). */
 const seatColor = (gameType: GameType, seat: number): Color => GAME_RULES[gameType].seatColors[seat];
@@ -17,7 +18,7 @@ const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 export const roomInclude = {
   players: {
     orderBy: { seat: 'asc' },
-    include: { user: { select: { id: true, username: true, isBot: true, profile: { select: { avatarColor: true, xp: true } } } } }
+    include: { user: { select: { id: true, username: true, isBot: true, profile: { select: { avatarColor: true, avatarFile: true, xp: true } } } } }
   },
   games: { orderBy: { startedAt: 'desc' }, take: 1, select: { id: true, status: true } }
 } satisfies Prisma.RoomInclude;
@@ -48,6 +49,7 @@ export function serializeRoom(r: RoomWithPlayers, viewerId?: string) {
       seat: p.seat,
       color: p.color,
       avatarColor: p.user.profile?.avatarColor ?? '#2F6BFF',
+      avatarUrl: avatarUrl(p.user.profile?.avatarFile),
       isBot: p.user.isBot,
       level: Math.floor((p.user.profile?.xp ?? 0) / 1000) + 1
     }))

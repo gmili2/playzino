@@ -20,8 +20,17 @@ export function Credits({ value, size = 14, color = '#FFD54A' }: { value: number
   );
 }
 
-export function Avatar({ name, color, size = 40, ring, style }: { name: string; color: string; size?: number; ring?: string; style?: CSSProperties }) {
+/** Avatar rond : la photo du joueur s'il en a choisi une, sinon ses initiales sur sa couleur. */
+export function Avatar({ name, color, src, size = 40, ring, style }: { name: string; color: string; src?: string | null; size?: number; ring?: string; style?: CSSProperties }) {
   const dark = color.toUpperCase() === '#F5C21B';
+  if (src) {
+    return (
+      <img
+        src={src} alt="" aria-hidden="true" width={size} height={size} loading="lazy" decoding="async"
+        style={{ flex: 'none', width: size, height: size, borderRadius: '50%', objectFit: 'cover', background: color, boxShadow: ring ? `0 0 0 2px ${ring}` : undefined, ...style }}
+      />
+    );
+  }
   return (
     <span
       aria-hidden="true"

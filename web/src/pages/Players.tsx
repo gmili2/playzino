@@ -35,7 +35,7 @@ function ChallengeDialog({ to, balance, onSent, onClose }: { to: OnlinePlayer; b
   return (
     <div className="sp-backdrop" onClick={onClose}>
       <div role="dialog" aria-modal="true" aria-labelledby="cd-title" className="sp-dialog" data-testid="challenge-dialog" onClick={(e) => e.stopPropagation()}>
-        <span className="ch-avatar"><Avatar name={to.username} color={to.avatarColor} size={60} /></span>
+        <span className="ch-avatar"><Avatar name={to.username} color={to.avatarColor} src={to.avatarUrl} size={60} /></span>
         <span id="cd-title" className="sp-title">تحدَّ <bdi>{to.username}</bdi></span>
         <div className="seg" role="group" aria-label="اللعبة" style={{ alignSelf: 'center' }}>
           {(['PARCHEESI', 'CONNECT4'] as GameType[]).map((g) => (
@@ -64,7 +64,7 @@ function Waiting({ out, onCancel }: { out: Outgoing; onCancel: () => void }) {
   return (
     <div className="sp-backdrop">
       <div role="dialog" aria-modal="true" className="sp-dialog" data-testid="challenge-waiting">
-        <span className="ch-avatar"><Avatar name={out.to.username} color={out.to.avatarColor} size={72} ring="#F2B232" /></span>
+        <span className="ch-avatar"><Avatar name={out.to.username} color={out.to.avatarColor} src={out.to.avatarUrl} size={72} ring="#F2B232" /></span>
         <Spinner size={30} />
         <span className="sp-title" style={{ fontSize: 20 }}>في انتظار رد <bdi>{out.to.username}</bdi>…</span>
         <span className="sp-sub">ينتهي التحدي بعد <b dir="ltr">{left}</b> ث</span>
@@ -152,7 +152,7 @@ export function PlayersPage() {
             {players.map((p) => (
               <li key={p.id} className="pl-row">
                 <span style={{ position: 'relative', flex: 'none' }}>
-                  <Avatar name={p.username} color={p.avatarColor} size={46} />
+                  <Avatar name={p.username} color={p.avatarColor} src={p.avatarUrl} size={46} />
                   <span className={'pl-dot pl-dot-av' + (p.status === 'playing' ? ' busy' : '')} />
                 </span>
                 <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: 1 }}>

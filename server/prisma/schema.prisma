@@ -62,6 +62,7 @@ model Profile {
   userId         String   @id @db.VarChar(30)
   user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   avatarColor    String   @default("#2F6BFF") @db.VarChar(7)
+  avatarFile     String?  @db.VarChar(64)
   bio            String?  @db.VarChar(280)
   xp             Int      @default(0)
   soundEnabled   Boolean  @default(true)

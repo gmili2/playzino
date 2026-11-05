@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { prisma } from '../../lib/prisma.js';
 import { parse } from '../../lib/validate.js';
 import { hub } from '../../realtime/hub.js';
+import { avatarUrl } from '../../lib/avatars.js';
 
 export const statsRouter = Router();
 
@@ -20,11 +21,11 @@ statsRouter.get('/', async (req, res) => {
   });
   const users = await prisma.user.findMany({
     where: { id: { in: top.map((t) => t.userId) } },
-    select: { id: true, username: true, profile: { select: { avatarColor: true } } }
+    select: { id: true, username: true, profile: { select: { avatarColor: true, avatarFile: true } } }
   });
   const leaderboard = top.map((t, i) => {
     const u = users.find((x) => x.id === t.userId);
-    return { rank: i + 1, userId: t.userId, username: u?.username ?? '?', avatarColor: u?.profile?.avatarColor ?? '#2F6BFF', wins: t._count._all, winnings: t._sum.payout ?? 0 };
+    return { rank: i + 1, userId: t.userId, username: u?.username ?? '?', avatarColor: u?.profile?.avatarColor ?? '#2F6BFF', avatarUrl: avatarUrl(u?.profile?.avatarFile), wins: t._count._all, winnings: t._sum.payout ?? 0 };
   });
 
   const recent = await prisma.game.findMany({
@@ -33,7 +34,7 @@ statsRouter.get('/', async (req, res) => {
     take: 5,
     include: {
       room: { select: { name: true } },
-      winner: { select: { username: true, profile: { select: { avatarColor: true } } } },
+      winner: { select: { username: true, profile: { select: { avatarColor: true, avatarFile: true } } } },
       players: { where: { result: 'WIN' }, select: { payout: true } }
     }
   });
@@ -45,6 +46,7 @@ statsRouter.get('/', async (req, res) => {
       gameId: g.id,
       username: g.winner!.username,
       avatarColor: g.winner!.profile?.avatarColor ?? '#2F6BFF',
+      avatarUrl: avatarUrl(g.winner!.profile?.avatarFile),
       room: g.room.name,
       payout: g.players[0]?.payout ?? 0,
       endedAt: g.endedAt

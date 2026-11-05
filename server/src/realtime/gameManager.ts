@@ -5,6 +5,7 @@ import { audit } from '../lib/audit.js';
 import { AppError, forbidden, notFound } from '../lib/errors.js';
 import { prisma } from '../lib/prisma.js';
 import { getBotLevel } from '../lib/settings.js';
+import { avatarUrl } from '../lib/avatars.js';
 import { upgradeState, type Color, type GameState } from '../game/engine.js';
 import { GAME_RULES, type Action, type AnyEvent, type AnyState, type GameRules, type Step } from '../game/rules.js';
 import { applyWalletOp } from '../modules/wallet/wallet.service.js';
@@ -17,6 +18,7 @@ interface LivePlayer {
   username: string;
   color: Color;
   avatarColor: string;
+  avatarUrl: string | null;
   level: number;
   isBot: boolean;
 }
@@ -92,7 +94,7 @@ export class GameManager {
       where: { id: gameId },
       include: {
         room: true,
-        players: { include: { user: { select: { username: true, isBot: true, profile: { select: { avatarColor: true, xp: true } } } } } }
+        players: { include: { user: { select: { username: true, isBot: true, profile: { select: { avatarColor: true, avatarFile: true, xp: true } } } } } }
       }
     });
     if (!g) throw notFound('Partie introuvable');
@@ -112,6 +114,7 @@ export class GameManager {
           username: p.user.username,
           color: c,
           avatarColor: p.user.profile?.avatarColor ?? '#2F6BFF',
+          avatarUrl: avatarUrl(p.user.profile?.avatarFile),
           level: Math.floor((p.user.profile?.xp ?? 0) / 1000) + 1,
           isBot: p.user.isBot
         };

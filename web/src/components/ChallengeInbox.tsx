@@ -84,7 +84,7 @@ export function ChallengeInbox() {
   return (
     <div className="sp-backdrop">
       <div role="alertdialog" aria-modal="true" aria-labelledby="ch-title" className="sp-dialog ch-incoming" data-testid="challenge-incoming">
-        <span className="ch-avatar"><Avatar name={inbox.from.username} color={inbox.from.avatarColor} size={72} ring="#F2B232" /></span>
+        <span className="ch-avatar"><Avatar name={inbox.from.username} color={inbox.from.avatarColor} src={inbox.from.avatarUrl} size={72} ring="#F2B232" /></span>
         <span id="ch-title" className="sp-title"><bdi>{inbox.from.username}</bdi> يتحداك!</span>
         <span className="sp-sub">المستوى {inbox.from.level} · {GAME_LABEL[inbox.gameType]}</span>
         <span className="ch-stake">

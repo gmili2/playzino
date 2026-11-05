@@ -435,13 +435,13 @@ export function GamePage() {
       : rolling ? 'النرد يتدحرج…' : 'ارمِ النرد';
   } else { tone = '#B9A8FF'; bannerTitle = `دور ${turnP?.username ?? 'الخصم'}`; bannerSub = 'يلعب الآن… انتظر قليلًا'; }
 
-  type Seat = { key: string; color: Color; name: string; isMe: boolean; vacant: boolean; isBot: boolean; level: number | null; avatarColor: string; p: GameSnapshot['players'][number] | null };
+  type Seat = { key: string; color: Color; name: string; isMe: boolean; vacant: boolean; isBot: boolean; level: number | null; avatarColor: string; avatarUrl: string | null; p: GameSnapshot['players'][number] | null };
   const seats: Seat[] = snap
-    ? snap.players.map((p) => ({ key: p.color, color: p.color, name: p.username, isMe: p.userId === user?.id, vacant: false, isBot: !!p.isBot, level: p.level, avatarColor: p.avatarColor, p }))
+    ? snap.players.map((p) => ({ key: p.color, color: p.color, name: p.username, isMe: p.userId === user?.id, vacant: false, isBot: !!p.isBot, level: p.level, avatarColor: p.avatarColor, avatarUrl: p.avatarUrl ?? null, p }))
     : Array.from({ length: room.maxPlayers }, (_, seat) => {
         const rp = room.players.find((x) => x.seat === seat);
         const color = rp?.color ?? seatColors[seat];
-        return { key: color, color, name: rp ? rp.username : 'مكان شاغر', isMe: rp?.userId === user?.id, vacant: !rp, isBot: !!rp?.isBot, level: rp?.level ?? null, avatarColor: rp?.avatarColor ?? '#3B4A8C', p: null };
+        return { key: color, color, name: rp ? rp.username : 'مكان شاغر', isMe: rp?.userId === user?.id, vacant: !rp, isBot: !!rp?.isBot, level: rp?.level ?? null, avatarColor: rp?.avatarColor ?? '#3B4A8C', avatarUrl: rp?.avatarUrl ?? null, p: null };
       });
   // Chaque joueur est affiché près de son camp sur le plateau ; Puissance 4 : moi en bas, l'adversaire en haut.
   const PARCHIS_CORNER: Record<Color, 'tl' | 'tr' | 'bl' | 'br'> = { yellow: 'tl', green: 'tr', blue: 'bl', red: 'br' };
@@ -465,7 +465,7 @@ export function GamePage() {
       <div className={'lg-seat' + (right ? ' right' : '')} data-testid={st.isMe ? 'panel-me' : 'panel-opp'} style={{ opacity: out || st.vacant ? 0.5 : offline ? 0.75 : 1 }}>
         <span className={'lg-av' + (activeTurn ? ' turn' : '')}>
           {(won || activeTurn) && <IconCrown size={24} className="lg-crown" />}
-          <Avatar name={st.name} color={st.vacant ? '#3B4A8C' : st.isMe ? hex : st.avatarColor} size={54} style={{ boxShadow: `inset 0 0 0 3px ${hex}` }} />
+          <Avatar name={st.name} color={st.vacant ? '#3B4A8C' : st.isMe ? hex : st.avatarColor} src={st.vacant ? null : st.avatarUrl} size={54} style={{ boxShadow: `inset 0 0 0 3px ${hex}` }} />
           {bubble && (
             <span key={bubble.at} className={'lg-sticker' + ('emoji' in bubble.s ? ' emoji' : '') + (right ? ' right' : '')} data-testid="sticker-bubble" style={{ borderColor: hex }}>
               {'emoji' in bubble.s ? bubble.s.emoji : bubble.s.text}

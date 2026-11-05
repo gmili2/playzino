@@ -1,3 +1,4 @@
+import { avatarUrl } from '../../lib/avatars.js';
 import bcrypt from 'bcryptjs';
 import { audit } from '../../lib/audit.js';
 import { AppError, conflict, notFound } from '../../lib/errors.js';
@@ -33,6 +34,7 @@ export async function getMe(userId: string) {
     balance: u.wallet.balance,
     profile: {
       avatarColor: u.profile.avatarColor,
+      avatarUrl: avatarUrl(u.profile.avatarFile),
       bio: u.profile.bio,
       xp: u.profile.xp,
       ...levelFromXp(u.profile.xp),

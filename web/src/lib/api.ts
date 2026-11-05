@@ -28,7 +28,8 @@ export const api = {
   get: <T>(url: string) => request<T>('GET', url),
   post: <T>(url: string, body: unknown = {}) => request<T>('POST', url, body),
   patch: <T>(url: string, body: unknown) => request<T>('PATCH', url, body),
-  put: <T>(url: string, body: unknown) => request<T>('PUT', url, body)
+  put: <T>(url: string, body: unknown) => request<T>('PUT', url, body),
+  delete: <T>(url: string) => request<T>('DELETE', url)
 };
 
 /** Messages d'erreur affichés à l'utilisateur (interface en arabe). */

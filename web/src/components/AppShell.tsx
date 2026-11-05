@@ -43,7 +43,7 @@ function AccountMenu({ onClose }: { onClose: () => void }) {
   return (
     <div ref={ref} className="rl-menu" role="menu" aria-label="حسابي">
       <div className="rl-menu-head">
-        <Avatar name={user.username} color={user.profile.avatarColor} size={58} ring="#F2B232" />
+        <Avatar name={user.username} color={user.profile.avatarColor} src={user.profile.avatarUrl} size={58} ring="#F2B232" />
         <span className="rl-menu-who">
           <b>{user.username}</b>
           <span className="rl-tag rl-tag-gold">المستوى {user.profile.level}</span>
@@ -114,7 +114,7 @@ export function Header() {
                 </Link>
                 <span className="rl-avatar-wrap">
                   <button type="button" className="rl-avatar" data-testid="user-chip" aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen(!open)}>
-                    <Avatar name={user.username} color={user.profile.avatarColor} size={42} />
+                    <Avatar name={user.username} color={user.profile.avatarColor} src={user.profile.avatarUrl} size={42} />
                     <span className="sr-only">{user.username}</span>
                   </button>
                   {open && <AccountMenu onClose={() => setOpen(false)} />}

@@ -19,8 +19,8 @@ import { useLobby, useRoomActions } from '../lib/hooks';
 
 interface Stats {
   online: number;
-  leaderboard: { rank: number; userId: string; username: string; avatarColor: string; wins: number; winnings: number }[];
-  recentWins: { gameId: string; username: string; avatarColor: string; room: string; payout: number }[];
+  leaderboard: { rank: number; userId: string; username: string; avatarColor: string; avatarUrl?: string | null; wins: number; winnings: number }[];
+  recentWins: { gameId: string; username: string; avatarColor: string; avatarUrl?: string | null; room: string; payout: number }[];
 }
 
 const FILTERS = [
@@ -223,7 +223,7 @@ export function HomePage() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
               {stats?.recentWins.length ? stats.recentWins.map((w) => (
                 <div key={w.gameId} className="pb-row" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 8, margin: '0 -8px', borderRadius: 12 }}>
-                  <Avatar name={w.username} color={w.avatarColor} size={36} />
+                  <Avatar name={w.username} color={w.avatarColor} src={w.avatarUrl} size={36} />
                   <span style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}><span style={{ fontWeight: 700, fontSize: 14 }}>{w.username}</span><span style={{ fontSize: 12, color: '#A9A3B5' }}>{w.room}</span></span>
                   <span dir="ltr" style={{ fontWeight: 800, color: '#FFC83D' }}>+{fmt(w.payout)}</span>
                 </div>
@@ -245,7 +245,7 @@ export function HomePage() {
                 return (
                   <li key={r.userId} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 10px', borderRadius: 12, background: me ? 'rgba(139,92,246,0.16)' : undefined, border: me ? '1px solid rgba(255,222,170,0.35)' : '1px solid transparent' }}>
                     <span style={{ width: 20, fontWeight: 900, color: r.rank === 1 ? '#FFC83D' : r.rank <= 3 ? '#F5A524' : '#A9A3B5' }}>{r.rank}</span>
-                    <Avatar name={r.username} color={r.avatarColor} size={30} />
+                    <Avatar name={r.username} color={r.avatarColor} src={r.avatarUrl} size={30} />
                     <span style={{ flex: 1, fontWeight: 700, fontSize: 14 }}>{r.username}</span>
                     <span style={{ fontWeight: 800, fontSize: 14, color: '#FFC83D' }}>{r.wins} فوز</span>
                   </li>

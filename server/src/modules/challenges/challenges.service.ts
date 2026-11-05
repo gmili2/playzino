@@ -7,6 +7,7 @@ import { insufficientFunds } from '../wallet/wallet.service.js';
 import { listBots } from '../rooms/bots.service.js';
 import { createPracticeRoom, createRoom, joinRoom, leaveWaitingRoom } from '../rooms/rooms.service.js';
 import { afterJoin, releaseIdleSeat } from '../rooms/rooms.routes.js';
+import { avatarUrl } from '../../lib/avatars.js';
 
 /** Durée de validité d'un défi sans réponse. */
 export const CHALLENGE_TTL_MS = Number(process.env.CHALLENGE_TTL_MS ?? 30_000);
@@ -42,6 +43,7 @@ async function onlineBots(count: number) {
       id: b.id,
       username: b.username,
       avatarColor: b.avatarColor,
+      avatarUrl: null,
       level: levelOf(b.xp),
       status: r() < 0.3 ? ('playing' as const) : ('available' as const),
       acceptsChallenges: true
@@ -63,7 +65,7 @@ async function realOnlinePlayers(viewerId: string) {
   const [users, seated] = await Promise.all([
     prisma.user.findMany({
       where: { id: { in: ids }, isBot: false, status: 'ACTIVE', profile: { hideOnline: false } },
-      select: { id: true, username: true, profile: { select: { avatarColor: true, xp: true, invitesEnabled: true } } },
+      select: { id: true, username: true, profile: { select: { avatarColor: true, avatarFile: true, xp: true, invitesEnabled: true } } },
       take: 200
     }),
     prisma.roomPlayer.findMany({ where: { userId: { in: ids }, room: { status: 'PLAYING' } }, select: { userId: true } })
@@ -74,6 +76,7 @@ async function realOnlinePlayers(viewerId: string) {
       id: u.id,
       username: u.username,
       avatarColor: u.profile?.avatarColor ?? '#2F6BFF',
+      avatarUrl: avatarUrl(u.profile?.avatarFile),
       level: levelOf(u.profile?.xp ?? 0),
       status: playing.has(u.id) ? ('playing' as const) : ('available' as const),
       acceptsChallenges: u.profile?.invitesEnabled ?? true
@@ -126,7 +129,7 @@ export async function sendChallenge(fromId: string, input: { toUserId: string; s
     }
   }
 
-  const from = await prisma.user.findUniqueOrThrow({ where: { id: fromId }, select: { username: true, profile: { select: { avatarColor: true, xp: true } } } });
+  const from = await prisma.user.findUniqueOrThrow({ where: { id: fromId }, select: { username: true, profile: { select: { avatarColor: true, avatarFile: true, xp: true } } } });
   const id = randomUUID();
   const expiresAt = Date.now() + CHALLENGE_TTL_MS;
   const c: Challenge = {
@@ -140,7 +143,7 @@ export async function sendChallenge(fromId: string, input: { toUserId: string; s
   challenges.set(id, c);
   hub.emitUser(c.toId, 'challenge:new', {
     id, stake: c.stake, gameType: c.gameType, expiresAt, ttlMs: CHALLENGE_TTL_MS,
-    from: { id: fromId, username: from.username, avatarColor: from.profile?.avatarColor ?? '#2F6BFF', level: levelOf(from.profile?.xp ?? 0) }
+    from: { id: fromId, username: from.username, avatarColor: from.profile?.avatarColor ?? '#2F6BFF', avatarUrl: avatarUrl(from.profile?.avatarFile), level: levelOf(from.profile?.xp ?? 0) }
   });
   return { id, expiresAt, ttlMs: CHALLENGE_TTL_MS };
 }

@@ -2,7 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Page } from '../components/AppShell';
 import { WalletCard } from '../components/WalletCard';
-import { IconCrown } from '../components/Icons';
+import { IconCamera, IconCrown } from '../components/Icons';
 import { Avatar, Empty } from '../components/ui';
 import { api, errorText, fieldErrors } from '../lib/api';
 import { useAuth } from '../lib/auth';
@@ -64,10 +64,7 @@ export function ProfilePage() {
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 24, alignItems: 'flex-start' }}>
         <div style={{ flex: '1 1 320px', maxWidth: 360, display: 'flex', flexDirection: 'column', gap: 20 }}>
           <section style={{ padding: 24, borderRadius: 24, background: 'linear-gradient(170deg, #2A1B7A, #1B1824 60%)', border: '1px solid rgba(255,222,170,0.25)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, textAlign: 'center' }}>
-            <div style={{ position: 'relative' }}>
-              <IconCrown size={30} style={{ position: 'absolute', top: -16, left: '50%', transform: 'translateX(-50%)', color: '#FFC83D', zIndex: 1 }} />
-              <Avatar name={user.username} color={user.profile.avatarColor} size={112} style={{ boxShadow: '0 0 0 4px #1B1824, 0 0 0 7px #FFC83D' }} />
-            </div>
+            <AvatarEditor user={user} onSaved={setUser} />
             <h1 style={{ fontWeight: 900, fontSize: 26 }}>{user.username}</h1>
             <span style={{ fontSize: 14, color: '#DAD5E2' }}>المستوى {user.profile.level} · عضو منذ {fmtMonth(user.createdAt)}</span>
             {user.role === 'ADMIN' && <span className="badge" style={{ background: 'rgba(255,200,61,0.16)', color: '#FFC83D' }}>مسؤول</span>}
@@ -236,5 +233,74 @@ function Settings({ user, onSaved, onLogout }: { user: Me; onSaved: (u: Me) => v
         <button type="button" className="pb-btn pb-danger pb-sm" data-testid="logout" onClick={onLogout}>تسجيل الخروج</button>
       </div>
     </section>
+  );
+}
+
+/** Image choisie → carré 256 × 256 (WEBP, sinon JPEG) : léger, sans données EXIF ni position GPS. */
+async function squareImage(file: File): Promise<string> {
+  const url = URL.createObjectURL(file);
+  try {
+    const img = new Image();
+    img.src = url;
+    await img.decode();
+    const side = Math.min(img.naturalWidth, img.naturalHeight);
+    const canvas = document.createElement('canvas');
+    canvas.width = canvas.height = 256;
+    const ctx = canvas.getContext('2d')!;
+    ctx.imageSmoothingQuality = 'high';
+    // Photo en hauteur : cadre placé vers le haut (le visage), pas au milieu (le buste).
+    ctx.drawImage(img, (img.naturalWidth - side) / 2, (img.naturalHeight - side) * 0.2, side, side, 0, 0, 256, 256);
+    const webp = canvas.toDataURL('image/webp', 0.85);
+    // Safari ancien : pas d'encodage WEBP (il renvoie du PNG) → JPEG.
+    return webp.startsWith('data:image/webp') ? webp : canvas.toDataURL('image/jpeg', 0.85);
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+/** Avatar du profil avec un bouton appareil photo : choisir, remplacer ou retirer sa photo. */
+function AvatarEditor({ user, onSaved }: { user: Me; onSaved: (u: Me) => void }) {
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+
+  const run = async (action: () => Promise<{ user: Me }>, done: string) => {
+    setBusy(true);
+    setMsg(null);
+    try {
+      onSaved((await action()).user);
+      setMsg({ ok: true, text: done });
+    } catch (e) {
+      setMsg({ ok: false, text: e instanceof Error && e.name === 'EncodingError' ? 'تعذّر قراءة هذه الصورة، جرّب صورة أخرى' : errorText(e) });
+    } finally {
+      setBusy(false);
+    }
+  };
+  const pick = (file: File | undefined) => {
+    if (!file) return;
+    if (!file.type.startsWith('image/')) return setMsg({ ok: false, text: 'اختر صورة (JPG أو PNG أو WEBP)' });
+    void run(async () => api.put<{ user: Me }>('/api/me/avatar', { image: await squareImage(file) }), 'تم تغيير صورة الملف الشخصي');
+  };
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+      <div style={{ position: 'relative' }}>
+        <IconCrown size={30} style={{ position: 'absolute', top: -26, left: '50%', transform: 'translateX(-50%)', color: '#FFC83D', zIndex: 1 }} />
+        <Avatar name={user.username} color={user.profile.avatarColor} src={user.profile.avatarUrl} size={112} style={{ boxShadow: '0 0 0 4px #1B1824, 0 0 0 7px #FFC83D', opacity: busy ? 0.5 : 1 }} />
+        <label
+          title="تغيير الصورة" aria-label="تغيير صورة الملف الشخصي" data-testid="avatar-pick"
+          style={{ position: 'absolute', insetInlineEnd: -4, bottom: -4, width: 40, height: 40, borderRadius: '50%', background: 'linear-gradient(180deg,#FFDA5C,#FFB21E)', color: '#2B1A00', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: busy ? 'wait' : 'pointer', boxShadow: '0 0 0 3px #1B1824', zIndex: 2 }}
+        >
+          <IconCamera size={20} />
+          <input type="file" accept="image/*" disabled={busy} onChange={(e) => { pick(e.target.files?.[0]); e.target.value = ''; }} style={{ position: 'absolute', width: 1, height: 1, opacity: 0, overflow: 'hidden' }} />
+        </label>
+      </div>
+      {user.profile.avatarUrl && (
+        <button type="button" className="pb-btn pb-plain pb-sm" disabled={busy} onClick={() => run(() => api.delete<{ user: Me }>('/api/me/avatar'), 'تم حذف الصورة')} style={{ height: 30, padding: '0 12px', fontSize: 12, marginTop: 6 }}>
+          حذف الصورة
+        </button>
+      )}
+      {busy && <span className="hint">جارٍ الرفع…</span>}
+      {msg && <span role="status" style={{ fontSize: 12.5, fontWeight: 700, color: msg.ok ? '#4ADE80' : '#FB7185' }}>{msg.text}</span>}
+    </div>
   );
 }

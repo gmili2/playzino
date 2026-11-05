@@ -11,6 +11,8 @@ export interface Me {
   balance: number;
   profile: {
     avatarColor: string;
+    /** Photo de profil (null : initiales sur la couleur). */
+    avatarUrl: string | null;
     bio: string | null;
     xp: number;
     level: number;
@@ -29,6 +31,7 @@ export interface RoomPlayer {
   seat: number;
   color: Color;
   avatarColor: string;
+  avatarUrl?: string | null;
   level: number;
   isBot?: boolean;
 }
@@ -146,7 +149,7 @@ export interface Withdrawal {
 }
 
 /** Joueur connecté (page « اللاعبون المتصلون »). */
-export interface OnlinePlayer { id: string; username: string; avatarColor: string; level: number; status: 'available' | 'playing'; acceptsChallenges: boolean }
+export interface OnlinePlayer { id: string; username: string; avatarColor: string; avatarUrl?: string | null; level: number; status: 'available' | 'playing'; acceptsChallenges: boolean }
 
 /** Défi reçu d'un autre joueur, valable jusqu'à `expiresAt`. */
 export interface IncomingChallenge {
@@ -156,5 +159,5 @@ export interface IncomingChallenge {
   /** Échéance sur l'horloge de CE navigateur (recalculée à la réception à partir de ttlMs). */
   expiresAt: number;
   ttlMs: number;
-  from: { id: string; username: string; avatarColor: string; level: number };
+  from: { id: string; username: string; avatarColor: string; avatarUrl?: string | null; level: number };
 }

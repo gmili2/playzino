@@ -20,6 +20,7 @@ import { walletRouter } from './modules/wallet/wallet.routes.js';
 import { wheelRouter } from './modules/wheel/wheel.routes.js';
 import { prisma } from './lib/prisma.js';
 import { trustProxy } from './lib/proxy.js';
+import { readAvatar } from './lib/avatars.js';
 
 export function createApp() {
   const app = express();
@@ -55,6 +56,8 @@ export function createApp() {
 
   // Seul l'envoi d'un dépôt porte un fichier (reçu en base64, 5 Mo max) ; partout ailleurs 20 ko suffisent.
   app.use('/api/payments/deposits', express.json({ limit: '8mb' }));
+  // Photo de profil (déjà réduite par le navigateur, 600 ko max une fois décodée).
+  app.use('/api/me/avatar', express.json({ limit: '1mb' }));
   app.use(express.json({ limit: '20kb' }));
   app.use(cookieParser());
 
@@ -63,6 +66,14 @@ export function createApp() {
     res.json({ ok: true, db: 'up' });
   });
 
+  // Photos de profil : publiques (affichées dans le salon et les parties), nom de fichier aléatoire et immuable.
+  app.get('/api/avatars/:file', async (req, res) => {
+    const a = await readAvatar(String(req.params.file));
+    res.set('Content-Type', a.mime);
+    res.set('Cache-Control', 'public, max-age=31536000, immutable');
+    res.set('X-Content-Type-Options', 'nosniff');
+    res.send(a.data);
+  });
   app.use('/api', requireCsrfHeader, loadUser);
   app.use('/api/auth', authRouter);
   app.use('/api/me', meRouter);

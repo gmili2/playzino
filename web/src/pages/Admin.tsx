@@ -10,7 +10,7 @@ import { fmt, fmtDate, GAME_LABEL, signed, TX_LABEL } from '../lib/format';
 import { BanksAdmin, DepositsAdmin, WithdrawalsAdmin } from './AdminPayments';
 
 interface Overview { users: number; newUsersWeek: number; online: number; gamesToday: number; activeGames: number; creditsInCirculation: number; suspended: number; privateOpen: number; abandonsToday: number; pendingDeposits: number; pendingWithdrawals: number }
-interface AdminUser { id: string; username: string; email: string; phone: string | null; role: string; status: 'ACTIVE' | 'SUSPENDED'; suspendedReason: string | null; balance: number; level: number; avatarColor: string; games: number; createdAt: string }
+interface AdminUser { id: string; username: string; email: string; phone: string | null; role: string; status: 'ACTIVE' | 'SUSPENDED'; suspendedReason: string | null; balance: number; level: number; avatarColor: string; avatarUrl: string | null; games: number; createdAt: string }
 interface AdminGame { id: string; room: { name: string; code: string; stake: number; gameType?: string }; status: string; endReason: string | null; players: { username: string; color: string; result: string | null }[]; winner: string | null; moves: number; startedAt: string; endedAt: string | null }
 interface AdminTx { id: string; type: string; amount: number; reason: string; username: string; actor: string | null; createdAt: string }
 interface Audit { id: string; action: string; actor: string | null; targetType: string; targetId: string | null; details: Record<string, unknown> | null; createdAt: string }
@@ -298,6 +298,15 @@ export function AdminPage() {
       title: `إعادة تفعيل ${u.username}`, confirm: 'تفعيل',
       run: async (reason) => { await api.post(`/api/admin/users/${u.id}/reactivate`, { reason }); setDialog(null); load(); }
     });
+  const removePhoto = async (u: AdminUser) => {
+    if (!window.confirm(`حذف صورة ${u.username}؟ سيعود إلى الأحرف الأولى.`)) return;
+    try {
+      await api.delete(`/api/admin/users/${u.id}/avatar`);
+      load();
+    } catch (e) {
+      window.alert(errorText(e));
+    }
+  };
   const abort = (g: AdminGame) =>
     setDialog({
       title: `إلغاء المباراة (${g.room.name})`, confirm: 'إلغاء وإعادة الرهانات', danger: true,
@@ -318,7 +327,7 @@ export function AdminPage() {
             <tr key={u.id} className="pb-row">
               <td>
                 <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <Avatar name={u.username} color={u.avatarColor} size={36} />
+                  <Avatar name={u.username} color={u.avatarColor} src={u.avatarUrl} size={36} />
                   <span style={{ display: 'flex', flexDirection: 'column' }}>
                     <span style={{ fontWeight: 800 }}>{u.username} {u.role === 'ADMIN' && <span style={{ fontSize: 11, color: '#FFC83D' }}>· مسؤول</span>}</span>
                     <span dir="ltr" style={{ fontSize: 12, color: '#A9A3B5', textAlign: 'end' }}>{u.email}</span>
@@ -335,6 +344,7 @@ export function AdminPage() {
                 : <span className="badge" title={u.suspendedReason ?? ''} style={{ background: 'rgba(244,63,94,0.14)', color: '#FB7185' }}>موقوف</span>}</td>
               <td style={{ whiteSpace: 'nowrap' }}>{fmtDate(u.createdAt)}</td>
               <td>
+                {u.avatarUrl && <button type="button" className="pb-btn pb-ghost pb-sm" onClick={() => removePhoto(u)} title="صورة غير لائقة" style={{ marginInlineEnd: 6 }}>حذف الصورة</button>}
                 {u.id !== me?.id && u.role !== 'ADMIN' && (u.status === 'ACTIVE'
                   ? <button type="button" className="pb-btn pb-danger pb-sm" onClick={() => suspend(u)}>إيقاف</button>
                   : <button type="button" className="pb-btn pb-ghost pb-sm" onClick={() => reactivate(u)}>تفعيل</button>)}
@@ -405,7 +415,7 @@ export function AdminPage() {
           <Link to="/" className="pb-btn pb-ghost pb-sm pb-hide-sm">الموقع</Link>
           {me && (
             <span className="ad-me">
-              <Avatar name={me.username} color={me.profile.avatarColor} size={40} />
+              <Avatar name={me.username} color={me.profile.avatarColor} src={me.profile.avatarUrl} size={40} />
               <span><b>{me.username}</b><small>مدير النظام</small></span>
             </span>
           )}

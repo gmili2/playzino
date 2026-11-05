@@ -13,6 +13,7 @@ import { hub } from '../../realtime/hub.js';
 import { leaveWaitingRoom } from '../rooms/rooms.service.js';
 import { getPaidWheel, getWheel, PAID_MAX_PRICE, PAID_MAX_SPINS, setPaidWheel, setWheel, wheelStats, WHEEL_MAX_AMOUNT, WHEEL_MAX_SEGMENTS, WHEEL_MIN_SEGMENTS } from '../wheel/wheel.service.js';
 import { walletOp } from '../wallet/wallet.service.js';
+import { avatarUrl, removeAvatar } from '../../lib/avatars.js';
 
 // Toutes les routes ci-dessous sont vérifiées côté serveur (rôle ADMIN relu en base à chaque requête).
 export const adminRouter = Router();
@@ -55,7 +56,7 @@ adminRouter.get('/users', async (req, res) => {
     where: { isBot: false, ...(q.q ? { OR: [{ username: { contains: q.q } }, { email: { contains: q.q } }, { phone: { contains: q.q.replace(/[\s.\-]/g, '') } }, ...(q.q.length >= 6 ? [{ id: { endsWith: q.q.toLowerCase() } }] : [])] } : {}) },
     orderBy: { createdAt: 'desc' },
     take: q.take,
-    include: { wallet: { select: { balance: true } }, profile: { select: { xp: true, avatarColor: true } }, _count: { select: { gameSeats: true } } }
+    include: { wallet: { select: { balance: true } }, profile: { select: { xp: true, avatarColor: true, avatarFile: true } }, _count: { select: { gameSeats: true } } }
   });
   res.json({
     items: users.map((u) => ({
@@ -69,6 +70,7 @@ adminRouter.get('/users', async (req, res) => {
       balance: u.wallet?.balance ?? 0,
       level: Math.floor((u.profile?.xp ?? 0) / 1000) + 1,
       avatarColor: u.profile?.avatarColor ?? '#2F6BFF',
+      avatarUrl: avatarUrl(u.profile?.avatarFile),
       games: u._count.gameSeats,
       createdAt: u.createdAt,
       lastLoginAt: u.lastLoginAt
@@ -181,6 +183,12 @@ adminRouter.post('/games/:id/abort', async (req, res) => {
   const id = String(req.params.id);
   await audit({ actorId: req.user!.id, action: 'admin.game_abort_request', targetType: 'game', targetId: id, details: { reason }, ip: req.ip });
   res.json({ game: await gameManager.abort(id, 'ADMIN', req.user!.id) });
+});
+
+/** Photo de profil inappropriée : retirée par l'admin (le joueur retrouve ses initiales). */
+adminRouter.delete('/users/:id/avatar', async (req, res) => {
+  await removeAvatar(String(req.params.id), req.user!.id, req.ip);
+  res.status(204).end();
 });
 
 adminRouter.get('/settings/bot-level', async (_req, res) => {
