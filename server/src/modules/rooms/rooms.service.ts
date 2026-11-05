@@ -65,7 +65,13 @@ const activeSeatWhere = (userId: string): Prisma.RoomPlayerWhereInput => ({
   }
 });
 
+/** Verrou par joueur (sa ligne Wallet) : deux demandes simultanées ne peuvent pas l'asseoir à deux tables. */
+async function lockUser(tx: Tx, userId: string) {
+  await tx.$queryRaw`SELECT id FROM Wallet WHERE userId = ${userId} FOR UPDATE`;
+}
+
 async function assertNotSeated(tx: Tx, userId: string) {
+  await lockUser(tx, userId);
   const seat = await tx.roomPlayer.findFirst({ where: activeSeatWhere(userId), select: { roomId: true } });
   if (seat) {
     throw new AppError(409, 'ALREADY_IN_ROOM', 'Vous êtes déjà à une table', { roomId: seat.roomId });
@@ -78,16 +84,22 @@ async function lockRoom(tx: Tx, roomId: string) {
   return tx.room.findUnique({ where: { id: roomId }, include: { players: true } });
 }
 
-async function debitStake(tx: Tx, room: Room, userId: string) {
+/**
+ * Mise débitée pour une place (RoomPlayer) : la clé suit la place, pas le couple table/joueur. Un joueur qui quitte
+ * (remboursé) puis revient à la même table occupe une nouvelle place et paie de nouveau sa mise.
+ */
+async function debitStake(tx: Tx, room: Room, userId: string, seatId: string) {
   if (room.stake <= 0) return;
-  await applyWalletOp(tx, {
+  const op = await applyWalletOp(tx, {
     userId,
     amount: -room.stake,
     type: 'STAKE',
     reason: `Mise — table ${room.code}`,
-    idempotencyKey: `stake:${room.id}:${userId}`,
+    idempotencyKey: `stake:seat:${seatId}`,
     roomId: room.id
   });
+  // Jamais de place gratuite : une mise déjà enregistrée pour cette place est une incohérence.
+  if (op.duplicate) throw conflict('STAKE_ALREADY_TAKEN', 'Mise déjà enregistrée pour cette place');
 }
 
 export interface CreateRoomInput {
@@ -108,8 +120,8 @@ export async function createRoom(userId: string, input: CreateRoomInput, ip?: st
         const room = await tx.room.create({
           data: { ...input, maxPlayers: playersFor(input.gameType, input.maxPlayers), code: newCode(), hostId: userId }
         });
-        await tx.roomPlayer.create({ data: { roomId: room.id, userId, seat: 0, color: seatColor(room.gameType, 0) } });
-        await debitStake(tx, room, userId);
+        const seat = await tx.roomPlayer.create({ data: { roomId: room.id, userId, seat: 0, color: seatColor(room.gameType, 0) } });
+        await debitStake(tx, room, userId, seat.id);
         await audit({ actorId: userId, action: 'room.create', targetType: 'room', targetId: room.id, details: { ...input }, ip }, tx);
         return room.id;
       });
@@ -139,8 +151,8 @@ export async function joinRoom(userId: string, roomId: string, ip?: string): Pro
 
     const taken = new Set(room.players.map((p) => p.seat));
     const seat = Array.from({ length: room.maxPlayers }, (_, i) => i).find((s) => !taken.has(s))!;
-    await tx.roomPlayer.create({ data: { roomId, userId, seat, color: seatColor(room.gameType, seat) } });
-    await debitStake(tx, room, userId);
+    const place = await tx.roomPlayer.create({ data: { roomId, userId, seat, color: seatColor(room.gameType, seat) } });
+    await debitStake(tx, room, userId, place.id);
     await audit({ actorId: userId, action: 'room.join', targetType: 'room', targetId: roomId, ip }, tx);
 
     if (room.players.length + 1 < room.maxPlayers) return null;
@@ -238,14 +250,15 @@ export async function leaveWaitingRoom(userId: string, roomId: string, ip?: stri
     if (room.status !== 'WAITING') throw conflict('ROOM_NOT_WAITING', 'La partie a déjà commencé');
     // Bascule vers le robot : annulée si un adversaire est arrivé entre-temps (vérifié sous verrou).
     if (onlyIfAlone && room.players.length > 1) throw conflict('OPPONENT_FOUND', 'Un adversaire a rejoint la table');
-    await tx.roomPlayer.delete({ where: { roomId_userId: { roomId, userId } } });
+    const place = await tx.roomPlayer.delete({ where: { roomId_userId: { roomId, userId } } });
     if (room.stake > 0) {
       await applyWalletOp(tx, {
         userId,
         amount: room.stake,
         type: 'REFUND',
         reason: `Remboursement — départ de la table ${room.code}`,
-        idempotencyKey: `refund:${roomId}:${userId}`,
+        // Remboursement de cette place précise (voir debitStake).
+        idempotencyKey: `refund:seat:${place.id}`,
         roomId
       });
     }

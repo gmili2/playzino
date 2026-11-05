@@ -38,26 +38,36 @@ function Stat({ icon, color, label, value, sub }: { icon: ReactNode; color: stri
 function ReasonDialog({ title, confirm, danger, onCancel, onConfirm }: { title: string; confirm: string; danger?: boolean; onCancel: () => void; onConfirm: (reason: string) => Promise<void> }) {
   const [reason, setReason] = useState('');
   const [err, setErr] = useState('');
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape' && !busy) onCancel(); };
+    document.addEventListener('keydown', esc);
+    return () => document.removeEventListener('keydown', esc);
+  }, [busy, onCancel]);
   const submit = async (e: FormEvent) => {
     e.preventDefault();
+    if (busy) return; // double clic : une seule demande
     if (reason.trim().length < 5) return setErr('السبب إلزامي (5 أحرف على الأقل)');
+    setBusy(true);
     try {
       await onConfirm(reason.trim());
     } catch (x) {
       setErr(errorText(x));
+    } finally {
+      setBusy(false);
     }
   };
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 60, background: 'rgba(6,6,20,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-      <form role="dialog" aria-modal="true" onSubmit={submit} style={{ width: '100%', maxWidth: 420, padding: 26, borderRadius: 24, background: '#1B1824', border: '1px solid rgba(255,222,170,0.25)', display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <form role="dialog" aria-modal="true" aria-label={title} onSubmit={submit} style={{ width: '100%', maxWidth: 420, padding: 26, borderRadius: 24, background: '#1B1824', border: '1px solid rgba(255,222,170,0.25)', display: 'flex', flexDirection: 'column', gap: 12 }}>
         <span style={{ fontWeight: 900, fontSize: 21 }}>{title}</span>
         <label className="field"><span>السبب (يُسجَّل في سجل النشاطات)</span>
           <textarea className="pb-input" rows={3} value={reason} onChange={(e) => setReason(e.target.value)} autoFocus />
         </label>
         {err && <span className="field-error">{err}</span>}
         <div style={{ display: 'flex', gap: 10 }}>
-          <button type="button" className="pb-btn pb-ghost" style={{ flex: 1 }} onClick={onCancel}>إلغاء</button>
-          <button type="submit" className={'pb-btn ' + (danger ? 'pb-solid-danger' : 'pb-violet')} style={{ flex: 1 }}>{confirm}</button>
+          <button type="button" className="pb-btn pb-ghost" style={{ flex: 1 }} onClick={onCancel} disabled={busy}>إلغاء</button>
+          <button type="submit" className={'pb-btn ' + (danger ? 'pb-solid-danger' : 'pb-violet')} style={{ flex: 1 }} disabled={busy}>{busy ? '…' : confirm}</button>
         </div>
       </form>
     </div>

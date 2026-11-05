@@ -14,13 +14,28 @@ import {
   rejectDeposit,
   rejectWithdrawal
 } from './payments.service.js';
-import { listPaymentMethods, METHOD_NAMES } from './methods.js';
+import { listPaymentMethods, METHOD_NAMES, PAYMENT_METHODS } from './methods.js';
+
+/** Chiffres arabes (٠-٩, ۰-۹ des claviers de téléphone) → chiffres latins. */
+export const asciiDigits = (v: string) =>
+  v.replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 0x660)).replace(/[۰-۹]/g, (d) => String(d.charCodeAt(0) - 0x6f0));
 
 /** RIB marocain saisi avec ou sans espaces : on ne garde que les 24 chiffres. */
 export const ribSchema = z
   .string()
-  .transform((v) => v.replace(/[\s-]/g, ''))
+  .transform((v) => asciiDigits(v).replace(/[\s-]/g, ''))
   .refine((v) => /^\d{24}$/.test(v), 'Le RIB doit contenir 24 chiffres');
+
+/** Compte de retrait selon le moyen : RIB de 24 chiffres, ou numéro mobile marocain (Cash Plus) ramené à 06…/07…. */
+const withdrawalAccount = (bankName: string, raw: string) => {
+  const kind = PAYMENT_METHODS.find((m) => m.name === bankName)?.kind ?? 'rib';
+  const v = asciiDigits(raw).replace(/[\s.-]/g, '');
+  if (kind === 'phone') {
+    const phone = v.replace(/^(\+212|00212|212)/, '0');
+    return /^0[5-7]\d{8}$/.test(phone) ? phone : null;
+  }
+  return /^\d{24}$/.test(v) ? v : null;
+};
 const nameSchema = (max: number) => z.string().trim().min(2).max(max);
 const reasonSchema = z.string().trim().min(5, 'Justification obligatoire (5 caractères minimum)').max(500);
 const statusQuery = z.object({ status: z.enum(['PENDING', 'APPROVED', 'REJECTED']).optional() });
@@ -74,8 +89,16 @@ paymentsRouter.post('/withdrawals', async (req, res) => {
       amount: z.number().int().min(WITHDRAWAL_MIN).max(WITHDRAWAL_MAX),
       bankName: z.enum(METHOD_NAMES),
       accountHolder: nameSchema(100),
-      rib: ribSchema,
+      rib: z.string().max(40),
       requestId: z.string().uuid()
+    }).transform((b, ctx) => {
+      const rib = withdrawalAccount(b.bankName, b.rib);
+      if (!rib) {
+        const phone = PAYMENT_METHODS.find((m) => m.name === b.bankName)?.kind === 'phone';
+        ctx.addIssue({ code: 'custom', path: ['rib'], message: phone ? 'Numéro de téléphone marocain invalide' : 'Le RIB doit contenir 24 chiffres' });
+        return z.NEVER;
+      }
+      return { ...b, rib };
     }),
     req.body
   );

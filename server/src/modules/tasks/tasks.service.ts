@@ -7,6 +7,7 @@ import { wheelDay } from '../wheel/wheel.service.js';
 /**
  * Mission du jour : jouer 10 parties avec mise (hors entraînement et parties contre les robots) pour gagner 10 pièces.
  * Une fois par jour (minuit au Maroc), ce qui limite l'intérêt de jouer contre son propre second compte.
+ * Seules les parties jouées jusqu'au bout comptent : un abandon immédiat entre deux comptes ne fait pas avancer la mission.
  */
 export const TASK_GAMES = Number(process.env.TASK_GAMES ?? 10);
 export const TASK_REWARD = Number(process.env.TASK_REWARD ?? 10);
@@ -15,7 +16,7 @@ const taskKey = (userId: string, day: string) => `task:games:${userId}:${day}`;
 
 async function gamesToday(userId: string, since: Date) {
   return prisma.gamePlayer.count({
-    where: { userId, game: { status: 'FINISHED', endedAt: { gte: since }, room: { isPractice: false, stake: { gt: 0 } } } }
+    where: { userId, game: { status: 'FINISHED', endReason: 'COMPLETED', endedAt: { gte: since }, room: { isPractice: false, stake: { gt: 0 } } } }
   });
 }
 

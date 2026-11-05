@@ -22,7 +22,8 @@ function Card({ title, sub, children }: { title: string; sub: string; children: 
 function useNext() {
   const [sp] = useSearchParams();
   const next = sp.get('next');
-  return next && next.startsWith('/') && !next.startsWith('//') ? next : '/';
+  // Chemin interne seulement : « //site » et « /\site » mèneraient vers un autre domaine.
+  return next && next.startsWith('/') && !next.startsWith('//') && !next.includes('\\') ? next : '/';
 }
 
 export function LoginPage() {

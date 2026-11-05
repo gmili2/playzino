@@ -56,13 +56,15 @@ export function TaskCard() {
         ) : task?.claimed ? (
           <span style={{ fontWeight: 800, color: '#4ADE80' }}>✓ +{reward}</span>
         ) : (
-          <button type="button" className="pb-btn pb-gold pb-sm" disabled={!done || busy} onClick={claim} data-testid="task-claim">
-            {done ? `اربح ${reward} دراهم` : 'العب الآن'}
-          </button>
+          done ? (
+            <button type="button" className="pb-btn pb-gold pb-sm" disabled={busy} onClick={claim} data-testid="task-claim">اربح {reward} دراهم</button>
+          ) : (
+            <Link to="/tables" className="pb-btn pb-gold pb-sm" data-testid="task-play">العب الآن</Link>
+          )
         )}
       </div>
       {msg && <span role="alert" className="field-error">{msg}</span>}
-      <span style={{ fontSize: 11, color: '#A9A3B5' }}>المباريات برهان فقط (من 5 دراهم)، دون التدريب. تتجدد المهمة كل يوم عند منتصف الليل.</span>
+      <span style={{ fontSize: 11, color: '#A9A3B5' }}>المباريات برهان فقط (من 5 دراهم) ولُعبت حتى النهاية، دون التدريب أو الانسحاب. تتجدد المهمة كل يوم عند منتصف الليل.</span>
     </div>
   );
 }

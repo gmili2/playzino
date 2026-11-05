@@ -125,6 +125,15 @@ export class GameManager {
     const again = this.games.get(gameId);
     if (again) return again;
     this.games.set(gameId, live);
+    // Partie déjà terminée relue (historique, ancien lien) : retirée de la mémoire un peu plus tard.
+    if (live.status !== 'ACTIVE') this.evictLater(live);
+    if (live.status === 'ACTIVE' && live.state.phase === 'finished') {
+      // Coup final enregistré mais règlement interrompu (redémarrage, erreur en base) : on règle la partie maintenant
+      // au lieu de la laisser bloquée « en cours » avec les mises.
+      const winner = live.players.find((p) => p.color === live.state.winner);
+      await this.enqueue(live, () => this.finish(live, winner?.userId ?? null, 'COMPLETED', []));
+      return live;
+    }
     if (live.status === 'ACTIVE') {
       // Personne n'est encore connecté : chacun dispose du délai de reconnexion.
       for (const p of live.players) {
@@ -138,7 +147,14 @@ export class GameManager {
   /** Reprise après redémarrage : toutes les parties actives en base repassent en mémoire. */
   async recoverActiveGames() {
     const active = await prisma.game.findMany({ where: { status: 'ACTIVE' }, select: { id: true } });
-    for (const g of active) await this.load(g.id);
+    for (const g of active) {
+      // Une partie illisible ne doit pas empêcher le serveur de démarrer ni bloquer les autres.
+      try {
+        await this.load(g.id);
+      } catch (e) {
+        console.error('[recover]', g.id, e);
+      }
+    }
     return active.length;
   }
 
@@ -219,6 +235,8 @@ export class GameManager {
       const loser = live.players.find((p) => p.userId === userId);
       if (!loser) throw forbidden('Vous ne participez pas à cette partie');
       if (this.isOut(live, userId)) return this.snapshot(live);
+      // Revenu entre l'expiration du délai et l'exécution : pas d'élimination.
+      if (reason === 'DISCONNECT' && !live.offline.has(userId)) return this.snapshot(live);
       // À 3 ou 4 joueurs, seul le joueur qui part est éliminé ; le dernier joueur restant gagne.
       const entry = live.offline.get(userId);
       if (entry) {
@@ -347,7 +365,8 @@ export class GameManager {
         });
         if (r.count !== 1) return;
         if (live.room.stake > 0) {
-          for (const p of live.players) {
+          // Un joueur déjà éliminé (abandon, déconnexion) a perdu sa mise : seuls les joueurs encore en jeu sont remboursés.
+          for (const p of live.players.filter((x) => !this.isOut(live, x.userId))) {
             await applyWalletOp(tx, {
               userId: p.userId,
               amount: live.room.stake,
@@ -381,20 +400,31 @@ export class GameManager {
       return;
     }
     const turnPlayer = live.players.find((p) => p.color === live.rules.current(live.state));
+    // Le coup automatique ne vaut que pour l'état où il a été programmé : si quelqu'un a joué entre-temps
+    // (action déjà dans la file au moment où la minuterie expire), il est ignoré.
+    const seq = live.state.seq;
+    const run = (label: string, step: () => Promise<void>) =>
+      this.enqueue(live, async () => { if (live.state.seq === seq) await step(); }).catch((e) => {
+        console.error(label, live.id, e);
+        this.retryTurn(live, seq);
+      });
     if (turnPlayer?.isBot) {
       live.deadline = null;
-      live.turnTimer = setTimeout(() => {
-        this.enqueue(live, () => this.botStep(live)).catch((e) => console.error('[bot]', live.id, e));
-      }, BOT_DELAY_MS);
+      live.turnTimer = setTimeout(() => run('[bot]', () => this.botStep(live)), BOT_DELAY_MS);
       live.turnTimer.unref();
       return;
     }
     const ms = live.room.turnSeconds * 1000;
     live.deadline = Date.now() + ms;
-    live.turnTimer = setTimeout(() => {
-      this.enqueue(live, () => this.autoPlay(live)).catch((e) => console.error('[autoplay]', live.id, e));
-    }, ms);
+    live.turnTimer = setTimeout(() => run('[autoplay]', () => this.autoPlay(live)), ms);
     live.turnTimer.unref();
+  }
+
+  /** Coup de robot ou coup automatique en échec (erreur en base…) : nouvel essai, sinon la partie resterait figée. */
+  private retryTurn(live: LiveGame, seq: number) {
+    setTimeout(() => {
+      if (live.status === 'ACTIVE' && live.state.seq === seq && live.offline.size === 0) this.scheduleTurn(live);
+    }, 3000).unref();
   }
 
   /** Une action de robot, validée par les règles du jeu comme pour un humain. */
@@ -428,9 +458,16 @@ export class GameManager {
 
   private onGraceExpired(live: LiveGame, userId: string) {
     if (live.status !== 'ACTIVE' || !live.offline.has(userId)) return;
-    const othersOnline = live.players.some((p) => p.userId !== userId && !p.isBot && !live.offline.has(p.userId) && !this.isOut(live, p.userId));
-    const job = othersOnline ? this.forfeit(live.id, userId, 'DISCONNECT') : this.abort(live.id, 'DISCONNECT');
-    job.catch((e) => console.error('[grace]', live.id, e));
+    // Décision prise dans la file de la partie, sur l'état du moment : le joueur a pu revenir entre-temps.
+    this.enqueue(live, async () => {
+      if (live.status !== 'ACTIVE' || !live.offline.has(userId)) return false;
+      const othersOnline = live.players.some((p) => p.userId !== userId && !p.isBot && !live.offline.has(p.userId) && !this.isOut(live, p.userId));
+      if (othersOnline) return true;
+      await this.abortNow(live, 'DISCONNECT');
+      return false;
+    })
+      .then((forfeit) => (forfeit ? this.forfeit(live.id, userId, 'DISCONNECT') : undefined))
+      .catch((e) => console.error('[grace]', live.id, e));
   }
 
   /** Appelé par la couche Socket.IO à chaque connexion/déconnexion d'un joueur. */

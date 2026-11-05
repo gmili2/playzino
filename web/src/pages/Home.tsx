@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Board, SHOWCASE_PAWNS } from '../components/Board';
 import { Connect4Board, SHOWCASE_C4 } from '../components/Connect4Board';
 import { Footer, Header } from '../components/AppShell';
+import { SupportButton } from '../components/Support';
 import { IconBolt, IconCrown, IconLock, IconTrophy, IconUsers } from '../components/Icons';
 import { SHOWCASE_WHEEL } from '../components/Wheel';
 import { ModeCard } from '../components/ModeCards';
@@ -271,6 +272,7 @@ export function HomePage() {
         }}
       />
       <Footer />
+      <SupportButton />
     </>
   );
 }

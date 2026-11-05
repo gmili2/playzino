@@ -81,6 +81,8 @@ export function createSocketServer(http: HttpServer) {
     handle(socket, 'game:join', async (p) => {
       const gameId = idSchema.parse(p);
       const snap = await gameManager.getSnapshotFor(gameId, user.id); // vérifie la participation
+      // Socket coupé pendant le chargement : ne pas compter une présence qui ne serait jamais retirée.
+      if (!socket.connected) return snap;
       await socket.join(`game:${gameId}`);
       const games = socket.data.games as Set<string>;
       if (!games.has(gameId)) {

@@ -56,8 +56,6 @@ export async function createDeposit(
 
   const bank = await prisma.paymentBank.findUnique({ where: { id: input.bankId } });
   if (!bank || !bank.active) throw badRequest('BANK_UNAVAILABLE', 'Banque indisponible');
-  const pending = await prisma.depositRequest.count({ where: { userId, status: 'PENDING' } });
-  if (pending >= MAX_PENDING_DEPOSITS) throw conflict('TOO_MANY_PENDING', 'Trop de dépôts en attente de validation');
 
   const receipt = decodeReceipt(input.receipt);
   const file = `${randomUUID()}.${receipt.ext}`;
@@ -65,6 +63,10 @@ export async function createDeposit(
   await writeFile(resolve(UPLOAD_DIR, file), receipt.data, { flag: 'wx' });
   try {
     const deposit = await prisma.$transaction(async (tx) => {
+      // Compte des dépôts en attente sous verrou du joueur : des envois simultanés ne dépassent pas la limite.
+      await tx.$queryRaw`SELECT id FROM Wallet WHERE userId = ${userId} FOR UPDATE`;
+      const pending = await tx.depositRequest.count({ where: { userId, status: 'PENDING' } });
+      if (pending >= MAX_PENDING_DEPOSITS) throw conflict('TOO_MANY_PENDING', 'Trop de dépôts en attente de validation');
       const d = await tx.depositRequest.create({
         data: { clientRef, userId, bankId: bank.id, amount: input.amount, receiptFile: file, receiptMime: receipt.mime }
       });

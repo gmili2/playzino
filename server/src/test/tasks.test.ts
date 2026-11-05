@@ -6,14 +6,14 @@ import { registered } from './helpers.js';
 afterAll(() => prisma.$disconnect());
 
 /** Partie terminée à deux, enregistrée directement en base. */
-async function finishedGame(userId: string, opponentId: string, opts: { stake: number; isPractice?: boolean; status?: 'FINISHED' | 'ABORTED' }) {
+async function finishedGame(userId: string, opponentId: string, opts: { stake: number; isPractice?: boolean; status?: 'FINISHED' | 'ABORTED'; endReason?: 'COMPLETED' | 'FORFEIT' }) {
   const code = 'T' + String(randomInt(10_000_000)).padStart(7, '0');
   const room = await prisma.room.create({
     data: { code, name: 'Mission', visibility: 'PRIVATE', status: 'FINISHED', stake: opts.stake, isPractice: opts.isPractice ?? false, hostId: userId }
   });
   await prisma.game.create({
     data: {
-      roomId: room.id, status: opts.status ?? 'FINISHED', state: '{}', endedAt: new Date(),
+      roomId: room.id, status: opts.status ?? 'FINISHED', endReason: opts.endReason ?? 'COMPLETED', state: '{}', endedAt: new Date(),
       players: { create: [{ userId, color: 'blue', result: 'WIN' }, { userId: opponentId, color: 'green', result: 'LOSS' }] }
     }
   });
@@ -22,7 +22,7 @@ async function finishedGame(userId: string, opponentId: string, opts: { stake: n
 const balance = async (userId: string) => (await prisma.wallet.findUniqueOrThrow({ where: { userId } })).balance;
 
 describe('mission du jour : 10 parties avec mise', () => {
-  it('progression, récompense une seule fois par jour ; entraînement, parties gratuites et annulées exclues', async () => {
+  it('progression, récompense une seule fois par jour ; entraînement, parties gratuites, annulées et abandons exclus', async () => {
     const a = await registered(undefined, 100);
     const b = await registered();
     let s = (await a.get('/api/tasks')).body;
@@ -31,6 +31,8 @@ describe('mission du jour : 10 parties avec mise', () => {
     await finishedGame(a.user.id, b.user.id, { stake: 0 });
     await finishedGame(a.user.id, b.user.id, { stake: 0, isPractice: true });
     await finishedGame(a.user.id, b.user.id, { stake: 20, status: 'ABORTED' });
+    // Gagnée par abandon de l'adversaire : ne compte pas (abus possible entre deux comptes).
+    await finishedGame(a.user.id, b.user.id, { stake: 20, endReason: 'FORFEIT' });
     for (let i = 0; i < 9; i++) await finishedGame(a.user.id, b.user.id, { stake: 5 });
     s = (await a.get('/api/tasks')).body;
     expect(s.played).toBe(9);

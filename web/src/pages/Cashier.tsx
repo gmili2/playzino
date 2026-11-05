@@ -5,7 +5,7 @@ import { IconArrowDown, IconArrowUp, IconBank, IconCopy, IconList, IconUpload } 
 import { Empty, Loading } from '../components/ui';
 import { api, errorText, fieldErrors } from '../lib/api';
 import { useAuth } from '../lib/auth';
-import { fmt, fmtDate, fmtRib } from '../lib/format';
+import { asciiDigits, fmt, fmtDate, fmtRib } from '../lib/format';
 import { getSocket } from '../lib/socket';
 import type { Bank, Deposit, PaymentStatus, Withdrawal } from '../lib/types';
 
@@ -64,16 +64,16 @@ export function CashierPage() {
   const [error, setError] = useState('');
   const [tab, setTab] = useState<'deposit' | 'withdraw' | 'history'>('deposit');
 
-  const load = useCallback(() => api.get<Payments>('/api/payments').then(setData, (e) => setError(errorText(e))), []);
+  const load = useCallback(() => api.get<Payments>('/api/payments').then((d) => { setData(d); setError(''); }, (e) => setError(errorText(e))), []);
 
   useEffect(() => {
     load();
-    // Une validation par l'admin met à jour le solde et l'historique sans recharger la page.
+    // Une validation par l'admin met à jour l'historique sans recharger la page (le solde est rafraîchi par useAuth).
     const s = getSocket();
-    const onUpdate = () => { load(); refresh(); };
+    const onUpdate = () => { load(); };
     s.on('wallet:update', onUpdate);
     return () => { s.off('wallet:update', onUpdate); };
-  }, [load, refresh]);
+  }, [load]);
 
   if (!user) return null;
   const done = async () => { await Promise.all([load(), refresh()]); };
@@ -231,25 +231,34 @@ function WithdrawForm({ banks, balance, limits, last, onDone, onHistory }: { ban
   const [busy, setBusy] = useState(false);
   const requestId = useRef(crypto.randomUUID());
   const set = (k: keyof typeof form, v: string) => setForm({ ...form, [k]: v });
+  // Cash Plus : envoi vers un numéro de téléphone ; virement : RIB de 24 chiffres.
+  const isPhone = banks.find((b) => b.name === form.bankName)?.kind === 'phone';
+  const account = asciiDigits(form.rib).replace(/[\s.-]/g, '');
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
-    const n = Number(form.amount);
+    setMsg(null);
+    const n = Number(asciiDigits(form.amount));
     if (!Number.isInteger(n) || n < limits.withdrawalMin || n > limits.withdrawalMax) return setMsg({ ok: false, text: `المبلغ بين ${fmt(limits.withdrawalMin)} و${fmt(limits.withdrawalMax)} درهم` });
     if (n > balance) return setMsg({ ok: false, text: 'رصيدك غير كافٍ' });
     if (!form.bankName) return setMsg({ ok: false, text: 'اختر وسيلة السحب' });
-    if (form.rib.replace(/[\s-]/g, '').length !== 24) return setErrors({ rib: 'رقم RIB يتكون من 24 رقمًا' });
+    if (isPhone ? !/^(0|\+212|212)[5-7]\d{8}$/.test(account) : !/^\d{24}$/.test(account)) {
+      return setErrors({ rib: isPhone ? 'أدخل رقم هاتف مغربي صحيح (06 أو 07…)' : 'رقم RIB يتكون من 24 رقمًا' });
+    }
     setBusy(true);
     setMsg(null);
     setErrors({});
     try {
-      await api.post('/api/payments/withdrawals', { amount: n, bankName: form.bankName.trim(), accountHolder: form.accountHolder.trim(), rib: form.rib, requestId: requestId.current });
+      await api.post('/api/payments/withdrawals', { amount: n, bankName: form.bankName.trim(), accountHolder: form.accountHolder.trim(), rib: account, requestId: requestId.current });
       requestId.current = crypto.randomUUID();
       setForm({ ...form, amount: '' });
       setMsg({ ok: true, text: `تم إرسال طلب سحب ${fmt(n)} درهم. خُصم المبلغ من رصيدك وسيصلك التحويل بعد معالجة الإدارة (يُعاد إليك إذا رُفض الطلب).` });
       await onDone();
     } catch (err) {
-      setErrors(fieldErrors(err));
+      const fe = fieldErrors(err);
+      // Messages du serveur en français : remplacés par un texte arabe pour le champ du compte.
+      if (fe.rib) fe.rib = isPhone ? 'أدخل رقم هاتف مغربي صحيح (06 أو 07…)' : 'رقم RIB يتكون من 24 رقمًا';
+      setErrors(fe);
       setMsg({ ok: false, text: errorText(err) });
     } finally {
       setBusy(false);
@@ -264,14 +273,19 @@ function WithdrawForm({ banks, balance, limits, last, onDone, onHistory }: { ban
         <span className="hint">الحد الأدنى {fmt(limits.withdrawalMin)} درهم · المتاح للسحب: <b dir="ltr" style={{ color: '#FFD866' }}>{fmt(balance)}</b></span>
       </label>
       <div className="field"><span>وسيلة السحب</span>
-        <MethodGrid banks={banks} selected={form.bankName} onPick={(b) => set('bankName', b.name)} testId="withdraw-methods" />
+        <MethodGrid banks={banks} selected={form.bankName} onPick={(b) => {
+          // Changement de type (RIB ↔ téléphone) : le compte pré-rempli ne correspond plus.
+          const kindOf = (name: string) => banks.find((x) => x.name === name)?.kind;
+          setForm({ ...form, bankName: b.name, rib: kindOf(form.bankName) === b.kind ? form.rib : '' });
+          setErrors({});
+        }} testId="withdraw-methods" />
       </div>
       <label className="field"><span>الاسم الكامل لصاحب الحساب</span>
         <input className="pb-input" dir="auto" value={form.accountHolder} onChange={(e) => set('accountHolder', e.target.value)} aria-invalid={!!errors.accountHolder} required minLength={2} maxLength={100} />
       </label>
-      <label className="field"><span>رقم الحساب (RIB)</span>
-        <input className="pb-input" dir="ltr" inputMode="numeric" autoComplete="off" placeholder="000 000 0000000000000000 00" value={form.rib} onChange={(e) => set('rib', e.target.value)} aria-invalid={!!errors.rib} style={{ letterSpacing: '.05em' }} data-testid="withdraw-rib" />
-        <span className={errors.rib ? 'field-error' : 'hint'}>{errors.rib ?? '24 رقمًا، كما يظهر في شهادة RIB الخاصة بك'}</span>
+      <label className="field"><span>{isPhone ? 'رقم الهاتف (يستقبل التحويل)' : 'رقم الحساب (RIB)'}</span>
+        <input className="pb-input" dir="ltr" inputMode={isPhone ? 'tel' : 'numeric'} autoComplete="off" placeholder={isPhone ? '06 12 34 56 78' : '000 000 0000000000000000 00'} value={form.rib} onChange={(e) => set('rib', e.target.value)} aria-invalid={!!errors.rib} style={{ letterSpacing: '.05em' }} data-testid="withdraw-rib" />
+        <span className={errors.rib ? 'field-error' : 'hint'}>{errors.rib ?? (isPhone ? 'رقم الهاتف الذي سيصله المبلغ عبر كاش بلوس، مع الاسم الكامل كما في البطاقة الوطنية' : '24 رقمًا، كما يظهر في شهادة RIB الخاصة بك')}</span>
       </label>
       {msg && <div role="status" className={'alert ' + (msg.ok ? 'alert-ok' : 'alert-error')}>{msg.text} {msg.ok && <button type="button" className="pb-btn pb-ghost pb-sm" onClick={onHistory}>عرض السجل</button>}</div>}
       <button type="submit" className="pb-btn pb-gold pb-lg" disabled={busy || balance < limits.withdrawalMin}>{busy ? 'جارٍ الإرسال…' : 'إرسال طلب السحب'}</button>

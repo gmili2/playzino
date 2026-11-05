@@ -116,7 +116,7 @@ describe('dépôts par virement', () => {
 
 describe('retraits', () => {
   const withdraw = (c: Awaited<ReturnType<typeof registered>>, amount: number, requestId = randomUUID()) =>
-    c.post('/api/payments/withdrawals', { amount, bankName: 'Cash Plus', accountHolder: 'Karim Test', rib: '007780000012345678901234', requestId });
+    c.post('/api/payments/withdrawals', { amount, bankName: 'Wafacash', accountHolder: 'Karim Test', rib: '007780000012345678901234', requestId });
 
   it('le montant est bloqué dès la demande, puis le virement est marqué exécuté', async () => {
     const a = await registered();

@@ -32,3 +32,7 @@ export const TX_LABEL: Record<string, string> = {
 export const fmtRib = (rib: string) =>
   rib.length === 24 ? `${rib.slice(0, 3)} ${rib.slice(3, 6)} ${rib.slice(6, 22)} ${rib.slice(22)}`
   : rib.length === 10 ? `${rib.slice(0, 4)}-${rib.slice(4)}` : rib;
+
+/** Chiffres arabes des claviers de téléphone (٠-٩, ۰-۹) → chiffres latins, avant toute vérification. */
+export const asciiDigits = (v: string) =>
+  v.replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 0x660)).replace(/[۰-۹]/g, (d) => String(d.charCodeAt(0) - 0x6f0));
