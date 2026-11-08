@@ -18,7 +18,7 @@ function audio(): AudioContext | null {
 }
 
 /** Nombre de prises par son : public/sfx/<nom>-1.ogg … <nom>-N.ogg. */
-const SAMPLES = { shake: 3, dice: 1, move: 1, exit: 2, capture: 1, drop: 3, home: 1, sticker: 2, click: 3, select: 2, turn: 2, coins: 1, win: 1, lose: 1 } as const;
+const SAMPLES = { dice: 1, move: 1, exit: 2, capture: 1, drop: 3, home: 1, sticker: 2, click: 3, select: 2, turn: 2, coins: 1, win: 1, lose: 1 } as const;
 type Sample = keyof typeof SAMPLES;
 const buffers = new Map<Sample, AudioBuffer[]>();
 let samplesRequested = false;
@@ -96,29 +96,6 @@ function knock(ms: number, { at = 0, gain = 0.25, freq = 1800, q = 1.2 } = {}) {
   g.gain.value = gain;
   src.connect(f).connect(g).connect(a.destination);
   src.start(t0);
-}
-
-/**
- * Dés secoués dans la main pendant que le serveur tire le résultat ; renvoie la fonction qui coupe le son
- * (fondu court) au moment où le dé est lancé.
- */
-export function diceShake(): () => void {
-  const a = audio();
-  const list = buffers.get('shake');
-  if (!a || !list?.length) return () => undefined;
-  const src = a.createBufferSource();
-  src.buffer = list[Math.floor(Math.random() * list.length)];
-  src.loop = true;
-  const g = a.createGain();
-  g.gain.value = 0.8;
-  src.connect(g).connect(a.destination);
-  src.start();
-  return () => {
-    const t = a.currentTime;
-    g.gain.setValueAtTime(g.gain.value, t);
-    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.08);
-    src.stop(t + 0.1);
-  };
 }
 
 /** Choc d'un pion qui tombe sur un autre (TheLittleCrow, Freesound, CC0 ; silence initial sauté) ; synthèse en secours. */

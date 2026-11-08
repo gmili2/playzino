@@ -9,7 +9,7 @@ import { api, ApiError, errorText } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { COLOR_HEX, COLOR_NAME, fmt } from '../lib/format';
 import { useRoomActions } from '../lib/hooks';
-import { diceShake, preloadSfx, setMuted, sfx, type Sfx } from '../lib/sounds';
+import { preloadSfx, setMuted, sfx, type Sfx } from '../lib/sounds';
 import { STICKER_BY_ID, STICKER_COOLDOWN_MS, STICKERS, type StickerId } from '../lib/stickers';
 import { emitAck, getSocket } from '../lib/socket';
 import type { Color, GameEvent, GameSnapshot, Move, Room } from '../lib/types';
@@ -315,17 +315,14 @@ export function GamePage() {
     if (!gameId || busy) return;
     setBusy(true);
     setRolling(true);
-    // Les dés sont secoués pendant l'attente du résultat, puis lancés : le bruit du dé qui roule accompagne sa chute.
-    const stopShake = sound ? diceShake() : () => undefined;
+    // Un seul son : le dé qui roule, joué quand il tombe.
     const started = Date.now();
     try {
       const data = await emitAck<GameSnapshot>('game:roll', gameId);
       await new Promise((r) => setTimeout(r, Math.max(0, 650 - (Date.now() - started))));
-      stopShake();
       play('dice');
       applySnap(data);
     } catch (e) {
-      stopShake();
       setToast(errorText(e));
     } finally {
       setRolling(false);
