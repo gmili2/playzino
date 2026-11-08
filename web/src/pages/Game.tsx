@@ -168,9 +168,8 @@ export function GamePage() {
           : home ? 'بيدق وصل إلى البيت!'
           : extra ? (extra.color === myColorRef.current ? 'رميت 6: العب مرة أخرى!' : 'الخصم يلعب مجددًا (6)') : null;
         if (t) setToast(t);
-        // Mon propre lancer sonne dès le clic ; ceux des adversaires à la réception.
+        // Seul mon propre lancer fait du bruit (au clic) : les lancers des adversaires sont silencieux.
         if (s.events.some((e) => e.type === 'roll')) setRollId((n) => n + 1);
-        if (s.events.some((e) => e.type === 'roll' && e.color !== myColorRef.current)) play('dice');
         const at = s.events.some((e) => e.type === 'roll') ? 450 : 0;
         const pieceSound: Sfx | null = cap ? (cap.victim === myColorRef.current ? 'captured' : 'capture') : home ? 'home' : s.events.some((e) => e.type === 'exit') ? 'exit'
           : s.events.some((e) => e.type === 'move') ? 'move' : s.events.some((e) => e.type === 'drop') ? 'drop' : null;
