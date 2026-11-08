@@ -3,7 +3,7 @@ http://creativecommons.org/publicdomain/zero/1.0/
 
 - Kenney (www.kenney.nl), pack « Casino Audio » : sorties, Puissance 4, stickers.
 - Kenney, pack « Interface Sounds » (opengameart.org/content/interface-sounds) :
-  click-* (click_002-004), select-* (select_001-002), turn-1 (open_002), turn-2 (maximize_006).
+  click-* (click_002-004), select-* (select_001-002).
 - Kenney, « 85 Short music jingles » (opengameart.org/content/85-short-music-jingles) :
   win-1 (jingles_STEEL02), lose-1 (jingles_STEEL01).
 - lordtomorrow, « Coin Splash » (opengameart.org/content/coin-splash) : coins-1.

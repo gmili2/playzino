@@ -21,7 +21,7 @@ function audio(): AudioContext | null {
 const SFX_VERSION = '2026-11-08';
 
 /** Nombre de prises par son : public/sfx/<nom>-1.ogg … <nom>-N.ogg. */
-const SAMPLES = { dice: 1, move: 1, exit: 2, capture: 1, drop: 3, home: 1, sticker: 2, click: 3, select: 2, turn: 2, coins: 1, win: 1, lose: 1 } as const;
+const SAMPLES = { dice: 1, move: 1, exit: 2, capture: 1, drop: 3, home: 1, sticker: 2, click: 3, select: 2, coins: 1, win: 1, lose: 1 } as const;
 type Sample = keyof typeof SAMPLES;
 const buffers = new Map<Sample, AudioBuffer[]>();
 let samplesRequested = false;
@@ -203,12 +203,6 @@ export const sfx = {
   select() {
     if (sample('select', { gain: 0.7 })) return;
     tone(880, 60, { type: 'sine', gain: 0.06, slideTo: 1320 });
-  },
-  /** C'est à mon tour de jouer. */
-  turn() {
-    if (sample('turn', { gain: 0.6 })) return;
-    tone(660, 120, { type: 'sine', gain: 0.06 });
-    tone(990, 160, { type: 'sine', gain: 0.06, at: 0.1 });
   },
   /** Pièces reçues (gain d'une partie, roue, mission). */
   coins() {

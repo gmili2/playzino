@@ -185,11 +185,6 @@ export function GamePage() {
           setTimeout(() => play('coins'), 1900); // après le jingle de victoire
         }
       }
-      // Le tour vient de passer à moi : petit signal (pas pendant une pause, ni quand je rejoue après un 6).
-      if (s.status === 'ACTIVE' && !s.paused && s.turnColor && s.turnColor === myColorRef.current && turnRef.current !== s.turnColor) {
-        setTimeout(() => play('turn'), lastSeq.current >= 0 ? 700 : 0);
-      }
-      turnRef.current = s.status === 'ACTIVE' ? s.turnColor : null;
       statusRef.current = s.status;
       lastSeq.current = Math.max(lastSeq.current, s.state.seq);
       if (s.status !== 'ACTIVE') refresh();
@@ -199,7 +194,6 @@ export function GamePage() {
   const nameOfRef = useRef(nameOf);
   nameOfRef.current = nameOf;
   const statusRef = useRef<GameSnapshot['status'] | null>(null);
-  const turnRef = useRef<Color | null>(null);
   const userIdRef = useRef(user?.id);
   userIdRef.current = user?.id;
   const myColorRef = useRef<Color | undefined>(me?.color);
