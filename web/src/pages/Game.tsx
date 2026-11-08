@@ -4,7 +4,7 @@ import { MarqueeBulbs, Sparkles, StageLights } from '../components/Casino';
 import { Board, QUARTER_FOR, type BoardPawn, type BoardTarget } from '../components/Board';
 import { C4_COLS, C4_ROWS, Connect4Board } from '../components/Connect4Board';
 import { IconArrowBack, IconCrown, IconLogout, IconMute, IconSmile, IconVolume, IconWifiOff } from '../components/Icons';
-import { Avatar, Coin, Die, Loading, Spinner } from '../components/ui';
+import { Avatar, BotTag, Coin, Die, Loading, Spinner } from '../components/ui';
 import { api, ApiError, errorText } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { COLOR_HEX, COLOR_NAME, fmt } from '../lib/format';
@@ -481,11 +481,11 @@ export function GamePage() {
           )}
         </span>
         <span className="lg-seat-info">
-          <span className="lg-seat-name">{st.isMe ? 'أنت' : st.name}</span>
+          <span className="lg-seat-name">{st.isMe ? 'أنت' : st.name}{st.isBot && <BotTag />}</span>
           <span className="lg-seat-sub">
             <span style={{ width: 10, height: 10, borderRadius: '50%', background: hex, boxShadow: '0 0 0 2px rgba(255,255,255,.6)' }} />
             <span dir="ltr" title={c4 ? 'القطع الملعوبة' : 'بيادق في البيت'}>{c4 ? `${tokens}/21` : `${arr.filter((v) => v === 71).length}/4`}</span>
-            {st.level !== null && !st.vacant && <span className="lg-pill pb-hide-sm">المستوى {st.level}</span>}
+            {st.level !== null && !st.vacant && !st.isBot && <span className="lg-pill pb-hide-sm">المستوى {st.level}</span>}
             {tag && <span className="lg-pill" style={activeTurn ? { background: hex, color: st.color === 'yellow' ? '#2A1E00' : '#fff' } : offline ? { background: 'rgba(245,158,11,.4)' } : undefined}>{tag}</span>}
             {activeTurn && deadlineLeft !== null && view?.active && <span className="lg-pill" data-testid={st.isMe ? 'turn-timer' : undefined} style={{ background: deadlineLeft <= 5 ? '#E5484D' : 'rgba(0,0,0,.35)' }}>{deadlineLeft} ث</span>}
           </span>

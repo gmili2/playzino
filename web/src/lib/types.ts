@@ -149,7 +149,7 @@ export interface Withdrawal {
 }
 
 /** Joueur connecté (page « اللاعبون المتصلون »). */
-export interface OnlinePlayer { id: string; username: string; avatarColor: string; avatarUrl?: string | null; level: number; status: 'available' | 'playing'; acceptsChallenges: boolean }
+export interface OnlinePlayer { id: string; username: string; avatarColor: string; avatarUrl?: string | null; level: number; status: 'available' | 'playing'; acceptsChallenges: boolean; isBot?: boolean }
 
 /** Défi reçu d'un autre joueur, valable jusqu'à `expiresAt`. */
 export interface IncomingChallenge {

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { fmt, initials } from '../lib/format';
+import { IconRobot } from './Icons';
 
 export function Coin({ size = 16 }: { size?: number }) {
   return (
@@ -144,4 +145,9 @@ export function Loading({ label = 'جارٍ التحميل…' }: { label?: stri
 
 export function Empty({ children }: { children: ReactNode }) {
   return <div style={{ padding: 32, borderRadius: 20, background: '#1B1824', textAlign: 'center', color: '#A9A3B5' }}>{children}</div>;
+}
+
+/** Étiquette « روبوت » : un robot n'est jamais présenté comme un vrai joueur. */
+export function BotTag() {
+  return <span className="bot-tag" data-testid="bot-tag"><IconRobot size={13} />روبوت</span>;
 }

@@ -4,7 +4,7 @@ import { Page } from '../components/AppShell';
 import { useSecondsLeft } from '../components/ChallengeInbox';
 import { IconUsers } from '../components/Icons';
 import { STAKES } from '../components/StakePicker';
-import { Avatar, Coin, Empty, Loading, Spinner } from '../components/ui';
+import { Avatar, BotTag, Coin, Empty, Loading, Spinner } from '../components/ui';
 import { api, errorText } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { fmt, GAME_LABEL } from '../lib/format';
@@ -36,15 +36,15 @@ function ChallengeDialog({ to, balance, onSent, onClose }: { to: OnlinePlayer; b
     <div className="sp-backdrop" onClick={onClose}>
       <div role="dialog" aria-modal="true" aria-labelledby="cd-title" className="sp-dialog" data-testid="challenge-dialog" onClick={(e) => e.stopPropagation()}>
         <span className="ch-avatar"><Avatar name={to.username} color={to.avatarColor} src={to.avatarUrl} size={60} /></span>
-        <span id="cd-title" className="sp-title">تحدَّ <bdi>{to.username}</bdi></span>
+        <span id="cd-title" className="sp-title">تحدَّ <bdi>{to.username}</bdi>{to.isBot && <BotTag />}</span>
         <div className="seg" role="group" aria-label="اللعبة" style={{ alignSelf: 'center' }}>
           {(['PARCHEESI', 'CONNECT4'] as GameType[]).map((g) => (
             <button key={g} type="button" aria-pressed={game === g} onClick={() => setGame(g)}>{GAME_LABEL[g]}</button>
           ))}
         </div>
-        <span className="sp-sub">اختر الرهان · الفائز يربح الرهانين</span>
+        <span className="sp-sub">{to.isBot ? 'مباراة تدريب مجانية ضد روبوت · بدون رهان' : 'اختر الرهان · الفائز يربح الرهانين'}</span>
         <div className="sp-grid">
-          {STAKES.map((s) => (
+          {(to.isBot ? [0] : STAKES).map((s) => (
             <button key={s} type="button" className={'sp-opt' + (s === 0 ? ' free' : '')} data-testid={`challenge-stake-${s}`} disabled={busy || s > balance} onClick={() => send(s)}>
               {s === 0 ? <b>مجانية</b> : <><Coin size={22} /><b dir="ltr">{fmt(s)}</b></>}
               <small>{s === 0 ? 'بدون رهان' : s > balance ? 'رصيد غير كافٍ' : 'عملة'}</small>
@@ -156,8 +156,8 @@ export function PlayersPage() {
                   <span className={'pl-dot pl-dot-av' + (p.status === 'playing' ? ' busy' : '')} />
                 </span>
                 <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: 1 }}>
-                  <b className="pl-name"><bdi>{p.username}</bdi></b>
-                  <small style={{ color: '#A9A3B5' }}>المستوى {p.level} · {p.status === 'playing' ? 'في مباراة الآن' : p.acceptsChallenges ? 'متاح' : 'لا يقبل التحديات'}</small>
+                  <b className="pl-name"><bdi>{p.username}</bdi>{p.isBot && <BotTag />}</b>
+                  <small style={{ color: '#A9A3B5' }}>{p.isBot ? 'مباراة مجانية' : `المستوى ${p.level}`} · {p.status === 'playing' ? 'في مباراة الآن' : p.acceptsChallenges ? 'متاح' : 'لا يقبل التحديات'}</small>
                 </span>
                 <button type="button" className="pb-btn pb-gold pb-sm" data-testid={`challenge-${p.username}`} disabled={p.status === 'playing' || !p.acceptsChallenges || !!out} onClick={() => { setNotice(null); setTarget(p); }}>
                   تحدَّ

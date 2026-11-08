@@ -27,7 +27,7 @@ function seeded(seed: number) {
   };
 }
 
-/** Robots présentés comme joueurs en ligne quand il y a peu de monde ; ils acceptent les défis (partie sans mise). */
+/** Robots ajoutés à la liste quand il y a peu de monde, signalés comme robots (isBot) ; ils acceptent les défis (partie sans mise). */
 async function onlineBots(count: number) {
   if (count <= 0) return [];
   const window = Math.floor(Date.now() / BOT_ROTATION_MS);
@@ -46,7 +46,8 @@ async function onlineBots(count: number) {
       avatarUrl: null,
       level: levelOf(b.xp),
       status: r() < 0.3 ? ('playing' as const) : ('available' as const),
-      acceptsChallenges: true
+      acceptsChallenges: true,
+      isBot: true
     };
   });
 }
