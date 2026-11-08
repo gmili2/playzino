@@ -35,7 +35,7 @@ export function RoomCard({ room, onJoin, busy, mine }: { room: Room; onJoin: () 
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
           <span style={{ fontSize: 13, color: '#CFC9D9', display: 'flex', gap: 10, alignItems: 'center' }}>
-            {room.players.length}/{room.maxPlayers} لاعبين
+            {room.players.length}/{room.maxPlayers} لاعبين{room.teams ? ' · 2 ضد 2' : ''}
             {room.stake > 0 ? <Credits value={room.stake} size={13} /> : <span style={{ color: '#4ADE80' }}>مجانية</span>}
           </span>
           {mine ? (

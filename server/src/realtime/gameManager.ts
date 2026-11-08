@@ -6,7 +6,7 @@ import { AppError, forbidden, notFound } from '../lib/errors.js';
 import { prisma } from '../lib/prisma.js';
 import { getBotLevel } from '../lib/settings.js';
 import { avatarUrl } from '../lib/avatars.js';
-import { upgradeState, type Color, type GameState } from '../game/engine.js';
+import { upgradeState, winningColors, type Color, type GameState } from '../game/engine.js';
 import { GAME_RULES, type Action, type AnyEvent, type AnyState, type GameRules, type Step } from '../game/rules.js';
 import { applyWalletOp } from '../modules/wallet/wallet.service.js';
 
@@ -31,7 +31,7 @@ interface LiveGame {
   roomId: string;
   gameType: GameType;
   rules: GameRules;
-  room: { name: string; code: string; stake: number; visibility: string; turnSeconds: number; isPractice: boolean };
+  room: { name: string; code: string; stake: number; visibility: string; turnSeconds: number; isPractice: boolean; teams: boolean };
   state: AnyState;
   players: LivePlayer[];
   status: 'ACTIVE' | 'FINISHED' | 'ABORTED';
@@ -105,7 +105,7 @@ export class GameManager {
       roomId: g.roomId,
       gameType: g.room.gameType,
       rules: GAME_RULES[g.room.gameType],
-      room: { name: g.room.name, code: g.room.code, stake: g.room.stake, visibility: g.room.visibility, turnSeconds: g.room.turnSeconds, isPractice: g.room.isPractice },
+      room: { name: g.room.name, code: g.room.code, stake: g.room.stake, visibility: g.room.visibility, turnSeconds: g.room.turnSeconds, isPractice: g.room.isPractice, teams: g.room.teams },
       state,
       players: state.colors.map((c) => {
         const p = g.players.find((x) => x.color === c)!;
@@ -187,6 +187,7 @@ export class GameManager {
       deadline: paused ? null : live.deadline,
       paused,
       winnerId: live.winnerId,
+      winnerIds: this.winnersOf(live, live.winnerId),
       endReason: live.endReason,
       payouts: live.payouts,
       events: live.lastEvents,
@@ -302,10 +303,26 @@ export class GameManager {
    * La clé d'idempotence win:<gameId> garantit un seul versement.
    * Match nul (winnerId null) : chacun récupère sa mise et reçoit l'XP de participation.
    */
+  /**
+   * Gagnants : le vainqueur, ou en équipe les deux partenaires (sauf un partenaire qui a quitté la partie,
+   * dont la part revient à celui qui a fini le match).
+   */
+  private winnersOf(live: LiveGame, winnerId: string | null): string[] {
+    if (!winnerId) return [];
+    if (!live.room.teams || live.gameType !== 'PARCHEESI') return [winnerId];
+    const s = live.state as GameState;
+    const out = s.out ?? [];
+    const ids = winningColors(s).filter((c) => !out.includes(c)).map((c) => live.players.find((p) => p.color === c)?.userId).filter((x): x is string => !!x);
+    return ids.length ? ids : [winnerId];
+  }
+
   private async finish(live: LiveGame, winnerId: string | null, reason: GameEndReason, events: AnyEvent[]) {
     const draw = winnerId === null;
+    const winners = this.winnersOf(live, winnerId);
     const pot = live.room.stake * live.players.length;
-    const payoutOf = (userId: string) => (draw ? live.room.stake : userId === winnerId ? pot : 0);
+    // Le pot est partagé entre les gagnants (2 contre 2 : chaque gagnant reçoit deux mises).
+    const share = winners.length ? Math.floor(pot / winners.length) : 0;
+    const payoutOf = (userId: string) => (draw ? live.room.stake : winners.includes(userId) ? share : 0);
     await prisma.$transaction(async (tx) => {
       const r = await tx.game.updateMany({
         where: { id: live.id, status: 'ACTIVE' },
@@ -313,7 +330,7 @@ export class GameManager {
       });
       if (r.count !== 1) return; // déjà terminée
       for (const p of live.players) {
-        const won = p.userId === winnerId;
+        const won = winners.includes(p.userId);
         await tx.gamePlayer.update({
           where: { gameId_userId: { gameId: live.id, userId: p.userId } },
           data: { result: draw ? 'DRAW' : won ? 'WIN' : 'LOSS', payout: payoutOf(p.userId) }
@@ -333,19 +350,22 @@ export class GameManager {
           });
         }
       }
-      if (!draw && pot > 0) {
-        await applyWalletOp(tx, {
-          userId: winnerId!,
-          amount: pot,
-          type: 'WIN',
-          reason: `Gain — table ${live.room.code}`,
-          idempotencyKey: `win:${live.id}`,
-          gameId: live.id,
-          roomId: live.roomId
-        });
+      if (!draw && share > 0) {
+        for (const id of winners) {
+          await applyWalletOp(tx, {
+            userId: id,
+            amount: share,
+            type: 'WIN',
+            reason: `Gain — table ${live.room.code}`,
+            // Un seul gagnant : clé historique win:<partie> ; en équipe, une clé par gagnant.
+            idempotencyKey: winners.length === 1 ? `win:${live.id}` : `win:${live.id}:${id}`,
+            gameId: live.id,
+            roomId: live.roomId
+          });
+        }
       }
       await tx.room.update({ where: { id: live.roomId }, data: { status: 'FINISHED' } });
-      await audit({ action: 'game.finish', targetType: 'game', targetId: live.id, details: { winnerId, reason, pot, draw } }, tx);
+      await audit({ action: 'game.finish', targetType: 'game', targetId: live.id, details: { winnerId, winners, reason, pot, draw } }, tx);
     });
     live.status = 'FINISHED';
     live.winnerId = winnerId;

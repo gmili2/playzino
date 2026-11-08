@@ -51,7 +51,39 @@ export interface GameState {
   seq: number;
   /** Longueur du parcours sur la piste (64) ; absent des parties créées avec l'ancien parcours de 56 cases. */
   track?: number;
+  /** Mode 2 contre 2 : deux équipes de partenaires assis face à face. Absent hors mode équipe. */
+  teams?: Color[][];
 }
+
+/** Équipes du mode 2 contre 2 : couleurs face à face sur le plateau (sorties à 34 cases d'écart). */
+export const TEAMS: Color[][] = [['blue', 'green'], ['yellow', 'red']];
+
+/** Partenaire d'une couleur en mode équipe (null hors mode équipe). */
+export function partnerOf(s: GameState, c: Color): Color | null {
+  return s.teams?.find((t) => t.includes(c))?.find((x) => x !== c) ?? null;
+}
+
+/** Même couleur ou partenaire : on ne capture jamais un pion ami. */
+export const sameTeam = (s: GameState, a: Color, b: Color): boolean => a === b || partnerOf(s, a) === b;
+
+/**
+ * Couleur dont les pions sont joués ce tour : la sienne, ou celle du partenaire quand ses 4 pions sont arrivés
+ * (mode équipe : le joueur qui a fini avance les pions de son partenaire).
+ */
+export function moverColor(s: GameState): Color {
+  const c = currentColor(s);
+  const partner = partnerOf(s, c);
+  return partner && s.pawns[c].every((p) => p === GOAL) ? partner : c;
+}
+
+/** Couleurs gagnantes : le vainqueur, et son partenaire en mode équipe. */
+export function winningColors(s: GameState): Color[] {
+  if (!s.winner) return [];
+  const partner = partnerOf(s, s.winner);
+  return partner ? [s.winner, partner] : [s.winner];
+}
+
+const teamDone = (s: GameState, c: Color) => [c, partnerOf(s, c)].every((x) => !x || s.pawns[x].every((p) => p === GOAL));
 
 export interface Move {
   pawn: number;
@@ -81,9 +113,12 @@ export class RuleError extends Error {
   }
 }
 
-export function createGame(colors: Color[]): GameState {
+export function createGame(colors: Color[], teams?: Color[][]): GameState {
   if (colors.length < 2 || colors.length > 4 || new Set(colors).size !== colors.length) {
     throw new RuleError('BAD_COLORS', 'Entre 2 et 4 couleurs distinctes');
+  }
+  if (teams && (colors.length !== 4 || teams.length !== 2 || teams.some((t) => t.length !== 2) || !teams.flat().every((c) => colors.includes(c)))) {
+    throw new RuleError('BAD_TEAMS', 'Le mode équipe se joue à 4, en deux équipes de 2');
   }
   const pawns: Record<string, number[]> = {};
   const stamps: Record<string, number[]> = {};
@@ -106,7 +141,8 @@ export function createGame(colors: Color[]): GameState {
     winner: null,
     out: [],
     seq: 0,
-    track: LAST_TRACK + 1
+    track: LAST_TRACK + 1,
+    ...(teams ? { teams: teams.map((t) => [...t]) } : {})
   };
 }
 
@@ -173,7 +209,7 @@ function exitMove(s: GameState, color: Color, pawn: number): Move | null {
   const start = START[color];
   const occ = occupantsAt(s, start);
   if (occ.length < 2) return { pawn, from: NEST, to: 0 };
-  const rivals = occ.filter((o) => o.color !== color);
+  const rivals = occ.filter((o) => !sameTeam(s, color, o.color));
   if (rivals.length === 0) return null;
   // Deux pions sur la case de sortie dont au moins un adverse : on capture le dernier arrivé.
   const victim = rivals.reduce((a, b) => (s.stamps[b.color][b.pawn] > s.stamps[a.color][a.pawn] ? b : a));
@@ -193,7 +229,7 @@ function stepMove(s: GameState, color: Color, pawn: number, value: number): Move
   const abs = absSquare(color, to);
   const occ = occupantsAt(s, abs).filter((o) => !(o.color === color && o.pawn === pawn));
   if (occ.length >= 2) return null;
-  if (occ.length === 1 && occ[0].color !== color && !SAFE.includes(abs)) {
+  if (occ.length === 1 && !sameTeam(s, color, occ[0].color) && !SAFE.includes(abs)) {
     return { pawn, from, to, capture: occ[0] };
   }
   return { pawn, from, to };
@@ -201,7 +237,7 @@ function stepMove(s: GameState, color: Color, pawn: number, value: number): Move
 
 export function legalMoves(s: GameState): Move[] {
   if (s.phase !== 'move' && s.phase !== 'bonus') return [];
-  const color = currentColor(s);
+  const color = moverColor(s);
   const value = s.moveValue ?? 0;
   const pawns = s.pawns[color];
 
@@ -276,7 +312,8 @@ export function applyRoll(state: GameState, value: number): { state: GameState; 
   s.seq++;
   s.die = value;
   s.sixesInRow = value === 6 ? s.sixesInRow + 1 : 0;
-  const noneInNest = s.pawns[color].every((p) => p !== NEST);
+  const mover = moverColor(s);
+  const noneInNest = s.pawns[mover].every((p) => p !== NEST);
   s.moveValue = value === 6 && noneInNest ? 7 : value;
   events.push({ type: 'roll', color, value, moveValue: s.moveValue });
 
@@ -284,8 +321,8 @@ export function applyRoll(state: GameState, value: number): { state: GameState; 
     // Troisième 6 consécutif : le dernier pion déplacé retourne au nid (sauf s'il est dans le couloir final).
     let penalized: number | null = null;
     const lm = s.lastMoved;
-    if (lm && lm.color === color && isTrack(s.pawns[color][lm.pawn])) {
-      s.pawns[color][lm.pawn] = NEST;
+    if (lm && (lm.color === color || lm.color === mover) && isTrack(s.pawns[lm.color][lm.pawn])) {
+      s.pawns[lm.color][lm.pawn] = NEST;
       penalized = lm.pawn;
     }
     events.push({ type: 'three_sixes', color, pawn: penalized });
@@ -309,7 +346,9 @@ export function applyMove(state: GameState, pawn: number): { state: GameState; e
   if (!move) throw new RuleError('ILLEGAL_MOVE', 'Ce pion ne peut pas jouer ce coup');
 
   const s = clone(state);
-  const color = currentColor(s);
+  const player = currentColor(s);
+  // Propriétaire du pion joué : le joueur, ou son partenaire quand il a fini (mode équipe).
+  const color = moverColor(s);
   const events: GameEvent[] = [];
   const isBonus = s.phase === 'bonus';
   s.seq++;
@@ -325,20 +364,21 @@ export function applyMove(state: GameState, pawn: number): { state: GameState; e
     s.pawns[move.capture.color][move.capture.pawn] = NEST;
     events.push({ type: 'capture', color, victim: move.capture.color, pawn: move.capture.pawn });
     s.bonusQueue.push(CAPTURE_BONUS);
-    events.push({ type: 'bonus', color, amount: CAPTURE_BONUS });
+    events.push({ type: 'bonus', color: player, amount: CAPTURE_BONUS });
   }
   if (move.to === GOAL) {
     events.push({ type: 'home', color, pawn });
-    if (s.pawns[color].every((p) => p === GOAL)) {
-      s.winner = color;
+    // Seul : 4 pions arrivés. Équipe : les 8 pions des deux partenaires.
+    if (teamDone(s, player)) {
+      s.winner = player;
       s.phase = 'finished';
       s.moveValue = null;
       s.bonusQueue = [];
-      events.push({ type: 'win', color });
+      events.push({ type: 'win', color: player });
       return { state: s, events };
     }
     s.bonusQueue.push(HOME_BONUS);
-    events.push({ type: 'bonus', color, amount: HOME_BONUS });
+    events.push({ type: 'bonus', color: player, amount: HOME_BONUS });
   }
 
   resolveBonuses(s, events);
@@ -367,9 +407,19 @@ export function eliminate(state: GameState, color: Color): { state: GameState; e
   const events: GameEvent[] = [];
   s.seq++;
   s.out = [...(s.out ?? []), color];
-  s.pawns[color] = s.pawns[color].map(() => NEST);
+  // Mode équipe : les pions restent sur le plateau, le partenaire pourra les jouer après avoir fini les siens.
+  if (!s.teams) s.pawns[color] = s.pawns[color].map(() => NEST);
   events.push({ type: 'eliminated', color });
   const remaining = activeColors(s);
+  // Mode équipe : une équipe entièrement sortie perd, l'autre gagne.
+  if (s.teams && remaining.length > 0 && remaining.every((c) => sameTeam(s, c, remaining[0]))) {
+    s.winner = remaining[0];
+    s.phase = 'finished';
+    s.moveValue = null;
+    s.bonusQueue = [];
+    events.push({ type: 'win', color: remaining[0] });
+    return { state: s, events };
+  }
   if (remaining.length === 1) {
     s.winner = remaining[0];
     s.phase = 'finished';
@@ -411,8 +461,8 @@ export function botChooseMove(s: GameState, level: BotLevel = 'HIGH', rand: () =
     const simple = (m: Move) => m.to + (m.to === GOAL ? 1000 : 0) + (m.capture ? 500 : 0) + (m.from === NEST ? 300 : 0);
     return moves.reduce((best, m) => (simple(m) > simple(best) ? m : best)).pawn;
   }
-  const color = currentColor(s);
-  const rivals = activeColors(s).filter((c) => c !== color);
+  const color = moverColor(s);
+  const rivals = activeColors(s).filter((c) => !sameTeam(s, c, color));
 
   // Un pion adverse situé 1 à 6 cases derrière une case peut l'atteindre au prochain lancer.
   const threatened = (abs: number) =>
@@ -493,11 +543,14 @@ function hitChance(s: GameState, attacker: Color, abs: number): number {
 
 /** Évaluation de la position du point de vue de `me` (plus grand = meilleur). */
 function evaluateFor(s: GameState, me: Color): number {
-  if (s.winner) return s.winner === me ? WIN_VALUE : -WIN_VALUE;
-  const rivals = activeColors(s).filter((c) => c !== me);
+  if (s.winner) return winningColors(s).includes(me) ? WIN_VALUE : -WIN_VALUE;
+  // Mode équipe : les pions du partenaire comptent comme les miens, seuls les adversaires sont des rivaux.
+  const partner = partnerOf(s, me);
+  const friends = partner ? [me, partner] : [me];
+  const rivals = activeColors(s).filter((c) => !friends.includes(c));
   const total = (c: Color) => s.pawns[c].reduce((a, p) => a + pawnValue(p), 0);
 
-  let v = total(me);
+  let v = friends.reduce((a, c) => a + total(c), 0);
   if (rivals.length) {
     const scores = rivals.map(total);
     // Surveiller surtout le rival le plus avancé.
@@ -505,15 +558,18 @@ function evaluateFor(s: GameState, me: Color): number {
   }
 
   const myBlocks = blockadeMembers(s, me);
-  s.pawns[me].forEach((p, i) => {
-    if (!isTrack(p)) return;
-    const abs = absSquare(me, p);
-    if (SAFE.includes(abs) || myBlocks.has(i)) return;
-    // Risque : chance d'être capturé avant notre prochain tour (pion perdu + bonus de 20 offert).
-    let safe = 1;
-    for (const c of rivals) safe *= 1 - hitChance(s, c, abs);
-    v -= W.risk * (1 - safe) * (pawnValue(p) + CAPTURE_BONUS + 6);
-  });
+  for (const f of friends) {
+    const blocks = f === me ? myBlocks : blockadeMembers(s, f);
+    s.pawns[f].forEach((p, i) => {
+      if (!isTrack(p)) return;
+      const abs = absSquare(f, p);
+      if (SAFE.includes(abs) || blocks.has(i)) return;
+      // Risque : chance d'être capturé avant notre prochain tour (pion perdu + bonus de 20 offert).
+      let safe = 1;
+      for (const c of rivals) safe *= 1 - hitChance(s, c, abs);
+      v -= W.risk * (1 - safe) * (pawnValue(p) + CAPTURE_BONUS + 6);
+    });
+  }
 
   // Menaces : pions adverses exposés que nous pourrons capturer au prochain tour.
   for (const c of rivals) {

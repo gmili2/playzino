@@ -8,7 +8,7 @@ import { Coin } from './ui';
 export const STAKES = [0, 5, 10, 15, 20, 30, 40, 50, 100];
 export const stakeLabel = (s: number) => (s === 0 ? 'مجانية' : String(s));
 
-export interface QuickChoice { maxPlayers: number; gameType: GameType; title: string }
+export interface QuickChoice { maxPlayers: number; gameType: GameType; title: string; teams?: boolean }
 
 /** Fenêtre « اختر الرهان » ouverte par les boutons « العب » avant de lancer la recherche d'adversaire. */
 export function StakePicker({ choice, balance, busy, onPick, onClose }: {
@@ -26,7 +26,7 @@ export function StakePicker({ choice, balance, busy, onPick, onClose }: {
     <div className="sp-backdrop" onClick={onClose}>
       <div role="dialog" aria-modal="true" aria-labelledby="sp-title" className="sp-dialog" data-testid="stake-picker" onClick={(e) => e.stopPropagation()}>
         <span id="sp-title" className="sp-title">اختر الرهان</span>
-        <span className="sp-sub">{choice.title} · الفائز يربح رهانات الجميع</span>
+        <span className="sp-sub">{choice.title} · {choice.teams ? 'كل لاعب في الفريق الفائز يربح ضعف رهانه' : 'الفائز يربح رهانات الجميع'}</span>
         <div className="sp-grid">
           {STAKES.map((s) => (
             <button key={s} type="button" className={'sp-opt' + (s === 0 ? ' free' : '')} data-testid={`stake-${s}`} disabled={busy || s > balance} onClick={() => onPick(s)}>

@@ -38,6 +38,7 @@ const SLIDE_MS = 6000;
 
 const PARCHEESI_2: QuickChoice = { maxPlayers: 2, gameType: 'PARCHEESI', title: 'بارتشيزي · 1 ضد 1' };
 const CONNECT4: QuickChoice = { maxPlayers: 2, gameType: 'CONNECT4', title: 'أربعة على التوالي · 1 ضد 1' };
+const TEAMS_2V2: QuickChoice = { maxPlayers: 4, gameType: 'PARCHEESI', title: 'بارتشيزي · فريق ضد فريق (2 ضد 2)', teams: true };
 
 /** Jeux présentés en carrousel 3D : la carte centrale est jouable, les voisines s'inclinent sur les côtés. */
 function HeroCarousel({ busy, onQuick, onC4 }: { busy: boolean; onQuick: () => void; onC4: () => void }) {
@@ -110,7 +111,7 @@ export function HomePage() {
   const actions = useRoomActions();
   const [pick, choose] = useState<QuickChoice | null>(null);
   // Visiteur non connecté : pas de mise à choisir, la partie rapide le renvoie vers la connexion.
-  const setPick = (c: QuickChoice | null) => (c && !user ? actions.quick(0, c.maxPlayers, c.gameType) : choose(c));
+  const setPick = (c: QuickChoice | null) => (c && !user ? actions.quick(0, c.maxPlayers, c.gameType, c.teams) : choose(c));
   const [code, setCode] = useState('');
   const [codeMsg, setCodeMsg] = useState('');
   const [period, setPeriod] = useState('week');
@@ -140,7 +141,7 @@ export function HomePage() {
           <section aria-label="بارتشيزي" className="md-grid">
             <ModeCard variant="friend" title="العب مع صديق" sub="أنشئ طاولة خاصة وادعُ أصدقاءك" to="/tables#create" testId="mode-friend" />
             <ModeCard variant="duel" title="1 ضد 1" sub="مباراة كلاسيكية بين لاعبَين" onClick={() => setPick(PARCHEESI_2)} disabled={actions.busy} testId="mode-duel" />
-            <ModeCard variant="team" title="فريق ضد فريق" sub="تحالف مع زميل واهزم الفريق الآخر" disabled tag="قريبًا" testId="mode-team" />
+            <ModeCard variant="team" title="فريق ضد فريق" sub="تحالف مع زميل واهزم الفريق الآخر" onClick={() => setPick(TEAMS_2V2)} disabled={actions.busy} tag="جديد" testId="mode-team" />
             <ModeCard variant="four" title="4 لاعبين" sub="كل لاعب لنفسه — أول من يوصل بيادقه يفوز" onClick={() => setPick({ maxPlayers: 4, gameType: 'PARCHEESI', title: 'بارتشيزي · 4 لاعبين' })} disabled={actions.busy} testId="mode-four" />
           </section>
 
@@ -268,7 +269,7 @@ export function HomePage() {
         onPick={(stake) => {
           if (!pick) return;
           choose(null); // une erreur éventuelle (solde, table déjà rejointe) s'affiche sur la page
-          actions.quick(stake, pick.maxPlayers, pick.gameType);
+          actions.quick(stake, pick.maxPlayers, pick.gameType, pick.teams);
         }}
       />
       <Footer />

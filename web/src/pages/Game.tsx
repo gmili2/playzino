@@ -17,6 +17,11 @@ import type { Color, GameEvent, GameSnapshot, Move, Room } from '../lib/types';
 const WIN_XP = 250;
 /** Attente maximale d'un adversaire sur une table publique avant de jouer contre le robot. */
 const BOT_WAIT_SECONDS = 20;
+/** Mode 2 contre 2 : partenaires face à face (même tableau que TEAMS côté serveur). */
+const PARTNER: Record<Color, Color> = { blue: 'green', green: 'blue', yellow: 'red', red: 'yellow' };
+const TEAM_NO: Record<Color, 1 | 2> = { blue: 1, green: 1, yellow: 2, red: 2 };
+/** Gagnants d'une partie : en équipe les deux partenaires, sinon le vainqueur. */
+const winnersOf = (s: GameSnapshot) => s.winnerIds ?? (s.winnerId ? [s.winnerId] : []);
 const LOSS_XP = 60;
 
 /** Effets sonores du jeu, coupés par le bouton haut-parleur. */
@@ -102,6 +107,8 @@ export function GamePage() {
   const me = snap?.players.find((p) => p.userId === user?.id) ?? null;
   const opps = snap ? snap.players.filter((p) => p.userId !== user?.id) : [];
   const winnerP = snap?.players.find((p) => p.userId === snap.winnerId) ?? null;
+  const teams = !!room?.teams;
+  const winnerNames = snap ? snap.players.filter((p) => winnersOf(snap).includes(p.userId)).map((p) => p.username).join(' و ') : '';
   const turnP = snap?.players.find((p) => p.color === snap.turnColor) ?? null;
   const offP = opps.find((p) => !p.online && p.offlineUntil && !p.eliminated) ?? null;
   const [dismissed, setDismissed] = useState(false);
@@ -177,9 +184,10 @@ export function GamePage() {
       }
       // Fin de partie vécue en direct (pas au rechargement d'une partie déjà finie).
       if (statusRef.current === 'ACTIVE' && s.status === 'FINISHED' && s.winnerId) {
-        setTimeout(() => play(s.winnerId === userIdRef.current ? 'win' : 'lose'), 500);
+        const iWon = !!userIdRef.current && winnersOf(s).includes(userIdRef.current);
+        setTimeout(() => play(iWon ? 'win' : 'lose'), 500);
         const won = userIdRef.current ? s.payouts[userIdRef.current] ?? 0 : 0;
-        if (s.winnerId === userIdRef.current && won > 0) {
+        if (iWon && won > 0) {
           setGain(won);
           setTimeout(() => play('coins'), 1900); // après le jingle de victoire
         }
@@ -382,15 +390,18 @@ export function GamePage() {
     const columns = myTurn && snap.gameType === 'CONNECT4' ? snap.legalMoves.map((m) => (m as { column: number }).column) : [];
     const movable = new Map<number, number>();
     if (myTurn && (phase === 'move' || phase === 'bonus')) (snap.legalMoves as Move[]).forEach((m) => movable.set(m.pawn, m.to));
+    // Équipe : mes 4 pions arrivés, je joue ceux de mon partenaire.
+    const helping = !!snap.state.teams && (snap.state.pawns?.[me.color] ?? []).every((p) => p === 71);
+    const mover = helping ? PARTNER[me.color] : me.color;
     const pawns: BoardPawn[] = snap.state.colors.flatMap((c) =>
       (snap.state.pawns?.[c] ?? []).map((p, slot) => ({
         color: c, p, slot,
-        movable: c === me.color && movable.has(slot),
-        onPick: c === me.color && movable.has(slot) && !busy ? () => move(slot) : undefined
+        movable: c === mover && movable.has(slot),
+        onPick: c === mover && movable.has(slot) && !busy ? () => move(slot) : undefined
       }))
     );
-    const targets: BoardTarget[] = [...movable.entries()].map(([slot, to]) => ({ color: me.color, p: to, slot }));
-    return { active, myTurn, phase, pawns, targets, columns };
+    const targets: BoardTarget[] = [...movable.entries()].map(([slot, to]) => ({ color: mover, p: to, slot }));
+    return { active, myTurn, phase, pawns, targets, columns, helping };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [snap, me, busy]);
 
@@ -410,7 +421,7 @@ export function GamePage() {
   const offlineOpp = offP?.offlineUntil ? Math.max(0, Math.ceil((offP.offlineUntil - (now - skew)) / 1000)) : null;
   const iAmOut = !!me?.eliminated && snap?.status === 'ACTIVE';
   const result = snap && snap.status !== 'ACTIVE'
-    ? (snap.status === 'ABORTED' ? 'aborted' : snap.winnerId === user?.id ? 'victory' : snap.winnerId === null ? 'draw' : 'defeat')
+    ? (snap.status === 'ABORTED' ? 'aborted' : user && winnersOf(snap).includes(user.id) ? 'victory' : snap.winnerId === null ? 'draw' : 'defeat')
     : iAmOut ? 'defeat' : null;
   const practice = !!room.isPractice;
   const c4 = room.gameType === 'CONNECT4';
@@ -421,12 +432,17 @@ export function GamePage() {
 
   // Bandeau d'état (couleurs du design).
   let bannerTitle = '', bannerSub = '', tone = '#22D3EE';
-  if (waiting) { bannerTitle = 'في انتظار خصم'; bannerSub = room.code ? `شارك الرمز ${room.code} لدعوة صديق` : 'ستبدأ المباراة عند انضمام لاعب'; }
+  if (waiting) {
+    bannerTitle = teams ? `فريق ضد فريق · ${room.players.length}/4` : 'في انتظار خصم';
+    bannerSub = teams && !room.quickMatch ? `شارك الرمز ${room.code ?? ''} · اختر فريقك بالجلوس في مكان شاغر`
+      : teams ? 'يُختار زميلك بالقرعة عند اكتمال الطاولة'
+      : room.code ? `شارك الرمز ${room.code} لدعوة صديق` : 'ستبدأ المباراة عند انضمام لاعب';
+  }
   else if (!snap || !view) { bannerTitle = 'جارٍ الاتصال…'; bannerSub = 'تحميل حالة المباراة'; tone = '#B9A8FF'; }
   else if (result) {
     bannerTitle = result === 'victory' ? 'فوز!' : result === 'aborted' ? 'أُلغيت المباراة' : result === 'draw' ? 'تعادل' : 'انتهت المباراة';
     bannerSub = winLineText && result !== 'draw' ? `${result === 'victory' ? 'صففت' : `صفّ ${winnerP?.username ?? 'الخصم'}`} أربع قطع ${winnerP?.color === 'red' ? 'حمراء' : 'صفراء'} ${winLineText} — الخط مضاء على اللوحة`
-      : result === 'victory' ? (c4 ? 'صففت أربع قطع على التوالي' : 'بيادقك الأربعة في البيت') : result === 'draw' ? 'امتلأت الشبكة دون أربع قطع متتالية' : result === 'aborted' ? (practice ? 'انتهت جلسة التدريب' : 'تمت إعادة الرهانات') : iAmOut ? 'خرجت من المباراة، والآخرون يواصلون اللعب' : `فاز ${winnerP?.username ?? 'الخصم'} بهذه الجولة`;
+      : result === 'victory' ? (c4 ? 'صففت أربع قطع على التوالي' : teams ? 'بيادق فريقكما الثمانية في البيت' : 'بيادقك الأربعة في البيت') : result === 'draw' ? 'امتلأت الشبكة دون أربع قطع متتالية' : result === 'aborted' ? (practice ? 'انتهت جلسة التدريب' : 'تمت إعادة الرهانات') : iAmOut ? 'خرجت من المباراة، والآخرون يواصلون اللعب' : `فاز ${winnerP?.username ?? 'الخصم'} بهذه الجولة`;
     tone = result === 'victory' ? '#22C55E' : result === 'draw' ? '#22D3EE' : '#F43F5E';
   } else if (snap.paused) { bannerTitle = 'المباراة متوقفة'; bannerSub = `${offP ? offP.username : 'أنت'} يحاول إعادة الاتصال`; tone = '#F59E0B'; }
   else if (view.myTurn) {
@@ -436,15 +452,16 @@ export function GamePage() {
       : view.phase === 'bonus' ? `مكافأة: اختر بيدقًا للتقدم ${snap.state.moveValue} خانة`
       : view.phase === 'move' ? `اختر بيدقًا مضيئًا للتقدم ${snap.state.moveValue} خانات`
       : rolling ? 'النرد يتدحرج…' : 'ارمِ النرد';
+    if (view.helping) bannerSub = `بيادقك في البيت: حرّك بيادق زميلك · ${bannerSub}`;
   } else { tone = '#B9A8FF'; bannerTitle = `دور ${turnP?.username ?? 'الخصم'}`; bannerSub = 'يلعب الآن… انتظر قليلًا'; }
 
-  type Seat = { key: string; color: Color; name: string; isMe: boolean; vacant: boolean; isBot: boolean; level: number | null; avatarColor: string; avatarUrl: string | null; p: GameSnapshot['players'][number] | null };
+  type Seat = { key: string; seat?: number; color: Color; name: string; isMe: boolean; vacant: boolean; isBot: boolean; level: number | null; avatarColor: string; avatarUrl: string | null; p: GameSnapshot['players'][number] | null };
   const seats: Seat[] = snap
     ? snap.players.map((p) => ({ key: p.color, color: p.color, name: p.username, isMe: p.userId === user?.id, vacant: false, isBot: !!p.isBot, level: p.level, avatarColor: p.avatarColor, avatarUrl: p.avatarUrl ?? null, p }))
     : Array.from({ length: room.maxPlayers }, (_, seat) => {
         const rp = room.players.find((x) => x.seat === seat);
         const color = rp?.color ?? seatColors[seat];
-        return { key: color, color, name: rp ? rp.username : 'مكان شاغر', isMe: rp?.userId === user?.id, vacant: !rp, isBot: !!rp?.isBot, level: rp?.level ?? null, avatarColor: rp?.avatarColor ?? '#3B4A8C', avatarUrl: rp?.avatarUrl ?? null, p: null };
+        return { key: color, seat, color, name: rp ? rp.username : 'مكان شاغر', isMe: rp?.userId === user?.id, vacant: !rp, isBot: !!rp?.isBot, level: rp?.level ?? null, avatarColor: rp?.avatarColor ?? '#3B4A8C', avatarUrl: rp?.avatarUrl ?? null, p: null };
       });
   // Chaque joueur est affiché près de son camp sur le plateau ; Puissance 4 : moi en bas, l'adversaire en haut.
   // Parchís : le plateau tourne pour que MON camp soit en bas à gauche ; les cartes des joueurs suivent la rotation.
@@ -455,6 +472,20 @@ export function GamePage() {
   const cornerOf = (st: Seat) =>
     c4 ? (st.isMe ? 'bl' : 'tr') : CLOCKWISE[(CLOCKWISE.indexOf(PARCHIS_CORNER[st.color]) + quarter) % 4];
 
+  // Table d'équipes entre amis, en attente : chacun choisit sa place, donc son équipe.
+  const canSwitch = waiting && teams && !room.quickMatch && room.players.some((p) => p.userId === user?.id);
+  const switchSeat = async (seat: number) => {
+    setBusy(true);
+    try {
+      const r = await api.post<{ room: Room }>(`/api/rooms/${room.id}/seat`, { seat });
+      setRoom(r.room);
+    } catch (e) {
+      setToast(errorText(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const seatCard = (corner: 'tl' | 'tr' | 'bl' | 'br') => {
     const st = seats.find((x) => cornerOf(x) === corner);
     const right = corner === 'tr' || corner === 'br';
@@ -463,7 +494,8 @@ export function GamePage() {
     const activeTurn = !!snap && snap.status === 'ACTIVE' && !snap.paused && snap.turnColor === st.color;
     const out = !!st.p?.eliminated;
     const offline = !!st.p && !st.p.online && !out && snap?.status === 'ACTIVE';
-    const won = !!snap && snap.winnerId !== null && snap.players.find((x) => x.userId === snap.winnerId)?.color === st.color;
+    const won = !!snap && !!st.p && winnersOf(snap).includes(st.p.userId);
+    const partner = teams && !!myColor && !st.isMe && PARTNER[myColor] === st.color;
     const arr = snap?.state.pawns?.[st.color] ?? [-1, -1, -1, -1];
     const tokens = snap?.state.board?.filter((c) => c === st.color).length ?? 0;
     const b = st.p ? bubbles[st.p.userId] : undefined;
@@ -481,10 +513,15 @@ export function GamePage() {
           )}
         </span>
         <span className="lg-seat-info">
-          <span className="lg-seat-name">{st.isMe ? 'أنت' : st.name}{st.isBot && <BotTag />}</span>
+          <span className="lg-seat-name">{st.isMe ? 'أنت' : st.name}</span>
+          {canSwitch && st.vacant && st.seat !== undefined && (
+            <button type="button" className="pb-btn pb-gold pb-sm" style={{ height: 30, padding: '0 12px', fontSize: 13 }} data-testid={`seat-${st.seat}`} onClick={() => switchSeat(st.seat!)} disabled={busy}>اجلس هنا</button>
+          )}
           <span className="lg-seat-sub">
             <span style={{ width: 10, height: 10, borderRadius: '50%', background: hex, boxShadow: '0 0 0 2px rgba(255,255,255,.6)' }} />
             <span dir="ltr" title={c4 ? 'القطع الملعوبة' : 'بيادق في البيت'}>{c4 ? `${tokens}/21` : `${arr.filter((v) => v === 71).length}/4`}</span>
+            {st.isBot && <BotTag />}
+            {teams && !c4 && <span className={'lg-pill team-pill team-' + TEAM_NO[st.color]}>{partner ? 'زميلك' : st.isMe ? `الفريق ${TEAM_NO[st.color]}` : 'خصم'}</span>}
             {st.level !== null && !st.vacant && !st.isBot && <span className="lg-pill pb-hide-sm">المستوى {st.level}</span>}
             {tag && <span className="lg-pill" style={activeTurn ? { background: hex, color: st.color === 'yellow' ? '#2A1E00' : '#fff' } : offline ? { background: 'rgba(245,158,11,.4)' } : undefined}>{tag}</span>}
             {activeTurn && deadlineLeft !== null && view?.active && <span className="lg-pill" data-testid={st.isMe ? 'turn-timer' : undefined} style={{ background: deadlineLeft <= 5 ? '#E5484D' : 'rgba(0,0,0,.35)' }}>{deadlineLeft} ث</span>}
@@ -658,10 +695,11 @@ export function GamePage() {
             {practice && <span className="badge" style={{ background: 'rgba(34,197,94,0.14)', color: '#4ADE80' }}>مباراة ودية: بدون رهان ولا خبرة ولا ترتيب</span>}
             <span style={{ fontSize: 15, lineHeight: 1.7, color: '#DAD5E2' }}>
               {result === 'victory'
-                ? snap!.endReason === 'COMPLETED' ? (c4 ? `صففت أربع قطع على التوالي ${winLineText} قبل خصمك.` : 'أوصلت بيادقك الأربعة إلى البيت قبل الجميع.') : 'انسحب منافسوك، الفوز لك.'
+                ? snap!.endReason === 'COMPLETED' ? (c4 ? `صففت أربع قطع على التوالي ${winLineText} قبل خصمك.` : teams ? `فاز فريقك (${winnerNames}): بيادقكما الثمانية في البيت.` : 'أوصلت بيادقك الأربعة إلى البيت قبل الجميع.') : teams ? 'انسحب الفريق المنافس، الفوز لفريقك.' : 'انسحب منافسوك، الفوز لك.'
                 : result === 'draw' ? `امتلأت الشبكة دون فائز${room.stake && !practice ? '، وأُعيد رهان كل لاعب' : ''}.`
                 : result === 'aborted' ? (practice ? 'انتهت جلسة التدريب.' : 'أُلغيت المباراة وأُعيدت الرهانات.')
                 : iAmOut ? 'خرجت من المباراة. يواصل الآخرون اللعب ويحصل الفائز على الرهانات.'
+                : teams && snap!.endReason === 'COMPLETED' ? `أوصل فريق ${winnerNames} بيادقه الثمانية أولًا. الثأر بانتظاركما!`
                 : snap!.endReason === 'COMPLETED' ? (c4 ? `خسرت لأن ${winnerP?.username} صفّ أربع قطع من لونه ${winLineText} قبلك. تلميح: عندما يصفّ خصمك ثلاث قطع، ضع قطعتك في الخانة التي تكمل خطّه.` : `أوصل ${winnerP?.username} بيادقه الأربعة أولًا. الثأر بانتظارك!`)
                 : snap!.endReason === 'DISCONNECT' ? 'خسرت لأنك بقيت غير متصل أكثر من المدة المسموح بها.'
                 : me?.eliminated ? 'خسرت لأنك انسحبت من المباراة.' : `فاز ${winnerP?.username} بالانسحاب.`}

@@ -74,10 +74,10 @@ export function useRoomActions() {
     busy,
     error,
     setError,
-    quick: (stake = 0, maxPlayers = 2, gameType: GameType = 'PARCHEESI') => run(() => api.post('/api/rooms/quick', { stake, maxPlayers, gameType })),
+    quick: (stake = 0, maxPlayers = 2, gameType: GameType = 'PARCHEESI', teams = false) => run(() => api.post('/api/rooms/quick', { stake, maxPlayers, gameType, teams })),
     join: (id: string) => run(() => api.post(`/api/rooms/${id}/join`)),
-    practice: (bots = 1, gameType: GameType = 'PARCHEESI') => run(() => api.post('/api/rooms/practice', { bots, gameType })),
+    practice: (bots = 1, gameType: GameType = 'PARCHEESI', teams = false) => run(() => api.post('/api/rooms/practice', { bots, gameType, teams })),
     joinCode: (code: string) => run(() => api.post('/api/rooms/join-code', { code: code.trim().toUpperCase() })),
-    create: (body: { name: string; gameType: GameType; visibility: 'PUBLIC' | 'PRIVATE'; stake: number; turnSeconds: number; maxPlayers: number }) => run(() => api.post('/api/rooms', body))
+    create: (body: { name: string; gameType: GameType; visibility: 'PUBLIC' | 'PRIVATE'; stake: number; turnSeconds: number; maxPlayers: number; teams?: boolean }) => run(() => api.post('/api/rooms', body))
   };
 }

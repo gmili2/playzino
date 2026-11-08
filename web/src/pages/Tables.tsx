@@ -10,8 +10,12 @@ import { useLobby, useRoomActions } from '../lib/hooks';
 import type { GameType } from '../lib/types';
 
 const TURNS = [15, 30, 60];
-const PLAYERS = [2, 3, 4];
-const playersLabel = (n: number) => (n === 2 ? 'لاعبان' : `${n} لاعبين`);
+/** Valeur spéciale du choix du nombre de joueurs : 4 joueurs en deux équipes (2 contre 2). */
+const TEAMS = 5;
+const PLAYERS = [2, 3, 4, TEAMS];
+const playersLabel = (n: number) => (n === TEAMS ? '2 ضد 2' : n === 2 ? 'لاعبان' : `${n} لاعبين`);
+/** Nombre de places et mode équipe correspondant au choix. */
+const seatsOf = (n: number) => (n === TEAMS ? { maxPlayers: 4, teams: true } : { maxPlayers: n, teams: false });
 
 function Seg<T extends string | number>({ value, options, onChange, label, render }: { value: T; options: T[]; onChange: (v: T) => void; label: string; render?: (v: T) => ReactNode }) {
   return (
@@ -83,7 +87,7 @@ export function TablesPage() {
     e.preventDefault();
     if (form.name.trim().length < 3) return setLocalErr('اسم الطاولة: 3 أحرف على الأقل');
     setLocalErr('');
-    actions.create({ ...form, name: form.name.trim(), gameType: game, maxPlayers: c4 ? 2 : form.maxPlayers });
+    actions.create({ ...form, name: form.name.trim(), gameType: game, ...(c4 ? { maxPlayers: 2, teams: false } : seatsOf(form.maxPlayers)) });
   };
   const join = (e: FormEvent) => {
     e.preventDefault();
@@ -125,7 +129,7 @@ export function TablesPage() {
           <ActionCard highlight icon={<IconBolt size={24} style={{ color: '#FFC83D' }} />} iconBg="rgba(255,200,61,0.16)" title="طاولة عامة" sub="نضعك في أول طاولة عامة فيها مكان شاغر بنفس الرهان.">
             {!c4 && <Seg label="عدد اللاعبين" value={quickPlayers} options={PLAYERS} onChange={setQuickPlayers} render={playersLabel} />}
             <Seg label="الرهان (عملات)" value={quickStake} options={STAKES} onChange={setQuickStake} render={stakeLabel} />
-            <button type="button" className="pb-btn pb-gold" style={{ marginTop: 'auto' }} disabled={actions.busy || quickStake > balance} onClick={() => actions.quick(quickStake, c4 ? 2 : quickPlayers, game)}>ابحث عن طاولة</button>
+            <button type="button" className="pb-btn pb-gold" style={{ marginTop: 'auto' }} disabled={actions.busy || quickStake > balance} onClick={() => (c4 ? actions.quick(quickStake, 2, game) : actions.quick(quickStake, seatsOf(quickPlayers).maxPlayers, game, seatsOf(quickPlayers).teams))}>ابحث عن طاولة</button>
           </ActionCard>
 
           <ActionCard icon={<IconLock size={24} style={{ color: '#F9A8D4' }} />} iconBg="rgba(244,114,182,0.16)" title="إنشاء طاولة" sub="الطاولة الخاصة لا يدخلها إلا من يملك رمز الدعوة.">
@@ -142,8 +146,8 @@ export function TablesPage() {
           </ActionCard>
 
           <ActionCard icon={<IconRobot size={24} style={{ color: '#4ADE80' }} />} iconBg="rgba(34,197,94,0.16)" title="ضد الروبوت" sub="تدرّب بدون رهان ضد روبوت يلعب بنفس القواعد. لا تُحتسب في الترتيب.">
-            {!c4 && <Seg label="عدد الروبوتات" value={bots} options={[1, 2, 3]} onChange={setBots} render={(n) => (n === 1 ? 'روبوت واحد' : `${n} روبوتات`)} />}
-            <button type="button" className="pb-btn pb-ghost" style={{ marginTop: 'auto' }} disabled={actions.busy} onClick={() => actions.practice(c4 ? 1 : bots, game)} data-testid="practice">ابدأ التدريب</button>
+            {!c4 && <Seg label="عدد الروبوتات" value={bots} options={[1, 2, 3, TEAMS]} onChange={setBots} render={(n) => (n === TEAMS ? '2 ضد 2' : n === 1 ? 'روبوت واحد' : `${n} روبوتات`)} />}
+            <button type="button" className="pb-btn pb-ghost" style={{ marginTop: 'auto' }} disabled={actions.busy} onClick={() => (c4 ? actions.practice(1, game) : bots === TEAMS ? actions.practice(3, game, true) : actions.practice(bots, game))} data-testid="practice">ابدأ التدريب</button>
           </ActionCard>
 
           <ActionCard icon={<IconKey size={24} style={{ color: '#22D3EE' }} />} iconBg="rgba(34,211,238,0.16)" title="الانضمام برمز" sub="أدخل الرمز الذي أرسله صديقك.">
@@ -182,7 +186,7 @@ export function TablesPage() {
                       <tr key={r.id} className="pb-row">
                         <td>
                           <div style={{ fontWeight: 800, fontSize: 16 }}>{r.name} <span className="badge" style={{ marginInlineStart: 6, padding: '2px 9px', fontSize: 11, background: r.gameType === 'CONNECT4' ? 'rgba(47,107,255,0.2)' : 'rgba(255,200,61,0.16)', color: r.gameType === 'CONNECT4' ? '#93B4FF' : '#FFC83D' }}>{GAME_LABEL[r.gameType]}</span></div>
-                          <div style={{ fontSize: 12, color: '#A9A3B5' }}><span dir="ltr">{r.code}</span> · {r.players.find((p) => p.userId === r.hostId)?.username} · {r.turnSeconds} ث لكل دور</div>
+                          <div style={{ fontSize: 12, color: '#A9A3B5' }}><span dir="ltr">{r.code}</span> · {r.players.find((p) => p.userId === r.hostId)?.username} · {r.turnSeconds} ث لكل دور{r.teams && <b style={{ color: '#FFD23F' }}> · فريق ضد فريق (2 ضد 2)</b>}</div>
                         </td>
                         <td>
                           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>

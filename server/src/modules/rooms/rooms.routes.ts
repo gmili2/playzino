@@ -8,7 +8,7 @@ import { requireAuth } from '../../middleware/auth.js';
 import { gameManager } from '../../realtime/gameManager.js';
 import { hub } from '../../realtime/hub.js';
 import {
-  createPracticeRoom, createRoom, currentRoomOf, getRoomFor, joinByCode, joinRoom, leaveWaitingRoom, listPublicRooms, quickJoin,
+  changeSeat, createPracticeRoom, createRoom, currentRoomOf, getRoomFor, joinByCode, joinRoom, leaveWaitingRoom, listPublicRooms, quickJoin,
   type JoinResult
 } from './rooms.service.js';
 
@@ -40,11 +40,14 @@ const createSchema = z.object({
   stake: stakeSchema.default(0),
   turnSeconds: z.coerce.number().int().refine((v) => (TURN_SECONDS as readonly number[]).includes(v)).default(30),
   maxPlayers: playersSchema,
-  gameType: gameTypeSchema
+  gameType: gameTypeSchema,
+  teams: z.boolean().default(false)
 });
 
 roomsRouter.post('/', requireAuth, async (req, res) => {
   const body = parse(createSchema, req.body);
+  // 2 contre 2 : toujours une table de Parchís à 4.
+  if (body.teams) Object.assign(body, { gameType: 'PARCHEESI', maxPlayers: 4 });
   await releaseIdleSeat(req.user!.id, req.ip);
   const room = await createRoom(req.user!.id, body, req.ip);
   hub.lobbyChanged();
@@ -88,18 +91,21 @@ roomsRouter.post('/practice', requireAuth, async (req, res) => {
     z.object({
       bots: z.coerce.number().int().min(1, '1 à 3 robots').max(3, '1 à 3 robots').default(1),
       turnSeconds: z.coerce.number().int().refine((v) => (TURN_SECONDS as readonly number[]).includes(v)).default(30),
-      gameType: gameTypeSchema
+      gameType: gameTypeSchema,
+      teams: z.boolean().default(false)
     }),
     req.body ?? {}
   );
   await releaseIdleSeat(req.user!.id, req.ip);
-  res.status(201).json(await afterJoin(await createPracticeRoom(req.user!.id, body.bots, body.turnSeconds, body.gameType, req.ip)));
+  res.status(201).json(await afterJoin(await createPracticeRoom(req.user!.id, body.bots, body.turnSeconds, body.gameType, req.ip, undefined, undefined, body.teams)));
 });
 
 roomsRouter.post('/quick', requireAuth, async (req, res) => {
-  const { stake, maxPlayers, gameType } = parse(z.object({ stake: stakeSchema.default(0), maxPlayers: playersSchema, gameType: gameTypeSchema }), req.body ?? {});
+  const { stake, maxPlayers, gameType, teams } = parse(
+    z.object({ stake: stakeSchema.default(0), maxPlayers: playersSchema, gameType: gameTypeSchema, teams: z.boolean().default(false) }), req.body ?? {}
+  );
   await releaseIdleSeat(req.user!.id, req.ip);
-  res.json(await afterJoin(await quickJoin(req.user!.id, stake, maxPlayers, gameType, req.ip)));
+  res.json(await afterJoin(await quickJoin(req.user!.id, stake, maxPlayers, gameType, req.ip, teams)));
 });
 
 roomsRouter.post('/join-code', requireAuth, async (req, res) => {
@@ -132,5 +138,15 @@ roomsRouter.post('/:id/play-bot', requireAuth, async (req, res) => {
   if (!target?.quickMatch) throw conflict('NOT_QUICK_MATCH', 'Cette table attend un joueur invité');
   const room = await leaveWaitingRoom(req.user!.id, id, req.ip, true);
   hub.roomChanged(id, null);
-  res.status(201).json(await afterJoin(await createPracticeRoom(req.user!.id, room.maxPlayers - 1, room.turnSeconds, room.gameType, req.ip, room.name)));
+  res.status(201).json(await afterJoin(await createPracticeRoom(req.user!.id, room.maxPlayers - 1, room.turnSeconds, room.gameType, req.ip, room.name, undefined, room.teams)));
+});
+
+/** Table d'équipes en attente : changer de place, donc d'équipe (places 0-1 contre 2-3). */
+roomsRouter.post('/:id/seat', requireAuth, async (req, res) => {
+  const id = String(req.params.id);
+  const { seat } = parse(z.object({ seat: z.coerce.number().int().min(0).max(3) }), req.body ?? {});
+  const room = await changeSeat(req.user!.id, id, seat);
+  hub.roomChanged(id, room);
+  hub.lobbyChanged();
+  res.json({ room });
 });

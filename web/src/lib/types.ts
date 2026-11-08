@@ -48,6 +48,8 @@ export interface Room {
   turnSeconds: number;
   isPractice?: boolean;
   quickMatch?: boolean;
+  /** Mode 2 contre 2 : places 0-1 (bleu, vert) contre 2-3 (jaune, rouge). */
+  teams?: boolean;
   hostId: string;
   createdAt: string;
   gameId: string | null;
@@ -90,6 +92,8 @@ export interface GameSnapshot {
     phase: 'roll' | 'move' | 'bonus' | 'play' | 'finished';
     winner: Color | null;
     out?: Color[];
+    /** Mode 2 contre 2 (Parchís) : équipes de partenaires. */
+    teams?: Color[][];
     seq: number;
     // Parchís
     die?: number | null;
@@ -107,6 +111,8 @@ export interface GameSnapshot {
   deadline: number | null;
   paused: boolean;
   winnerId: string | null;
+  /** Gagnants (en équipe : les deux partenaires). */
+  winnerIds?: string[];
   endReason: 'COMPLETED' | 'FORFEIT' | 'DISCONNECT' | 'ADMIN' | null;
   payouts: Record<string, number>;
   events: GameEvent[];

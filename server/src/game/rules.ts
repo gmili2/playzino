@@ -4,7 +4,7 @@ import {
 } from './connect4.js';
 import { c4BotColumnAsync } from './c4bot.js';
 import {
-  activeColors, applyMove, applyRoll, autoMovePawn, botChooseMove, createGame, currentColor, eliminate, legalMoves, RuleError, turnOrder,
+  activeColors, applyMove, applyRoll, autoMovePawn, botChooseMove, createGame, currentColor, eliminate, legalMoves, RuleError, TEAMS, turnOrder,
   type BotLevel, type Color, type GameEvent, type GameState
 } from './engine.js';
 
@@ -23,7 +23,8 @@ export interface GameRules {
   seatColors: Color[];
   minPlayers: number;
   maxPlayers: number;
-  create(colors: Color[], firstTurn: number): AnyState;
+  /** `teams` : mode 2 contre 2 (Parchís à 4 uniquement). */
+  create(colors: Color[], firstTurn: number, opts?: { teams?: boolean }): AnyState;
   current(s: AnyState): Color;
   active(s: AnyState): Color[];
   legalMoves(s: AnyState): unknown[];
@@ -46,8 +47,8 @@ const parcheesi: GameRules = {
   seatColors: ['blue', 'green', 'yellow', 'red'],
   minPlayers: 2,
   maxPlayers: 4,
-  create(colors, firstTurn) {
-    const s = createGame(turnOrder(colors));
+  create(colors, firstTurn, opts) {
+    const s = createGame(turnOrder(colors), opts?.teams ? TEAMS : undefined);
     s.turn = firstTurn;
     return s;
   },

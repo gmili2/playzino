@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   absSquare, activeColors, applyMove, applyRoll, autoMovePawn, botChooseMove, createGame, currentColor, eliminate, GameState, GOAL,
-  legalMoves, NEST, RuleError, START, turnOrder, upgradeState
+  legalMoves, moverColor, NEST, RuleError, START, TEAMS, turnOrder, upgradeState, winningColors
 } from './engine.js';
 
 const two = () => createGame(['blue', 'yellow']);
@@ -396,5 +396,91 @@ describe('ancien parcours', () => {
     expect(u.pawns.blue).toEqual([10, 55, 66, GOAL]);
     expect(u.pawns.yellow).toEqual([NEST, 0, 64, 70]);
     expect(upgradeState(u).pawns.blue).toEqual([10, 55, 66, GOAL]);
+  });
+});
+
+describe('mode équipe (2 contre 2)', () => {
+  type C = 'blue' | 'green' | 'yellow' | 'red';
+  /** Partie à 4 en équipes (bleu + vert contre jaune + rouge), au tour de `turnColor`. */
+  function teamGame(pawns: Partial<Record<C, number[]>>, turnColor: C = 'blue'): GameState {
+    const s = createGame(turnOrder(['blue', 'green', 'yellow', 'red']), TEAMS);
+    for (const [c, v] of Object.entries(pawns)) s.pawns[c] = v!;
+    s.turn = s.colors.indexOf(turnColor);
+    return s;
+  }
+  const rel = (c: C, abs: number) => (abs - START[c] + 68) % 68;
+
+  it('refuse des équipes invalides', () => {
+    expect(() => createGame(['blue', 'yellow'], TEAMS)).toThrow(RuleError);
+    expect(() => createGame(['blue', 'green', 'yellow', 'red'], [['blue', 'green']])).toThrow(RuleError);
+  });
+
+  it('ne capture jamais le pion du partenaire', () => {
+    // Case 25 (non sûre) : un pion vert, le bleu y arrive avec un 3.
+    const s = teamGame({ blue: [rel('blue', 22), NEST, NEST, NEST], green: [rel('green', 25), NEST, NEST, NEST] });
+    const r = applyMove(applyRoll(s, 3).state, 0);
+    expect(r.events.some((e) => e.type === 'capture')).toBe(false);
+    expect(r.state.pawns.green[0]).toBe(rel('green', 25));
+    expect(r.state.pawns.blue[0]).toBe(rel('blue', 25));
+  });
+
+  it('capture toujours un pion adverse', () => {
+    const s = teamGame({ blue: [rel('blue', 22), NEST, NEST, NEST], red: [rel('red', 25), NEST, NEST, NEST] });
+    const r = applyMove(applyRoll(s, 3).state, 0);
+    expect(r.events).toContainEqual({ type: 'capture', color: 'blue', victim: 'red', pawn: 0 });
+    expect(r.state.pawns.red[0]).toBe(NEST);
+  });
+
+  it('ne sort pas sur sa case de départ occupée par deux pions amis', () => {
+    const start = START.blue;
+    const s = teamGame({ blue: [0, NEST, NEST, NEST], green: [rel('green', start), NEST, NEST, NEST] });
+    const r = applyRoll(s, 5);
+    expect(legalMoves(r.state).some((m) => m.from === NEST)).toBe(false);
+  });
+
+  it('un joueur qui a fini joue les pions de son partenaire, sans gagner seul', () => {
+    const s = teamGame({ blue: [GOAL, GOAL, GOAL, GOAL], green: [10, NEST, NEST, NEST] });
+    expect(moverColor(s)).toBe('green');
+    const rolled = applyRoll(s, 3).state;
+    expect(legalMoves(rolled).map((m) => m.pawn)).toEqual([0]);
+    const r = applyMove(rolled, 0);
+    expect(r.state.pawns.green[0]).toBe(13);
+    expect(r.state.pawns.blue).toEqual([GOAL, GOAL, GOAL, GOAL]);
+    expect(r.state.winner).toBeNull();
+  });
+
+  it('finir ses 4 pions ne suffit pas : bonus et partie qui continue', () => {
+    const s = teamGame({ blue: [GOAL, GOAL, GOAL, 70], green: [10, NEST, NEST, NEST] });
+    const r = applyMove(applyRoll(s, 1).state, 3);
+    expect(r.state.winner).toBeNull();
+    expect(r.events).toContainEqual({ type: 'bonus', color: 'blue', amount: 10 });
+    // Le bonus de +10 se joue avec les pions du partenaire.
+    expect(r.state.phase).toBe('bonus');
+    expect(legalMoves(r.state).map((m) => m.pawn)).toEqual([0]);
+  });
+
+  it("l'équipe gagne quand ses 8 pions sont arrivés", () => {
+    const s = teamGame({ blue: [GOAL, GOAL, GOAL, GOAL], green: [GOAL, GOAL, GOAL, 70] });
+    const r = applyMove(applyRoll(s, 1).state, 3);
+    expect(r.state.winner).toBe('blue');
+    expect(winningColors(r.state).sort()).toEqual(['blue', 'green']);
+  });
+
+  it("un joueur éliminé garde ses pions ; l'équipe adverse gagne quand toute une équipe est sortie", () => {
+    const s = teamGame({ yellow: [12, NEST, NEST, NEST] });
+    const a = eliminate(s, 'yellow').state;
+    expect(a.winner).toBeNull();
+    expect(a.pawns.yellow[0]).toBe(12);
+    expect(activeColors(a)).not.toContain('yellow');
+    const b = eliminate(a, 'red').state;
+    expect(winningColors(b).sort()).toEqual(['blue', 'green']);
+  });
+
+  it('les robots ne choisissent que des coups légaux en équipe', () => {
+    const s = teamGame({ blue: [GOAL, GOAL, GOAL, GOAL], green: [10, 20, NEST, NEST], red: [rel('red', START.green + 14), NEST, NEST, NEST] });
+    const rolled = applyRoll(s, 4).state;
+    for (const level of ['LOW', 'MEDIUM', 'HIGH', 'EXPERT'] as const) {
+      expect(legalMoves(rolled).map((m) => m.pawn)).toContain(botChooseMove(rolled, level, () => 0));
+    }
   });
 });

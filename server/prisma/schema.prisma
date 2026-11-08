@@ -154,6 +154,8 @@ model Room {
   isPractice  Boolean        @default(false)
   // Table ouverte par « partie rapide » : seule celle-ci bascule vers le robot faute d'adversaire.
   quickMatch  Boolean        @default(false)
+  // Mode 2 contre 2 (Parchís à 4) : sièges 0-1 (bleu, vert) contre 2-3 (jaune, rouge), partenaires face à face.
+  teams       Boolean        @default(false)
   hostId      String         @db.VarChar(30)
   host        User           @relation("RoomHost", fields: [hostId], references: [id], onDelete: Restrict)
   createdAt   DateTime       @default(now())

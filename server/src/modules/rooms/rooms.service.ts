@@ -40,6 +40,7 @@ export function serializeRoom(r: RoomWithPlayers, viewerId?: string) {
     turnSeconds: r.turnSeconds,
     isPractice: r.isPractice,
     quickMatch: r.quickMatch,
+    teams: r.teams,
     hostId: r.hostId,
     createdAt: r.createdAt,
     gameId: r.games[0]?.id ?? null,
@@ -112,6 +113,8 @@ export interface CreateRoomInput {
   maxPlayers: number;
   gameType: GameType;
   quickMatch?: boolean;
+  /** Mode 2 contre 2 : 4 joueurs de Parchís en deux équipes. */
+  teams?: boolean;
 }
 
 export async function createRoom(userId: string, input: CreateRoomInput, ip?: string) {
@@ -166,9 +169,22 @@ export async function joinRoom(userId: string, roomId: string, ip?: string): Pro
 /** Table complète : création de la partie et de son état initial dans la même transaction. */
 async function startGame(tx: Tx, roomId: string) {
   const players = await tx.roomPlayer.findMany({ where: { roomId }, orderBy: { seat: 'asc' } });
-  const { gameType } = await tx.room.findUniqueOrThrow({ where: { id: roomId }, select: { gameType: true } });
+  const { gameType, teams, quickMatch } = await tx.room.findUniqueOrThrow({ where: { id: roomId }, select: { gameType: true, teams: true, quickMatch: true } });
+  if (teams && quickMatch) {
+    // Partie rapide en équipes : partenaires tirés au sort (deux amis arrivés ensemble ne sont pas forcément ensemble).
+    const colors = players.map((p) => p.color);
+    for (let i = colors.length - 1; i > 0; i--) {
+      const j = randomInt(i + 1);
+      [colors[i], colors[j]] = [colors[j], colors[i]];
+    }
+    for (let i = 0; i < players.length; i++) {
+      if (players[i].color === colors[i]) continue;
+      await tx.roomPlayer.update({ where: { id: players[i].id }, data: { color: colors[i] } });
+      players[i] = { ...players[i], color: colors[i] };
+    }
+  }
   // Tirage au sort du premier joueur.
-  const state = GAME_RULES[gameType].create(players.map((p) => p.color as Color), randomInt(players.length));
+  const state = GAME_RULES[gameType].create(players.map((p) => p.color as Color), randomInt(players.length), { teams });
   await tx.room.update({ where: { id: roomId }, data: { status: 'PLAYING' } });
   const game = await tx.game.create({
     data: {
@@ -187,8 +203,10 @@ async function startGame(tx: Tx, roomId: string) {
  */
 export async function createPracticeRoom(
   userId: string, bots: number, turnSeconds: number, gameType: GameType = 'PARCHEESI', ip?: string, name = 'تدريب ضد الروبوت',
-  chosenBots?: string[]
+  chosenBots?: string[], teams = false
 ) {
+  // Équipes : 3 robots (un partenaire, deux adversaires).
+  if (teams) { gameType = 'PARCHEESI'; bots = 3; }
   bots = playersFor(gameType, bots + 1) - 1;
   const botIds = chosenBots?.slice(0, bots) ?? await ensureBots(bots);
   for (let attempt = 0; attempt < 5; attempt++) {
@@ -196,7 +214,7 @@ export async function createPracticeRoom(
       const result = await prisma.$transaction(async (tx) => {
         await assertNotSeated(tx, userId);
         const room = await tx.room.create({
-          data: { name, gameType, visibility: 'PRIVATE', stake: 0, turnSeconds, maxPlayers: bots + 1, isPractice: true, code: newCode(), hostId: userId }
+          data: { name, gameType, visibility: 'PRIVATE', stake: 0, turnSeconds, maxPlayers: bots + 1, isPractice: true, teams, code: newCode(), hostId: userId }
         });
         await tx.roomPlayer.create({ data: { roomId: room.id, userId, seat: 0, color: seatColor(gameType, 0) } });
         for (let i = 0; i < botIds.length; i++) {
@@ -221,10 +239,13 @@ export async function joinByCode(userId: string, code: string, ip?: string) {
 }
 
 /** Partie rapide : rejoint la plus ancienne table publique ouverte à ce jeu et cette mise, sinon en crée une. */
-export async function quickJoin(userId: string, stake: number, maxPlayers: number, gameType: GameType = 'PARCHEESI', ip?: string): Promise<JoinResult> {
+export async function quickJoin(
+  userId: string, stake: number, maxPlayers: number, gameType: GameType = 'PARCHEESI', ip?: string, teams = false
+): Promise<JoinResult> {
+  if (teams) { gameType = 'PARCHEESI'; maxPlayers = 4; }
   maxPlayers = playersFor(gameType, maxPlayers);
   const candidates = await prisma.room.findMany({
-    where: { visibility: 'PUBLIC', status: 'WAITING', gameType, stake, maxPlayers, players: { none: { userId } } },
+    where: { visibility: 'PUBLIC', status: 'WAITING', gameType, stake, maxPlayers, teams, players: { none: { userId } } },
     orderBy: { createdAt: 'asc' },
     take: 5,
     select: { id: true }
@@ -239,8 +260,24 @@ export async function quickJoin(userId: string, stake: number, maxPlayers: numbe
     }
   }
   const user = await prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { username: true } });
-  const room = await createRoom(userId, { name: `Table de ${user.username}`, gameType, visibility: 'PUBLIC', stake, turnSeconds: 30, maxPlayers, quickMatch: true }, ip);
+  const room = await createRoom(userId, { name: `Table de ${user.username}`, gameType, visibility: 'PUBLIC', stake, turnSeconds: 30, maxPlayers, quickMatch: true, teams }, ip);
   return { room, startedGameId: null };
+}
+
+/** Table d'équipes en attente : le joueur change de place (et donc d'équipe) pour une place libre. */
+export async function changeSeat(userId: string, roomId: string, seat: number) {
+  await prisma.$transaction(async (tx) => {
+    const room = await lockRoom(tx, roomId);
+    if (!room) throw notFound('Table introuvable');
+    const me = room.players.find((p) => p.userId === userId);
+    if (!me) throw forbidden('Vous n’êtes pas à cette table');
+    if (room.status !== 'WAITING') throw conflict('ROOM_NOT_WAITING', 'La partie a déjà commencé');
+    if (!room.teams) throw conflict('NOT_TEAMS', 'Cette table ne se joue pas en équipes');
+    if (!Number.isInteger(seat) || seat < 0 || seat >= room.maxPlayers) throw conflict('BAD_SEAT', 'Place invalide');
+    if (room.players.some((p) => p.seat === seat)) throw conflict('SEAT_TAKEN', 'Cette place est déjà prise');
+    await tx.roomPlayer.update({ where: { id: me.id }, data: { seat, color: seatColor(room.gameType, seat) } });
+  });
+  return getRoomFor(roomId, userId);
 }
 
 /** Quitter une table en attente : place libérée et mise remboursée ; table vide = annulée. */
