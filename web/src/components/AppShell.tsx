@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link, NavLink, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
+import { useTheme } from '../lib/theme';
 import { fmt } from '../lib/format';
-import { IconArrowDown, IconArrowUp, IconBook, IconChevron, IconCrown, IconGrid, IconHome, IconLogout, IconShield, IconUser, IconUsers, IconWheel } from './Icons';
+import { IconArrowDown, IconArrowUp, IconBook, IconChevron, IconCrown, IconGrid, IconHome, IconLogout, IconPalette, IconShield, IconUser, IconUsers, IconWheel } from './Icons';
 import { SupportButton } from './Support';
 import { Avatar, Coin, Loading } from './ui';
 
@@ -93,6 +94,17 @@ function TabBar() {
   );
 }
 
+/** Bouton qui passe d'un design à l'autre (classique ↔ violet). */
+function ThemeSwitch() {
+  const { theme, toggle } = useTheme();
+  const label = theme === 'violet' ? 'التصميم الكلاسيكي' : 'التصميم البنفسجي';
+  return (
+    <button type="button" className={'rl-theme rl-theme-' + theme} onClick={toggle} title={label} aria-label={'تغيير التصميم: ' + label} data-testid="theme-switch">
+      <IconPalette size={20} />
+    </button>
+  );
+}
+
 export function Header() {
   const { user } = useAuth();
   const [open, setOpen] = useState(false);
@@ -107,6 +119,7 @@ export function Header() {
             ))}
           </nav>
           <div className="rl-top-right">
+            <ThemeSwitch />
             {user ? (
               <>
                 <Link to="/cashier" className="rl-pill" title="رصيدي · إيداع أو سحب" data-testid="balance">

@@ -8,7 +8,7 @@ import { useAuth } from '../lib/auth';
 function Card({ title, sub, children }: { title: string; sub: string; children: React.ReactNode }) {
   return (
     <div style={{ display: 'flex', justifyContent: 'center', padding: '24px 0' }}>
-      <section style={{ width: '100%', maxWidth: 460, padding: 32, borderRadius: 26, background: 'linear-gradient(170deg, #5A1E9E, #341060 55%)', border: '1px solid rgba(255,222,170,0.25)', boxShadow: '0 30px 80px rgba(0,0,0,0.5)', display: 'flex', flexDirection: 'column', gap: 18 }}>
+      <section style={{ width: '100%', maxWidth: 460, padding: 32, borderRadius: 26, background: 'linear-gradient(170deg, var(--th2, #241C5E), var(--th1, #1B1824) 55%)', border: '1px solid rgba(255,222,170,0.25)', boxShadow: '0 30px 80px rgba(0,0,0,0.5)', display: 'flex', flexDirection: 'column', gap: 18 }}>
         <div>
           <h1 style={{ fontWeight: 900, fontSize: 30 }}>{title}</h1>
           <p style={{ margin: '6px 0 0', color: '#B8B2C4', lineHeight: 1.7 }}>{sub}</p>

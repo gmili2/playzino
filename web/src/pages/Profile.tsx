@@ -63,7 +63,7 @@ export function ProfilePage() {
     <Page width={1280}>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 24, alignItems: 'flex-start' }}>
         <div style={{ flex: '1 1 320px', maxWidth: 360, display: 'flex', flexDirection: 'column', gap: 20 }}>
-          <section style={{ padding: 24, borderRadius: 24, background: 'linear-gradient(170deg, #6A24B8, #341060 60%)', border: '1px solid rgba(255,222,170,0.25)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, textAlign: 'center' }}>
+          <section style={{ padding: 24, borderRadius: 24, background: 'linear-gradient(170deg, var(--th9, #2A1B7A), var(--th1, #1B1824) 60%)', border: '1px solid rgba(255,222,170,0.25)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, textAlign: 'center' }}>
             <AvatarEditor user={user} onSaved={setUser} />
             <h1 style={{ fontWeight: 900, fontSize: 26 }}>{user.username}</h1>
             <span style={{ fontSize: 14, color: '#DAD5E2' }}>المستوى {user.profile.level} · عضو منذ {fmtMonth(user.createdAt)}</span>
@@ -72,7 +72,7 @@ export function ProfilePage() {
               <span>التقدم نحو المستوى {user.profile.level + 1}</span>
               <span dir="ltr">{fmt(user.profile.xpInLevel)} / {fmt(user.profile.xpForLevel)} XP</span>
             </div>
-            <div style={{ width: '100%', height: 10, borderRadius: 5, background: '#1A0733', overflow: 'hidden' }}>
+            <div style={{ width: '100%', height: 10, borderRadius: 5, background: 'var(--th5, #110E17)', overflow: 'hidden' }}>
               <div style={{ width: pct + '%', height: '100%', marginInlineStart: 0, background: 'linear-gradient(90deg,#8B5CF6,#B9A8FF)' }} />
             </div>
             <div style={{ width: '100%', marginTop: 8, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
@@ -85,10 +85,10 @@ export function ProfilePage() {
 
         <div style={{ flex: '999 1 560px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 20 }}>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14 }}>
-            <StatCard label="المباريات" value={String(user.stats.played)} color="#F7F3EC" border="rgba(47,107,255,0.4)" bg="linear-gradient(160deg,#16205A,#341060)" />
-            <StatCard label="الانتصارات" value={String(user.stats.wins)} color="#4ADE80" border="rgba(34,197,94,0.4)" bg="linear-gradient(160deg,#0F3A2A,#341060)" />
-            <StatCard label="الخسائر" value={String(user.stats.losses)} color="#FB7185" border="rgba(244,63,94,0.4)" bg="linear-gradient(160deg,#3A1424,#341060)" />
-            <StatCard label="نسبة الفوز" value={user.stats.winRate + '%'} color="#FFC83D" border="rgba(255,200,61,0.45)" bg="linear-gradient(160deg,#3A2A10,#341060)" />
+            <StatCard label="المباريات" value={String(user.stats.played)} color="#F7F3EC" border="rgba(47,107,255,0.4)" bg="linear-gradient(160deg,#16205A,var(--th1, #1B1824))" />
+            <StatCard label="الانتصارات" value={String(user.stats.wins)} color="#4ADE80" border="rgba(34,197,94,0.4)" bg="linear-gradient(160deg,#0F3A2A,var(--th1, #1B1824))" />
+            <StatCard label="الخسائر" value={String(user.stats.losses)} color="#FB7185" border="rgba(244,63,94,0.4)" bg="linear-gradient(160deg,#3A1424,var(--th1, #1B1824))" />
+            <StatCard label="نسبة الفوز" value={user.stats.winRate + '%'} color="#FFC83D" border="rgba(255,200,61,0.45)" bg="linear-gradient(160deg,#3A2A10,var(--th1, #1B1824))" />
           </div>
 
           <section className="panel" style={{ padding: 0, overflow: 'hidden' }}>
@@ -210,7 +210,7 @@ function Settings({ user, onSaved, onLogout }: { user: Me; onSaved: (u: Me) => v
           <div style={{ display: 'flex', gap: 10 }}>
             {AVATAR_COLORS.map((c) => (
               <button key={c} type="button" aria-label={c} aria-pressed={form.avatarColor === c} onClick={() => setForm({ ...form, avatarColor: c })}
-                style={{ width: 32, height: 32, borderRadius: '50%', border: 0, cursor: 'pointer', background: c, boxShadow: form.avatarColor === c ? '0 0 0 3px #341060, 0 0 0 5px #fff' : undefined }} />
+                style={{ width: 32, height: 32, borderRadius: '50%', border: 0, cursor: 'pointer', background: c, boxShadow: form.avatarColor === c ? '0 0 0 3px var(--th1, #1B1824), 0 0 0 5px #fff' : undefined }} />
             ))}
           </div>
         </div>
@@ -285,10 +285,10 @@ function AvatarEditor({ user, onSaved }: { user: Me; onSaved: (u: Me) => void })
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
       <div style={{ position: 'relative' }}>
         <IconCrown size={30} style={{ position: 'absolute', top: -26, left: '50%', transform: 'translateX(-50%)', color: '#FFC83D', zIndex: 1 }} />
-        <Avatar name={user.username} color={user.profile.avatarColor} src={user.profile.avatarUrl} size={112} style={{ boxShadow: '0 0 0 4px #341060, 0 0 0 7px #FFC83D', opacity: busy ? 0.5 : 1 }} />
+        <Avatar name={user.username} color={user.profile.avatarColor} src={user.profile.avatarUrl} size={112} style={{ boxShadow: '0 0 0 4px var(--th1, #1B1824), 0 0 0 7px #FFC83D', opacity: busy ? 0.5 : 1 }} />
         <label
           title="تغيير الصورة" aria-label="تغيير صورة الملف الشخصي" data-testid="avatar-pick"
-          style={{ position: 'absolute', insetInlineEnd: -4, bottom: -4, width: 40, height: 40, borderRadius: '50%', background: 'linear-gradient(180deg,#FFDA5C,#FFB21E)', color: '#2B1A00', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: busy ? 'wait' : 'pointer', boxShadow: '0 0 0 3px #341060', zIndex: 2 }}
+          style={{ position: 'absolute', insetInlineEnd: -4, bottom: -4, width: 40, height: 40, borderRadius: '50%', background: 'linear-gradient(180deg,#FFDA5C,#FFB21E)', color: '#2B1A00', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: busy ? 'wait' : 'pointer', boxShadow: '0 0 0 3px var(--th1, #1B1824)', zIndex: 2 }}
         >
           <IconCamera size={20} />
           <input type="file" accept="image/*" disabled={busy} onChange={(e) => { pick(e.target.files?.[0]); e.target.value = ''; }} style={{ position: 'absolute', width: 1, height: 1, opacity: 0, overflow: 'hidden' }} />

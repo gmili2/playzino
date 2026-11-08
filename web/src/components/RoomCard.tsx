@@ -13,7 +13,7 @@ export function RoomCard({ room, onJoin, busy, mine }: { room: Room; onJoin: () 
   const joinable = room.status === 'WAITING' && free > 0;
   const host = room.players.find((p) => p.userId === room.hostId)?.username ?? '—';
   return (
-    <article className="pb-card" data-testid="room-card" style={{ borderRadius: 20, overflow: 'hidden', background: '#341060', border: '1px solid rgba(255,222,170,0.16)', display: 'flex', flexDirection: 'column' }}>
+    <article className="pb-card" data-testid="room-card" style={{ borderRadius: 20, overflow: 'hidden', background: 'var(--th1, #1B1824)', border: '1px solid rgba(255,222,170,0.16)', display: 'flex', flexDirection: 'column' }}>
       <div style={{ height: 96, padding: 14, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', background: BANNERS[room.status] ?? BANNERS.FULL }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 30px)', gap: 6 }}>
           {Array.from({ length: room.maxPlayers }, (_, seat) => {

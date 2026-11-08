@@ -127,7 +127,7 @@ export function WheelPage() {
 
   return (
     <Page width={1100}>
-      <section className="panel" style={{ position: 'relative', overflow: 'hidden', padding: '28px 20px 32px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 18, textAlign: 'center', background: 'radial-gradient(600px 360px at 50% 0%, rgba(255,79,163,0.4), transparent 70%), linear-gradient(180deg,#5A1E9E,#2E0C5A 60%,#1C0838)', border: '1px solid rgba(255,210,63,0.45)', boxShadow: '0 0 0 1px rgba(122,74,0,0.6), 0 0 40px rgba(255,200,61,0.18)' }}>
+      <section className="panel" style={{ position: 'relative', overflow: 'hidden', padding: '28px 20px 32px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 18, textAlign: 'center', background: 'radial-gradient(600px 360px at 50% 0%, var(--th11, rgba(88,110,255,0.45)), transparent 70%), linear-gradient(180deg,var(--th12, #1B2290),var(--th13, #0C0F4A) 60%,var(--th14, #0A0B30))', border: '1px solid rgba(255,210,63,0.45)', boxShadow: '0 0 0 1px rgba(122,74,0,0.6), 0 0 40px rgba(255,200,61,0.18)' }}>
         <h1 style={{ fontWeight: 900, fontSize: 'clamp(34px, 6vw, 54px)', lineHeight: 1.1, background: 'linear-gradient(180deg,#FFE9A8,#F2B232)', WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent' }}>عجلة الحظ</h1>
         <p style={{ margin: 0, fontSize: 18, fontWeight: 700, color: '#EFEAF5' }}>أدر العجلة واربح عملات لتلعب بها!</p>
 
@@ -164,7 +164,7 @@ export function WheelPage() {
 
       {won !== null && (
         <div role="dialog" aria-modal="true" aria-labelledby="won-title" onClick={() => setWon(null)} style={{ position: 'fixed', inset: 0, zIndex: 80, background: 'rgba(5,4,10,0.75)', display: 'grid', placeItems: 'center', padding: 20 }}>
-          <div className="wh-win panel" onClick={(e) => e.stopPropagation()} style={{ width: 'min(380px, 100%)', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, padding: 30, border: '1px solid rgba(242,178,50,0.5)', background: 'radial-gradient(300px 200px at 50% 0%, rgba(242,178,50,0.3), transparent 70%), #3B1170' }}>
+          <div className="wh-win panel" onClick={(e) => e.stopPropagation()} style={{ width: 'min(380px, 100%)', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, padding: 30, border: '1px solid rgba(242,178,50,0.5)', background: 'radial-gradient(300px 200px at 50% 0%, rgba(242,178,50,0.3), transparent 70%), var(--th3, #1E1A28)' }}>
             <Coin size={64} />
             <h2 id="won-title" style={{ fontWeight: 900, fontSize: 30 }}>{won.amount === 0 || (won.price !== undefined && won.amount < won.price) ? 'حظ أوفر!' : 'مبروك!'}</h2>
             <p style={{ margin: 0, fontSize: 18 }}>{won.amount === 0 ? 'لم تربح شيئًا هذه المرة، جرّب حظك مرة أخرى!' : <>ربحت <b dir="ltr" style={{ color: '#FFD866', fontSize: 26 }}>{fmt(won.amount)}</b> عملة</>}</p>

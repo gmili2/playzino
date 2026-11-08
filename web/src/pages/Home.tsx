@@ -146,7 +146,7 @@ export function HomePage() {
           </section>
 
           <section aria-label="أنماط اللعب" className="rl-modes">
-            <button type="button" className="rl-mode" style={{ background: 'radial-gradient(160px 120px at 50% 30%, rgba(255,79,163,.3), transparent), linear-gradient(180deg,#5A1E9E,#2A0A50)' }} onClick={() => setPick(CONNECT4)} disabled={actions.busy}>
+            <button type="button" className="rl-mode" style={{ background: 'radial-gradient(160px 120px at 50% 30%, var(--th6, rgba(80,170,255,.3)), transparent), linear-gradient(180deg,var(--th7, #132B4A),var(--th8, #0E1220))' }} onClick={() => setPick(CONNECT4)} disabled={actions.busy}>
               <span className="rl-mode-art" style={{ inset: '12px 24% 48% 24%' }}><Connect4Board board={SHOWCASE_C4} label="" /></span>
               <b>أربعة على التوالي</b><small>1 ضد 1</small>
             </button>
@@ -191,7 +191,7 @@ export function HomePage() {
               ['6', 'رمية إضافية', 'الرقم 6 يمنحك رمية أخرى بعد التحرك.'],
               ['×', 'الأسر', 'قف على بيدق الخصم خارج خانات الأمان لتعيده إلى بيته، واربح 20 خانة.']
             ].map(([n, t, d]) => (
-              <div key={n} style={{ padding: 18, borderRadius: 18, background: '#341060', border: '1px solid rgba(255,222,170,0.14)', display: 'flex', gap: 14, alignItems: 'flex-start' }}>
+              <div key={n} style={{ padding: 18, borderRadius: 18, background: 'var(--th1, #1B1824)', border: '1px solid rgba(255,222,170,0.14)', display: 'flex', gap: 14, alignItems: 'flex-start' }}>
                 <span style={{ flex: 'none', fontWeight: 900, fontSize: 30, color: '#FFC83D', lineHeight: 1 }}>{n}</span>
                 <span style={{ display: 'flex', flexDirection: 'column', gap: 4 }}><span style={{ fontWeight: 800 }}>{t}</span><span style={{ fontSize: 13, lineHeight: 1.7, color: '#A9A3B5' }}>{d}</span></span>
               </div>
@@ -234,7 +234,7 @@ export function HomePage() {
 
           <div id="leaderboard" className="panel">
             <h2 className="panel-title"><IconCrown size={22} style={{ color: '#FFC83D' }} />ترتيب اللاعبين</h2>
-            <div role="tablist" aria-label="فترة الترتيب" style={{ display: 'flex', gap: 4, padding: 4, borderRadius: 999, background: '#1A0733', marginBottom: 10 }}>
+            <div role="tablist" aria-label="فترة الترتيب" style={{ display: 'flex', gap: 4, padding: 4, borderRadius: 999, background: 'var(--th5, #110E17)', marginBottom: 10 }}>
               {PERIODS.map((p) => (
                 <button key={p.key} type="button" role="tab" aria-selected={period === p.key} onClick={() => setPeriod(p.key)}
                   style={{ flex: 1, height: 34, border: 0, borderRadius: 999, cursor: 'pointer', font: '700 13px Cairo, system-ui, sans-serif', background: period === p.key ? 'linear-gradient(180deg,#FFDA6B,#F2B232)' : 'transparent', color: period === p.key ? '#2B1A00' : '#B8B2C4' }}>{p.label}</button>
