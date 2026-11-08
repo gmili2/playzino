@@ -18,7 +18,7 @@ function audio(): AudioContext | null {
 }
 
 /** Nombre de prises par son : public/sfx/<nom>-1.ogg … <nom>-N.ogg. */
-const SAMPLES = { shake: 3, dice: 1, move: 3, exit: 2, capture: 4, drop: 3, home: 1, sticker: 2, click: 3, select: 2, turn: 2, coins: 1, win: 1, lose: 1 } as const;
+const SAMPLES = { shake: 3, dice: 1, move: 1, exit: 2, capture: 4, drop: 3, home: 1, sticker: 2, click: 3, select: 2, turn: 2, coins: 1, win: 1, lose: 1 } as const;
 type Sample = keyof typeof SAMPLES;
 const buffers = new Map<Sample, AudioBuffer[]>();
 let samplesRequested = false;
@@ -162,7 +162,7 @@ export const sfx = {
   },
   /** Pion qui avance : petit « toc » de bois puis un léger glissé. */
   move() {
-    if (sample('move')) return;
+    if (sample('move', { gain: 1.6 })) return; // woodblock doux (hollandm, Freesound, CC0), enregistrement plus faible
     knock(40, { freq: 900, q: 3, gain: 0.35 });
     tone(520, 90, { type: 'triangle', gain: 0.05, at: 0.02, slideTo: 700 });
   },
@@ -188,7 +188,7 @@ export const sfx = {
   },
   /** Pion arrivé à la maison : arpège montant. */
   home() {
-    if (sample('move') && sample('home', { gain: 0.7, at: 0.12 })) return;
+    if (sample('move', { gain: 1.6 }) && sample('home', { gain: 0.7, at: 0.12 })) return;
     [523, 659, 784, 1047].forEach((f, i) => tone(f, 180, { type: 'triangle', gain: 0.07, at: i * 0.08 }));
   },
   /** Jeton de Puissance 4 qui tombe. */
