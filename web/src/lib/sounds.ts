@@ -17,6 +17,9 @@ function audio(): AudioContext | null {
   }
 }
 
+/** Version des fichiers sons : à changer quand un fichier est remplacé, sinon Cloudflare et les navigateurs gardent l'ancien (cache de 4 h). */
+const SFX_VERSION = '2026-11-08';
+
 /** Nombre de prises par son : public/sfx/<nom>-1.ogg … <nom>-N.ogg. */
 const SAMPLES = { dice: 1, move: 1, exit: 2, capture: 1, drop: 3, home: 1, sticker: 2, click: 3, select: 2, turn: 2, coins: 1, win: 1, lose: 1 } as const;
 type Sample = keyof typeof SAMPLES;
@@ -28,7 +31,7 @@ function loadSamples(a: AudioContext) {
   samplesRequested = true;
   for (const [name, count] of Object.entries(SAMPLES) as [Sample, number][]) {
     const takes = Array.from({ length: count }, (_, i) =>
-      fetch(`${import.meta.env.BASE_URL}sfx/${name}-${i + 1}.ogg`)
+      fetch(`${import.meta.env.BASE_URL}sfx/${name}-${i + 1}.ogg?v=${SFX_VERSION}`)
         .then((r) => (r.ok ? r.arrayBuffer() : Promise.reject(new Error(r.statusText))))
         .then((b) => a.decodeAudioData(b))
     );
