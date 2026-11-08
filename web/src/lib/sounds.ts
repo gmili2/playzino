@@ -18,7 +18,7 @@ function audio(): AudioContext | null {
 }
 
 /** Nombre de prises par son : public/sfx/<nom>-1.ogg … <nom>-N.ogg. */
-const SAMPLES = { shake: 3, dice: 4, move: 3, exit: 2, capture: 4, drop: 3, home: 1, sticker: 2, click: 3, select: 2, turn: 2, coins: 1, win: 1, lose: 1 } as const;
+const SAMPLES = { shake: 3, dice: 1, move: 3, exit: 2, capture: 4, drop: 3, home: 1, sticker: 2, click: 3, select: 2, turn: 2, coins: 1, win: 1, lose: 1 } as const;
 type Sample = keyof typeof SAMPLES;
 const buffers = new Map<Sample, AudioBuffer[]>();
 let samplesRequested = false;
@@ -42,7 +42,7 @@ export function preloadSfx() {
 }
 
 /** Joue une prise au hasard, légèrement variée en hauteur ; false si l'enregistrement n'est pas disponible. */
-function sample(name: Sample, { gain = 0.9, at = 0, vary = true } = {}): boolean {
+function sample(name: Sample, { gain = 0.9, at = 0, vary = true, offset = 0 } = {}): boolean {
   const a = audio();
   const list = buffers.get(name);
   if (!a || !list?.length) return false;
@@ -53,7 +53,7 @@ function sample(name: Sample, { gain = 0.9, at = 0, vary = true } = {}): boolean
   const g = a.createGain();
   g.gain.value = gain;
   src.connect(g).connect(a.destination);
-  src.start(a.currentTime + at);
+  src.start(a.currentTime + at, offset); // offset : saute le silence au début de l'enregistrement
   return true;
 }
 
@@ -153,7 +153,7 @@ function whoosh(at = 0) {
 export const sfx = {
   /** Dé qui roule : une série de chocs de plus en plus espacés. */
   dice() {
-    if (sample('dice')) return;
+    if (sample('dice', { offset: 0.27 })) return; // dé qui roule sur du bois (jakubp.jp, Freesound, CC0)
     let at = 0;
     for (let i = 0; i < 7; i++) {
       knock(28, { at, freq: 1400 + Math.random() * 1600, gain: 0.3 - i * 0.025 });
