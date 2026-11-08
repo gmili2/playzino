@@ -56,7 +56,7 @@ export function Wheel({ segments, rotation = 0, label }: { segments: number[]; r
         {Array.from({ length: 24 }, (_, i) => (
           <circle key={i} className="wh-bulb" cx={point(188, i * 15).split(' ')[0]} cy={point(188, i * 15).split(' ')[1]} r="4.5" fill="#FFF7D6" />
         ))}
-        <circle cx={C} cy={C} r="40" fill="#1B1824" stroke="url(#whRim)" strokeWidth="7" />
+        <circle cx={C} cy={C} r="40" fill="#341060" stroke="url(#whRim)" strokeWidth="7" />
         <path d="m178 186 6 22h32l6-22-11 11-11-17-11 17Z M182 211h36v6h-36Z" fill="#F2B232" />
       </svg>
     </div>

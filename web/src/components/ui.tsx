@@ -144,7 +144,7 @@ export function Loading({ label = 'جارٍ التحميل…' }: { label?: stri
 }
 
 export function Empty({ children }: { children: ReactNode }) {
-  return <div style={{ padding: 32, borderRadius: 20, background: '#1B1824', textAlign: 'center', color: '#A9A3B5' }}>{children}</div>;
+  return <div style={{ padding: 32, borderRadius: 20, background: '#341060', textAlign: 'center', color: '#A9A3B5' }}>{children}</div>;
 }
 
 /** Étiquette « روبوت » : un robot n'est jamais présenté comme un vrai joueur. */

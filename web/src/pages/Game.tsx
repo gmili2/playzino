@@ -687,7 +687,7 @@ export function GamePage() {
 
       {result && revealed && !dismissed && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 50, background: 'rgba(6,6,20,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-          <div role="dialog" aria-modal="true" aria-labelledby="result-title" data-testid="result" style={{ width: '100%', maxWidth: 420, padding: '32px 28px 28px', borderRadius: 26, background: 'linear-gradient(170deg, #241C5E, #1B1824 55%)', border: '1px solid rgba(255,200,61,0.4)', boxShadow: '0 30px 80px rgba(0,0,0,0.6)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, textAlign: 'center' }}>
+          <div role="dialog" aria-modal="true" aria-labelledby="result-title" data-testid="result" style={{ width: '100%', maxWidth: 420, padding: '32px 28px 28px', borderRadius: 26, background: 'linear-gradient(170deg, #5A1E9E, #341060 55%)', border: '1px solid rgba(255,200,61,0.4)', boxShadow: '0 30px 80px rgba(0,0,0,0.6)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, textAlign: 'center' }}>
             <span style={{ width: 88, height: 88, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', ...(result === 'victory' ? { background: 'rgba(255,200,61,0.18)', color: '#FFC83D', boxShadow: '0 0 0 8px rgba(255,200,61,0.08), 0 0 40px rgba(255,200,61,0.35)' } : { background: 'rgba(255,222,170,0.14)', color: '#B8B2C4' }) }}>
               <svg width="44" height="44" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="m2 4 3 12h14l3-12-6 7-4-7-4 7-6-7zm3 16h14v2H5z" /></svg>
             </span>
@@ -706,11 +706,11 @@ export function GamePage() {
             </span>
             {result !== 'aborted' && !practice && (
               <div style={{ display: 'flex', gap: 10, width: '100%', margin: '6px 0' }}>
-                <div style={{ flex: 1, padding: 12, borderRadius: 16, background: '#110E17', display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <div style={{ flex: 1, padding: 12, borderRadius: 16, background: '#1A0733', display: 'flex', flexDirection: 'column', gap: 2 }}>
                   <span dir="ltr" style={{ fontWeight: 900, fontSize: 22, color: '#FFC83D' }}>+{fmt(myPayout)}</span>
                   <span style={{ fontSize: 12, color: '#A9A3B5' }}>عملة</span>
                 </div>
-                <div style={{ flex: 1, padding: 12, borderRadius: 16, background: '#110E17', display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <div style={{ flex: 1, padding: 12, borderRadius: 16, background: '#1A0733', display: 'flex', flexDirection: 'column', gap: 2 }}>
                   <span dir="ltr" style={{ fontWeight: 900, fontSize: 22, color: '#B9A8FF' }}>+{result === 'victory' ? WIN_XP : LOSS_XP}</span>
                   <span style={{ fontSize: 12, color: '#A9A3B5' }}>نقطة خبرة</span>
                 </div>
@@ -728,7 +728,7 @@ export function GamePage() {
 
       {quit && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 60, background: 'rgba(6,6,20,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-          <div role="dialog" aria-modal="true" aria-labelledby="quit-title" style={{ width: '100%', maxWidth: 400, padding: 26, borderRadius: 24, background: '#1B1824', border: '1px solid rgba(255,222,170,0.25)', boxShadow: '0 30px 80px rgba(0,0,0,0.6)', display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div role="dialog" aria-modal="true" aria-labelledby="quit-title" style={{ width: '100%', maxWidth: 400, padding: 26, borderRadius: 24, background: '#341060', border: '1px solid rgba(255,222,170,0.25)', boxShadow: '0 30px 80px rgba(0,0,0,0.6)', display: 'flex', flexDirection: 'column', gap: 12 }}>
             <span id="quit-title" style={{ fontWeight: 900, fontSize: 23 }}>{waiting ? 'مغادرة الطاولة؟' : 'مغادرة المباراة؟'}</span>
             <span style={{ fontSize: 15, lineHeight: 1.8, color: '#B8B2C4' }}>{practice ? 'ستنتهي جلسة التدريب. لا رهان ولا خسارة في الترتيب.' : waiting ? (room.players.length > 1 ? 'سيُتاح مكانك لِلاعب آخر ويُعاد رهانك.' : 'ستُلغى الطاولة ويُعاد رهانك.') : room.maxPlayers > 2 ? 'ستخرج من المباراة وتخسر رهانك، ويواصل الآخرون اللعب.' : 'ستُحتسب المباراة الجارية خسارةً ويفوز خصمك بالرهان.'}</span>
             <div style={{ display: 'flex', gap: 10, marginTop: 8, flexWrap: 'wrap' }}>

@@ -81,7 +81,7 @@ export function CashierPage() {
   return (
     <Page width={1100}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-        <section className="panel" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 16, background: 'radial-gradient(500px 220px at 100% 0%, rgba(242,178,50,0.18), transparent 70%), linear-gradient(180deg,#1E1A28,#17141F)' }}>
+        <section className="panel" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 16, background: 'radial-gradient(500px 220px at 100% 0%, rgba(242,178,50,0.18), transparent 70%), linear-gradient(180deg,#3B1170,#2A0A50)' }}>
           <span style={{ display: 'flex', flexDirection: 'column', marginInlineEnd: 'auto' }}>
             <h1 style={{ fontWeight: 900, fontSize: 28 }}>الإيداع والسحب</h1>
             <span className="hint" style={{ fontSize: 14 }}>عبر وفاكاش أو كاش بلوس · 1 درهم = 1 عملة · كل عملية تراجعها الإدارة</span>
@@ -192,7 +192,7 @@ function DepositForm({ banks, limits, onDone, onHistory }: { banks: Bank[]; limi
         <button type="button" className="pb-btn pb-ghost pb-sm" onClick={() => setBank(null)}>تغيير الوسيلة</button>
       </div>
 
-      <div style={{ padding: 18, borderRadius: 18, background: '#110E17', border: '1px solid rgba(255,200,61,0.35)', display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div style={{ padding: 18, borderRadius: 18, background: '#1A0733', border: '1px solid rgba(255,200,61,0.35)', display: 'flex', flexDirection: 'column', gap: 10 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}><span style={{ color: '#B8B2C4' }}>الوسيلة</span><b style={{ display: 'flex', alignItems: 'center', gap: 8 }}><MethodLogo bank={bank} size={28} />{bank.name}</b></div>
         {bank.accountHolder && <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}><span style={{ color: '#B8B2C4' }}>صاحب الحساب</span><b dir="auto">{bank.accountHolder}</b></div>}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -210,7 +210,7 @@ function DepositForm({ banks, limits, onDone, onHistory }: { banks: Bank[]; limi
         <span className="hint">من {fmt(limits.depositMin)} إلى {fmt(limits.depositMax)} درهم. يجب أن يطابق المبلغ ما في الوصل.</span>
       </label>
       <label className="field"><span>صورة الوصل</span>
-        <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, padding: 20, borderRadius: 18, border: '2px dashed rgba(255,222,170,0.3)', background: '#110E17', cursor: 'pointer', textAlign: 'center', fontSize: 15, color: '#EFEAF5' }}>
+        <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, padding: 20, borderRadius: 18, border: '2px dashed rgba(255,222,170,0.3)', background: '#1A0733', cursor: 'pointer', textAlign: 'center', fontSize: 15, color: '#EFEAF5' }}>
           {preview ? <img src={preview} alt="معاينة الوصل" style={{ maxWidth: '100%', maxHeight: 260, borderRadius: 12 }} /> : <IconUpload size={30} style={{ color: '#F2B232' }} />}
           <b>{file ? file.name : 'اضغط لاختيار صورة أو ملف PDF'}</b>
           <small className="hint">JPG أو PNG أو WEBP أو PDF · 5 ميغابايت كحد أقصى</small>

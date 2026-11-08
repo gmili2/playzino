@@ -24,7 +24,7 @@ function RuleGrid({ rules }: { rules: [string, string, string][] }) {
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 14, marginTop: 20 }}>
       {rules.map(([n, t, d]) => (
-        <div key={t} style={{ padding: 18, borderRadius: 18, background: '#1B1824', border: '1px solid rgba(255,222,170,0.14)', display: 'flex', gap: 14, alignItems: 'flex-start' }}>
+        <div key={t} style={{ padding: 18, borderRadius: 18, background: '#341060', border: '1px solid rgba(255,222,170,0.14)', display: 'flex', gap: 14, alignItems: 'flex-start' }}>
           <span style={{ flex: 'none', minWidth: 34, fontWeight: 900, fontSize: 26, color: '#FFC83D', lineHeight: 1 }}>{n}</span>
           <span style={{ display: 'flex', flexDirection: 'column', gap: 4 }}><span style={{ fontWeight: 800 }}>{t}</span><span style={{ fontSize: 14, lineHeight: 1.8, color: '#A9A3B5' }}>{d}</span></span>
         </div>

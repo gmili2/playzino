@@ -32,7 +32,7 @@ function Seg<T extends string | number>({ value, options, onChange, label, rende
 
 function ActionCard({ icon, iconBg, title, sub, children, highlight }: { icon: ReactNode; iconBg: string; title: string; sub: string; children: ReactNode; highlight?: boolean }) {
   return (
-    <section style={{ flex: '1 1 300px', padding: 24, borderRadius: 24, background: highlight ? 'linear-gradient(160deg, #2A1B7A, #1B1824 70%)' : '#1B1824', border: '1px solid rgba(255,222,170,0.22)', display: 'flex', flexDirection: 'column', gap: 16 }}>
+    <section style={{ flex: '1 1 300px', padding: 24, borderRadius: 24, background: highlight ? 'linear-gradient(160deg, #6A24B8, #341060 70%)' : '#341060', border: '1px solid rgba(255,222,170,0.22)', display: 'flex', flexDirection: 'column', gap: 16 }}>
       <span style={{ width: 50, height: 50, borderRadius: 14, background: iconBg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{icon}</span>
       <div>
         <h2 style={{ fontWeight: 900, fontSize: 22 }}>{title}</h2>
@@ -61,7 +61,7 @@ export function GameIcon({ game, size = 46 }: { game: GameType; size?: number })
       <rect x="2" y="2" width="44" height="44" rx="8" fill="#FFFFFF" />
       <rect x="2" y="2" width="17" height="17" rx="6" fill="#E5484D" /><rect x="29" y="2" width="17" height="17" rx="6" fill="#F5C21B" />
       <rect x="2" y="29" width="17" height="17" rx="6" fill="#2F6BFF" /><rect x="29" y="29" width="17" height="17" rx="6" fill="#1FB57A" />
-      <path d="M19 19h10v10H19z" fill="#110E17" />
+      <path d="M19 19h10v10H19z" fill="#1A0733" />
     </svg>
   );
 }
@@ -113,7 +113,7 @@ export function TablesPage() {
               key={g} type="button" role="radio" aria-checked={game === g} data-testid={`game-${g}`} onClick={() => setGame(g)}
               style={{
                 flex: '1 1 240px', display: 'flex', alignItems: 'center', gap: 14, padding: '14px 18px', borderRadius: 18, cursor: 'pointer', textAlign: 'start', color: '#F7F3EC', font: 'inherit',
-                background: game === g ? 'linear-gradient(160deg, #2A1B7A, #1A1550)' : '#1B1824', border: game === g ? '2px solid #FFC83D' : '1px solid rgba(255,222,170,0.22)'
+                background: game === g ? 'linear-gradient(160deg, #6A24B8, #3B1170)' : '#341060', border: game === g ? '2px solid #FFC83D' : '1px solid rgba(255,222,170,0.22)'
               }}
             >
               <GameIcon game={g} />
