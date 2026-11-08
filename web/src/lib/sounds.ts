@@ -18,7 +18,7 @@ function audio(): AudioContext | null {
 }
 
 /** Nombre de prises par son : public/sfx/<nom>-1.ogg … <nom>-N.ogg. */
-const SAMPLES = { shake: 3, dice: 1, move: 1, exit: 2, capture: 4, drop: 3, home: 1, sticker: 2, click: 3, select: 2, turn: 2, coins: 1, win: 1, lose: 1 } as const;
+const SAMPLES = { shake: 3, dice: 1, move: 1, exit: 2, capture: 1, drop: 3, home: 1, sticker: 2, click: 3, select: 2, turn: 2, coins: 1, win: 1, lose: 1 } as const;
 type Sample = keyof typeof SAMPLES;
 const buffers = new Map<Sample, AudioBuffer[]>();
 let samplesRequested = false;
@@ -121,9 +121,9 @@ export function diceShake(): () => void {
   };
 }
 
-/** Choc franc d'un pion qui tombe sur un autre : enregistrement doublé d'un coup grave. */
+/** Choc d'un pion qui tombe sur un autre (TheLittleCrow, Freesound, CC0 ; silence initial sauté) ; synthèse en secours. */
 function hit() {
-  sample('capture', { gain: 1 });
+  if (sample('capture', { gain: 1, offset: 0.15 })) return;
   knock(70, { freq: 260, q: 0.9, gain: 0.55 });
   tone(140, 160, { type: 'sine', gain: 0.12, slideTo: 60 });
 }

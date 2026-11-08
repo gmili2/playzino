@@ -1,7 +1,7 @@
 Effets sonores, tous sous licence Creative Commons Zero (CC0, domaine public) :
 http://creativecommons.org/publicdomain/zero/1.0/
 
-- Kenney (www.kenney.nl), pack « Casino Audio » : dés secoués, sorties, prises, Puissance 4, stickers.
+- Kenney (www.kenney.nl), pack « Casino Audio » : dés secoués, sorties, Puissance 4, stickers.
 - Kenney, pack « Interface Sounds » (opengameart.org/content/interface-sounds) :
   click-* (click_002-004), select-* (select_001-002), turn-1 (open_002), turn-2 (maximize_006).
 - Kenney, « 85 Short music jingles » (opengameart.org/content/85-short-music-jingles) :
@@ -9,3 +9,4 @@ http://creativecommons.org/publicdomain/zero/1.0/
 - lordtomorrow, « Coin Splash » (opengameart.org/content/coin-splash) : coins-1.
 - jakubp.jp, « GAMEMisc_Dice Roll On Wood_Jaku5 » (freesound.org/s/558204/) : dice-1 (lancer du dé).
 - hollandm, « Woodblock-soft » (freesound.org/s/692828/) : move-1 (déplacement du pion).
+- TheLittleCrow, « Hit / Land Sound Effect » (freesound.org/s/587384/) : capture-1 (pion mangé).
