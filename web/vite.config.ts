@@ -10,6 +10,7 @@ export default defineConfig({
     strictPort: true,
     proxy: {
       '/api': api,
+      '/download': api,
       '/socket.io': { target: api, ws: true }
     }
   }

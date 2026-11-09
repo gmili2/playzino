@@ -19,7 +19,7 @@ require("fs").writeFileSync(process.argv[1]+"/package.json",JSON.stringify({name
   dependencies:{...p.dependencies,prisma:p.devDependencies.prisma}},null,2));' "$B"
 printf "import('./dist/index.js').catch((e) => { console.error(e); process.exit(1); });\n" > "$B/app.cjs"
 
-rsync -az --delete --exclude .env --exclude node_modules --exclude tmp --exclude public --exclude uploads -e "$SSH" "$B"/ "$HOST":playzino-app/
+rsync -az --delete --exclude .env --exclude node_modules --exclude tmp --exclude public --exclude uploads --exclude downloads -e "$SSH" "$B"/ "$HOST":playzino-app/
 $SSH "$HOST" 'source ~/nodevenv/playzino-app/22/bin/activate && cd ~/playzino-app \
   && npm install --no-audit --no-fund --omit=dev \
   && export TOKIO_WORKER_THREADS=2 && set -a && . ./.env && set +a \

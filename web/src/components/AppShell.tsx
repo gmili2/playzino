@@ -5,6 +5,7 @@ import { useTheme } from '../lib/theme';
 import { fmt } from '../lib/format';
 import { IconArrowDown, IconArrowUp, IconBook, IconChevron, IconCrown, IconGrid, IconHome, IconLogout, IconPalette, IconShield, IconUser, IconUsers, IconWheel } from './Icons';
 import { SupportButton } from './Support';
+import { AppDownloadDialog, inApp } from './AppDownload';
 import { Avatar, Coin, Loading } from './ui';
 
 /** Logo façon Rolly : couronne dorée dans un rond, nom en or. */
@@ -26,7 +27,7 @@ const LINKS = [
 ];
 
 /** Menu du compte (clic sur l'avatar), comme le panneau de Rolly. */
-function AccountMenu({ onClose }: { onClose: () => void }) {
+function AccountMenu({ onClose, onApp }: { onClose: () => void; onApp: () => void }) {
   const { user, logout } = useAuth();
   const nav = useNavigate();
   const ref = useRef<HTMLDivElement>(null);
@@ -66,6 +67,11 @@ function AccountMenu({ onClose }: { onClose: () => void }) {
       {user.role === 'ADMIN' && item('/admin', <IconShield size={20} />, 'لوحة الإدارة')}
       <div className="rl-menu-sec">المساعدة</div>
       {item('/rules', <IconBook size={20} />, 'قواعد اللعب')}
+      {!inApp() && (
+        <button type="button" className="rl-menu-item" onClick={onApp}>
+          <IconArrowDown size={20} /><span>تحميل التطبيق</span><IconChevron size={16} className="rl-menu-chev" />
+        </button>
+      )}
       <button type="button" className="rl-menu-item rl-menu-out" onClick={async () => { onClose(); await logout(); nav('/'); }}>
         <IconLogout size={20} /><span>تسجيل الخروج</span>
       </button>
@@ -108,8 +114,10 @@ function ThemeSwitch() {
 export function Header() {
   const { user } = useAuth();
   const [open, setOpen] = useState(false);
+  const [app, setApp] = useState(false);
   return (
     <>
+      {app && <AppDownloadDialog onClose={() => setApp(false)} />}
       <header className="rl-top">
         <div className="rl-top-in">
           <Brand />
@@ -130,7 +138,7 @@ export function Header() {
                     <Avatar name={user.username} color={user.profile.avatarColor} src={user.profile.avatarUrl} size={42} />
                     <span className="sr-only">{user.username}</span>
                   </button>
-                  {open && <AccountMenu onClose={() => setOpen(false)} />}
+                  {open && <AccountMenu onClose={() => setOpen(false)} onApp={() => { setOpen(false); setApp(true); }} />}
                 </span>
               </>
             ) : (

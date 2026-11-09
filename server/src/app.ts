@@ -90,6 +90,16 @@ export function createApp() {
   app.use('/api/admin', adminRouter);
   app.use('/api', notFoundHandler);
 
+  // Application Android : déposée à part dans downloads/ (scripts/publish-apk.sh), jamais écrasée par un déploiement du site.
+  const downloads = resolve(import.meta.dirname, '../downloads');
+  app.get('/download/playzino.apk', (_req, res) => {
+    const apk = resolve(downloads, 'playzino.apk');
+    if (!existsSync(apk)) return void res.status(404).send('Application indisponible pour le moment.');
+    res.set('Content-Type', 'application/vnd.android.package-archive');
+    res.set('Cache-Control', 'public, max-age=300');
+    res.download(apk, 'playzino.apk');
+  });
+
   // En production, le serveur sert aussi le frontend compilé (SPA).
   const webDist = config.WEB_DIST ?? resolve(import.meta.dirname, '../../web/dist');
   if (existsSync(webDist)) {

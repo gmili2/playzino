@@ -7,6 +7,7 @@ import { SupportButton } from '../components/Support';
 import { IconBolt, IconCrown, IconLock, IconTrophy, IconUsers } from '../components/Icons';
 import { SHOWCASE_WHEEL } from '../components/Wheel';
 import { ModeCard } from '../components/ModeCards';
+import { AppDownloadBanner } from '../components/AppDownload';
 import { RoomCard } from '../components/RoomCard';
 import { StakePicker, type QuickChoice } from '../components/StakePicker';
 import { TaskCard } from '../components/TaskCard';
@@ -137,6 +138,7 @@ export function HomePage() {
         <main style={{ flex: '999 1 560px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 24 }}>
           <HeroCarousel busy={actions.busy} onQuick={() => setPick(PARCHEESI_2)} onC4={() => setPick(CONNECT4)} />
           {actions.error && <div role="alert" className="alert alert-error">{actions.error}</div>}
+          <AppDownloadBanner />
 
           <section aria-label="بارتشيزي" className="md-grid">
             <ModeCard variant="friend" title="العب مع صديق" sub="أنشئ طاولة خاصة وادعُ أصدقاءك" to="/tables#create" testId="mode-friend" />

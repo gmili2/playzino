@@ -776,6 +776,18 @@ body::after{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;opa
 .team-pill.team-1{background:rgba(47,107,255,.35)}
 .team-pill.team-2{background:rgba(229,72,77,.38)}
 
+/* Téléchargement de l'application : bandeau de l'accueil et fenêtre d'instructions. */
+.ad-banner{display:flex;align-items:center;gap:14px;padding:14px 16px;flex-wrap:wrap}
+.ad-badge{flex:none;width:52px;height:52px;border-radius:14px;display:grid;place-items:center;color:#FFC83D;background:radial-gradient(circle at 50% 35%,#2B3A9E,#141A5C 55%,#0A0B1E);border:1px solid rgba(255,200,61,.45)}
+.ad-text{flex:1 1 180px;display:flex;flex-direction:column;gap:2px}
+.ad-text b{font-weight:900;font-size:17px}
+.ad-text small{font-size:13px;color:#B8B2C4}
+.ad-dialog{max-height:calc(100vh - 32px);overflow:auto}
+.ad-icon{width:76px;height:76px;border-radius:18px;align-self:center;box-shadow:0 8px 24px rgba(0,0,0,.45)}
+.ad-steps{list-style:none;margin:4px 0;padding:0;display:flex;flex-direction:column;gap:10px;text-align:start}
+.ad-steps li{display:flex;gap:10px;align-items:flex-start;font-size:14px;line-height:1.6;color:#E4DEEE}
+.ad-steps li span{flex:none;width:24px;height:24px;border-radius:50%;display:grid;place-items:center;background:#F2B232;color:#3A2600;font-weight:900;font-size:13px}
+
 /* Bouton de changement de design : pastille de la couleur de l'autre thème. */
 .rl-theme{flex:none;width:40px;height:40px;border-radius:50%;display:grid;place-items:center;cursor:pointer;color:#fff;border:1.5px solid #FFD23F;box-shadow:0 0 0 2px rgba(0,0,0,.25),0 4px 12px rgba(0,0,0,.35);transition:transform .15s}
 .rl-theme:hover{transform:scale(1.08)}

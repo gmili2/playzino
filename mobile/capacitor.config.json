@@ -1,0 +1,14 @@
+{
+  "appId": "club.mygympro.playzino",
+  "appName": "Playzino",
+  "webDir": "www",
+  "backgroundColor": "#0A0B1E",
+  "server": {
+    "url": "https://playzino.mygympro.club",
+    "errorPath": "offline.html"
+  },
+  "android": {
+    "appendUserAgent": "PlayzinoApp",
+    "allowMixedContent": false
+  }
+}

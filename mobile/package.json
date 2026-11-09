@@ -1,0 +1,17 @@
+{
+  "name": "playzino-mobile",
+  "private": true,
+  "description": "Application Android de Playzino (Capacitor) : ouvre https://playzino.mygympro.club dans une WebView.",
+  "scripts": {
+    "sync": "cap sync android",
+    "apk": "sh build-apk.sh"
+  },
+  "dependencies": {
+    "@capacitor/android": "8.6.0",
+    "@capacitor/cli": "8.6.0",
+    "@capacitor/core": "8.6.0"
+  },
+  "devDependencies": {
+    "@capacitor/assets": "^4.0.0"
+  }
+}

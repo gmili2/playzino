@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Playzino</string>
+    <string name="title_activity_main">Playzino</string>
+    <string name="package_name">club.mygympro.playzino</string>
+    <string name="custom_url_scheme">club.mygympro.playzino</string>
+</resources>
